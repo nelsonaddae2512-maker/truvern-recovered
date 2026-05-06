@@ -1,0 +1,22 @@
+$base = "http://localhost:3000"
+
+$cookie = "__clerk_db_jwt=dvb_3AK0S8y0Fxr0HabU3Rdq3D603eF; __clerk_db_jwt_f1lreO7X=dvb_3AK0S8y0Fxr0HabU3Rdq3D603eF; clerk_active_context=sess_3AK0V1Ttcg3IOX3EhlRa9V9Bpv1:org_36udUdfqOKLIeamg9feQ1GaIpQc; __next_hmr_refresh_hash__=474f3c23da8dcb71574c7524c9155192e519cd437d72e647; __session=eyJhbGciOiJSUzI1NiIsImNhdCI6ImNsX0I3ZDRQRDExMUFBQSIsImtpZCI6Imluc18zNldFUFloWnV1YmhNWTIyZTFld1Q2azBXalYiLCJ0eXAiOiJKV1QifQ.eyJhenAiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJleHAiOjE3NzIzMzQ5NDMsImZ2YSI6WzE0OCwxNDhdLCJpYXQiOjE3NzIzMzQ4ODMsImlzcyI6Imh0dHBzOi8vZ2xhZC1nb2F0LTEwLmNsZXJrLmFjY291bnRzLmRldiIsIm5iZiI6MTc3MjMzNDg3MywibyI6eyJpZCI6Im9yZ18zNnVkVWRmcU9LTEllYW1nOWZlUTFHYUlwUWMiLCJyb2wiOiJhZG1pbiIsInNsZyI6Im5lbHNvbmFkZGFlLTE3NjU4NjA0MDYifSwic2lkIjoic2Vzc18zQUswVjFUdGNnM0lPWDNFaGxSYTlWOUJwdjEiLCJzdHMiOiJhY3RpdmUiLCJzdWIiOiJ1c2VyXzM2V0lvQmo4ZVlWc3p1WWhOQTBBelB6eEJZUyIsInYiOjJ9.1hmm7vFDGeptNLeDmNCwnaKTJlyiAplmjtW9Qb_nl3N1U8UlyC8b9hVoYZr6ieYhQESCk0LaGJTFgTiNRPmqQ0doFK8tsKIAJSQ8J1arJ7kwCrZMQ_ol2H9gEJXQHisyifjekjVkUtCln2gBxTkXaY1_mWs5FujbYlUjA4T4Y2mccI31jaGDpd6kyZNlOwzmrvw6lGHHLk-eNnRT8gFFvrfE7812uCGzSf26BGRHwdemaNtTPl-9gUsgpzdLbxCN_vFBedjQ7RM-Dk1r6Qm4x0udfeQn89frcLzxX50vSRt4TTTbcgCJ58CR9eLBIGuMJEof7o-v9wT1-5-WKQdY8Q; __session_f1lreO7X=eyJhbGciOiJSUzI1NiIsImNhdCI6ImNsX0I3ZDRQRDExMUFBQSIsImtpZCI6Imluc18zNldFUFloWnV1YmhNWTIyZTFld1Q2azBXalYiLCJ0eXAiOiJKV1QifQ.eyJhenAiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJleHAiOjE3NzIzMzQ5NDMsImZ2YSI6WzE0OCwxNDhdLCJpYXQiOjE3NzIzMzQ4ODMsImlzcyI6Imh0dHBzOi8vZ2xhZC1nb2F0LTEwLmNsZXJrLmFjY291bnRzLmRldiIsIm5iZiI6MTc3MjMzNDg3MywibyI6eyJpZCI6Im9yZ18zNnVkVWRmcU9LTEllYW1nOWZlUTFHYUlwUWMiLCJyb2wiOiJhZG1pbiIsInNsZyI6Im5lbHNvbmFkZGFlLTE3NjU4NjA0MDYifSwic2lkIjoic2Vzc18zQUswVjFUdGNnM0lPWDNFaGxSYTlWOUJwdjEiLCJzdHMiOiJhY3RpdmUiLCJzdWIiOiJ1c2VyXzM2V0lvQmo4ZVlWc3p1WWhOQTBBelB6eEJZUyIsInYiOjJ9.1hmm7vFDGeptNLeDmNCwnaKTJlyiAplmjtW9Qb_nl3N1U8UlyC8b9hVoYZr6ieYhQESCk0LaGJTFgTiNRPmqQ0doFK8tsKIAJSQ8J1arJ7kwCrZMQ_ol2H9gEJXQHisyifjekjVkUtCln2gBxTkXaY1_mWs5FujbYlUjA4T4Y2mccI31jaGDpd6kyZNlOwzmrvw6lGHHLk-eNnRT8gFFvrfE7812uCGzSf26BGRHwdemaNtTPl-9gUsgpzdLbxCN_vFBedjQ7RM-Dk1r6Qm4x0udfeQn89frcLzxX50vSRt4TTTbcgCJ58CR9eLBIGuMJEof7o-v9wT1-5-WKQdY8Q; __client_uat_f1lreO7X=1772325974; __client_uat=1772325974"
+
+try {
+    $r = Invoke-WebRequest "$base/api/trust-network-export" `
+        -Headers @{
+            Accept = "application/json"
+            Cookie = $cookie
+        } `
+        -UseBasicParsing
+
+    Write-Host "Status:" $r.StatusCode
+    Write-Host "Content-Type:" $r.Headers["Content-Type"]
+    Write-Host $r.Content
+}
+catch {
+    $resp = $_.Exception.Response
+    Write-Host "Status:" ([int]$resp.StatusCode)
+    Write-Host "Content-Type:" $resp.Headers["Content-Type"]
+    (New-Object IO.StreamReader($resp.GetResponseStream())).ReadToEnd()
+}

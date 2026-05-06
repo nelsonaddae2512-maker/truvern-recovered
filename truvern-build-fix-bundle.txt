@@ -1,0 +1,320 @@
+
+---- MISSING: app/(app)/assessment/runs/[id]/assessment-run-workspace.client.tsx ----
+
+==== lib/assessment-template-catalog.ts ====
+// lib/assessment-template-catalog.ts
+//
+// ✅ Catalog adapter layer:
+// - Normalizes presets from lib/template-catalog-presets.ts
+// - Handles duplicates safely (does NOT throw — first wins)
+// - Provides stable `getPresetByKey()` + list helpers
+// - Bridges `plan` <-> `requiresTier` for gating
+
+import {
+  getTemplateCatalogPresets,
+  type TemplateCatalogPreset,
+  type PlanTier as PresetPlanTier,
+} from "@/lib/template-catalog-presets";
+
+export type PlanTier = "FREE" | "PRO" | "ENTERPRISE";
+
+export type CatalogPreset = {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+
+  standard?: string | null;
+  version?: string | null;
+
+  // ✅ what the install route expects
+  requiresTier?: PlanTier;
+
+  // keep old field too (some UI code may read it)
+  plan?: PlanTier;
+
+  tags?: string[];
+  frameworkKey?: string;
+  evidenceDefaults?: Array<{ title: string; reason: string }>;
+
+  structure: {
+    sections: Array<{
+      title: string;
+      questions: Array<{
+        text: string;
+        kind: "YES_NO" | "TEXT" | "NUMBER" | "SELECT" | "MULTI_SELECT";
+        required?: boolean;
+      }>;
+    }>;
+  };
+};
+
+function normalizeTier(v: unknown): PlanTier {
+  const t = String(v ?? "").toUpperCase();
+  if (t === "ENTERPRISE") return "ENTERPRISE";
+  if (t === "PRO") return "PRO";
+  return "FREE";
+}
+
+function normalizePreset(p: TemplateCatalogPreset): CatalogPreset {
+  // Some historical callers used `plan`, others used `requiresTier`
+  const requiresTier = normalizeTier((p as any).requiresTier ?? p.plan ?? "FREE");
+
+  return {
+    key: String(p.key),
+    name: String(p.name),
+    description: String(p.description),
+    category: String(p.category),
+    standard: p.standard ?? null,
+    version: p.version ?? null,
+
+    requiresTier,
+    plan: requiresTier,
+
+    tags: Array.isArray(p.tags) ? p.tags.map(String) : [],
+    frameworkKey: (p as any).frameworkKey ? String((p as any).frameworkKey) : undefined,
+    evidenceDefaults: Array.isArray((p as any).evidenceDefaults)
+      ? (p as any).evidenceDefaults.map((e: any) => ({
+          title: String(e?.title ?? ""),
+          reason: String(e?.reason ?? ""),
+        }))
+      : undefined,
+
+    structure: {
+      sections: Array.isArray(p.structure?.sections)
+        ? p.structure.sections.map((s) => ({
+            title: String(s?.title ?? "Section"),
+            questions: Array.isArray(s?.questions)
+              ? s.questions.map((q) => ({
+                  text: String(q?.text ?? ""),
+                  kind: normalizeKind(q?.kind),
+                  required: !!q?.required,
+                }))
+              : [],
+          }))
+        : [],
+    },
+  };
+}
+
+function normalizeKind(v: unknown): CatalogPreset["structure"]["sections"][number]["questions"][number]["kind"] {
+  const k = String(v ?? "").toUpperCase();
+  if (k === "YES_NO") return "YES_NO";
+  if (k === "NUMBER") return "NUMBER";
+  if (k === "SELECT") return "SELECT";
+  if (k === "MULTI_SELECT") return "MULTI_SELECT";
+  return "TEXT";
+}
+
+/**
+ * Build an index safely:
+ * - If duplicates exist, first wins
+ * - We also return a `duplicates` list (optional debugging)
+ */
+function buildIndex() {
+  const raw = getTemplateCatalogPresets();
+  const list = raw.map(normalizePreset);
+
+  const byKey = new Map<string, CatalogPreset>();
+  const duplicates: Array<{ key: string; name: string }> = [];
+
+  for (const p of list) {
+    const k = p.key.trim();
+    if (!k) continue;
+
+    if (byKey.has(k)) {
+      duplicates.push({ key: k, name: p.name });
+      continue; // first wins
+    }
+    byKey.set(k, p);
+  }
+
+  return { list, byKey, duplicates };
+}
+
+export function getCatalogPresets(): CatalogPreset[] {
+  // stable ordering: category then name
+  const { list } = buildIndex();
+  return [...list].sort((a, b) => {
+    const ca = (a.category || "").toLowerCase();
+    const cb = (b.category || "").toLowerCase();
+    if (ca !== cb) return ca.localeCompare(cb);
+    return (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase());
+  });
+}
+
+export function getPresetByKey(key: string): CatalogPreset | null {
+  const k = String(key ?? "").trim();
+  if (!k) return null;
+  const { byKey } = buildIndex();
+  return byKey.get(k) ?? null;
+}
+
+/**
+ * Optional: helps UI show “Installed” without duplicates/false positives.
+ * If you already have a DB query that checks installed catalogKey/presetKey, keep using it.
+ */
+export function dedupeKeys(keys: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const k of keys.map((x) => String(x ?? "").trim()).filter(Boolean)) {
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out;
+}
+
+---- MISSING: src/lib/assessment-template-catalog.ts ----
+
+---- MISSING: app/lib/assessment-template-catalog.ts ----
+
+==== app/api/assessment-templates/catalog/recommend/route.ts ====
+// app/api/assessment-templates/catalog/recommend/route.ts
+import { NextResponse } from "next/server";
+import { requireDbOrganization } from "@/lib/org-db";
+import {
+  getAssessmentTemplateCatalog,
+  recommendPresets,
+  tierRank,
+  type PlanTier,
+  type VendorProfile,
+} from "@/lib/assessment-template-catalog";
+import { getOrgPlanTier } from "@/lib/plan";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function safeStr(v: unknown) {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function looksUnauthorized(err: any) {
+  const code = String(err?.code || "");
+  if (code === "UNAUTHORIZED" || code === "NO_ACTIVE_ORG") return true;
+  const msg = String(err?.message || err || "");
+  return msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("forbidden");
+}
+
+function normalizeTier(v: any): PlanTier {
+  const s = String(v ?? "").trim().toUpperCase();
+  return s === "ENTERPRISE" || s === "PRO" || s === "FREE" ? (s as PlanTier) : "FREE";
+}
+
+export async function POST(req: Request) {
+  try {
+    const org = await requireDbOrganization();
+    const orgTier = await getOrgPlanTier(org.id);
+
+    const body = await req.json().catch(() => ({}));
+    const profile = (((body as any)?.vendorProfile || {}) as VendorProfile) || ({} as VendorProfile);
+
+    const recs = recommendPresets(profile); // already sorted desc
+    const presets = getAssessmentTemplateCatalog();
+
+    const byKey = new Map<string, any>();
+    for (const p of presets as any[]) {
+      const k = safeStr((p as any)?.key);
+      if (k) byKey.set(k, p);
+    }
+
+    const withMeta = recs.map((r: any) => {
+      const preset = byKey.get(String(r.key)) ?? null;
+      const requires = normalizeTier((preset as any)?.requiresTier ?? "FREE");
+      const gated = tierRank(orgTier) < tierRank(requires);
+
+      return {
+        key: r.key,
+        score: r.score,
+        reasons: r.reasons,
+        gated,
+        requiresTier: requires,
+        name: (preset as any)?.name ?? r.key,
+        category: (preset as any)?.category ?? null,
+        standard: (preset as any)?.standard ?? null,
+        framework: (preset as any)?.framework ?? null,
+        version: (preset as any)?.version ?? null,
+        tags: (preset as any)?.tags ?? [],
+      };
+    });
+
+    // Highest scoring available + highest scoring gated upgrade
+    const bestAvailable = withMeta.find((x) => !x.gated) ?? null;
+    const bestUpgrade = withMeta.find((x) => x.gated) ?? null;
+
+    return NextResponse.json({
+      ok: true,
+      orgTier,
+      bestAvailable,
+      bestUpgrade,
+      recommendations: withMeta,
+      tip: bestUpgrade ? `Upgrade to ${bestUpgrade.requiresTier} to use "${bestUpgrade.name}".` : null,
+    });
+  } catch (e: any) {
+    if (looksUnauthorized(e)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized", code: "NO_ACTIVE_ORG" }, { status: 401 });
+    }
+    const msg = safeStr(e?.message) || "Server error";
+    const code = safeStr((e as any)?.code);
+    return NextResponse.json({ ok: false, error: msg, code }, { status: 500 });
+  }
+}
+
+==== app/api/assessment-templates/catalog/route.ts ====
+// app/api/assessment-templates/catalog/route.ts
+import { NextResponse } from "next/server";
+import { requireDbOrganization } from "@/lib/org-db";
+import { getAssessmentTemplateCatalog } from "@/lib/assessment-template-catalog";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function safeStr(v: unknown) {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function looksUnauthorized(err: any) {
+  const code = String(err?.code || "");
+  if (code === "UNAUTHORIZED" || code === "NO_ACTIVE_ORG") return true;
+  const msg = String(err?.message || err || "");
+  return msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("forbidden");
+}
+
+export async function GET() {
+  try {
+    await requireDbOrganization();
+
+    const catalog = (getAssessmentTemplateCatalog() || []).map((p: any) => ({
+      key: p.key,
+      name: p.name,
+      description: p.description,
+      category: p.category ?? null,
+      standard: p.standard ?? null,
+      framework: (p as any)?.framework ?? null,
+      version: p.version ?? null,
+      tags: p.tags ?? [],
+      requiresTier: (p as any)?.requiresTier ?? "FREE",
+    }));
+
+    return NextResponse.json({ ok: true, presets: catalog });
+  } catch (e: any) {
+    if (looksUnauthorized(e)) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized", code: "NO_ACTIVE_ORG" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { ok: false, error: safeStr(e?.message) || "Failed to load catalog" },
+      { status: 500 }
+    );
+  }
+}
+
+---- MISSING: app/api/vendors/[id]/assessments/route.ts ----
+
+==== SEARCH: assessment-template-catalog.* ====
+C:\dev\truvern\lib\assessment-template-catalog.ts

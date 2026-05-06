@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "es2022"
-    ],
+    "lib": ["dom", "dom.iterable", "es2022"],
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
@@ -18,13 +14,9 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "esModuleInterop": true,
     "plugins": [
       {
@@ -43,6 +35,12 @@
     ".next",
     "_backups.BAK",
     "_disabled",
-    "node_modules"
+    "node_modules",
+
+    // ✅ Parked code: do not typecheck/build
+    "app._park",
+    "app._park/**",
+    "_parked",
+    "_parked/**"
   ]
 }

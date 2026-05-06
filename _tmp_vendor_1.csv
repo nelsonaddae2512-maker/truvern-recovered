@@ -1,0 +1,15 @@
+# Truvern Board Packet Export (CSV)
+# Vendor: Acme Payments (acme-payments)
+# VendorId: 1
+# OrganizationId: 2
+# SnapshotId: 1
+# SealedAt: 2026-01-17T04:43:36.005Z
+# SealHashSha256: 157ef6b0565dc9b496da0123290d7d9c8a5789b676bd08dae3a12672b48468b9
+# EvidenceTotal: 2
+# IssuesSource: snapshot_sealed
+#
+issue_id,title,severity,status,updated_at,snapshot_id,snapshot_sealed_at,seal_hash_sha256,issues_source,vendor_slug
+3,Information Security,HIGH,OPEN,2026-01-16T02:38:24.566Z,1,2026-01-17T04:43:36.005Z,157ef6b0565dc9b496da0123290d7d9c8a5789b676bd08dae3a12672b48468b9,snapshot_sealed,acme-payments
+2,Cloud Service Provider,MEDIUM,OPEN,2026-01-16T03:24:10.745Z,1,2026-01-17T04:43:36.005Z,157ef6b0565dc9b496da0123290d7d9c8a5789b676bd08dae3a12672b48468b9,snapshot_sealed,acme-payments
+4,Vulnerability Scanner,MEDIUM,OPEN,2026-01-16T03:03:09.272Z,1,2026-01-17T04:43:36.005Z,157ef6b0565dc9b496da0123290d7d9c8a5789b676bd08dae3a12672b48468b9,snapshot_sealed,acme-payments
+1,MFA not enforced,MEDIUM,OPEN,2026-01-11T02:59:35.516Z,1,2026-01-17T04:43:36.005Z,157ef6b0565dc9b496da0123290d7d9c8a5789b676bd08dae3a12672b48468b9,snapshot_sealed,acme-payments
