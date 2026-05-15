@@ -492,3 +492,4 @@ tailwind.config.js
 vercel-all.ps1
 vercel-env-sync.ps1
 vercel_backup.json
+.vercel
