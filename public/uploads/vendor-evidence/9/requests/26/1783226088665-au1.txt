@@ -1,0 +1,2173 @@
+PS C:\code\truvern> cd C:\code\truvern
+PS C:\code\truvern>
+PS C:\code\truvern> Select-String `
+>>   -Path `
+>>     "components\review-desk\findings-outcome-panel.client.tsx",
+>>     "components\review-desk\review-assignment-workspace.client.tsx" `
+>>   -Pattern `
+>>     "governanceDecision",
+>>     "executiveSummary",
+>>     "findingsSummary",
+>>     "Decision",
+>>     "Residual risk",
+>>     "reviewer validation",
+>>     "attestation",
+>>     "release approval",
+>>     "recommendation" `
+>>   -Context 5,15
+
+  components\review-desk\findings-outcome-panel.client.tsx:29:    responses?.reviewOutcome ??
+  components\review-desk\findings-outcome-panel.client.tsx:30:    null
+  components\review-desk\findings-outcome-panel.client.tsx:31:  );
+  components\review-desk\findings-outcome-panel.client.tsx:32:}
+  components\review-desk\findings-outcome-panel.client.tsx:33:
+> components\review-desk\findings-outcome-panel.client.tsx:34:function resolveExecutiveSummary(responses: any) {
+  components\review-desk\findings-outcome-panel.client.tsx:35:  const intelligence = reviewerIntelligenceFromResponses(responses);
+  components\review-desk\findings-outcome-panel.client.tsx:36:
+  components\review-desk\findings-outcome-panel.client.tsx:37:  return pickReviewerText(
+> components\review-desk\findings-outcome-panel.client.tsx:38:    responses?.executiveSummary,
+  components\review-desk\findings-outcome-panel.client.tsx:39:    responses?.summary,
+> components\review-desk\findings-outcome-panel.client.tsx:40:    responses?.reviewOutcome?.executiveSummary,
+> components\review-desk\findings-outcome-panel.client.tsx:41:    responses?.releasePacket?.executiveSummary,
+> components\review-desk\findings-outcome-panel.client.tsx:42:    intelligence?.executiveSummary,
+  components\review-desk\findings-outcome-panel.client.tsx:43:  );
+  components\review-desk\findings-outcome-panel.client.tsx:44:}
+  components\review-desk\findings-outcome-panel.client.tsx:45:
+  components\review-desk\findings-outcome-panel.client.tsx:46:function resolveFinalAssessment(responses: any) {
+  components\review-desk\findings-outcome-panel.client.tsx:47:  const intelligence = reviewerIntelligenceFromResponses(responses);
+  components\review-desk\findings-outcome-panel.client.tsx:48:
+  components\review-desk\findings-outcome-panel.client.tsx:49:  return pickReviewerText(
+  components\review-desk\findings-outcome-panel.client.tsx:50:    responses?.finalAssessment,
+> components\review-desk\findings-outcome-panel.client.tsx:51:    responses?.finalRecommendation,
+  components\review-desk\findings-outcome-panel.client.tsx:52:    responses?.reviewOutcome?.finalAssessment,
+  components\review-desk\findings-outcome-panel.client.tsx:53:    responses?.releasePacket?.finalAssessment,
+  components\review-desk\findings-outcome-panel.client.tsx:54:    intelligence?.finalAssessment,
+> components\review-desk\findings-outcome-panel.client.tsx:55:    intelligence?.finalRecommendation,
+  components\review-desk\findings-outcome-panel.client.tsx:56:  );
+  components\review-desk\findings-outcome-panel.client.tsx:57:}
+  components\review-desk\findings-outcome-panel.client.tsx:58:
+  components\review-desk\findings-outcome-panel.client.tsx:59:function resolveReviewerFollowUps(responses: any) {
+  components\review-desk\findings-outcome-panel.client.tsx:60:  const intelligence = reviewerIntelligenceFromResponses(responses);
+  components\review-desk\findings-outcome-panel.client.tsx:61:
+  components\review-desk\findings-outcome-panel.client.tsx:62:  return pickReviewerArray(
+  components\review-desk\findings-outcome-panel.client.tsx:63:    responses?.followUps,
+  components\review-desk\findings-outcome-panel.client.tsx:64:    responses?.conditions,
+  components\review-desk\findings-outcome-panel.client.tsx:65:    responses?.reviewerConditions,
+  components\review-desk\findings-outcome-panel.client.tsx:66:    responses?.truvernRemediation?.reviewerConditions,
+  components\review-desk\findings-outcome-panel.client.tsx:67:    intelligence?.followUps,
+  components\review-desk\findings-outcome-panel.client.tsx:68:  );
+  components\review-desk\findings-outcome-panel.client.tsx:69:}
+  components\review-desk\findings-outcome-panel.client.tsx:70:
+  components\review-desk\findings-outcome-panel.client.tsx:81:type Finding = {
+  components\review-desk\findings-outcome-panel.client.tsx:82:  id?: string;
+  components\review-desk\findings-outcome-panel.client.tsx:83:  title?: string;
+  components\review-desk\findings-outcome-panel.client.tsx:84:  severity?: string;
+  components\review-desk\findings-outcome-panel.client.tsx:85:  description?: string;
+> components\review-desk\findings-outcome-panel.client.tsx:86:  recommendation?: string;
+  components\review-desk\findings-outcome-panel.client.tsx:87:};
+  components\review-desk\findings-outcome-panel.client.tsx:88:
+  components\review-desk\findings-outcome-panel.client.tsx:89:function cleanText(value: unknown) {
+  components\review-desk\findings-outcome-panel.client.tsx:90:  return String(value ?? "")
+  components\review-desk\findings-outcome-panel.client.tsx:91:    .replaceAll("€¢", "•")
+  components\review-desk\findings-outcome-panel.client.tsx:92:    .replaceAll("€”", "—")
+  components\review-desk\findings-outcome-panel.client.tsx:93:    .replaceAll("€“", "–")
+  components\review-desk\findings-outcome-panel.client.tsx:94:    .replaceAll("€˜", "'")
+  components\review-desk\findings-outcome-panel.client.tsx:95:    .replaceAll("€™", "'")
+  components\review-desk\findings-outcome-panel.client.tsx:96:    .replaceAll("€œ", "\"")
+  components\review-desk\findings-outcome-panel.client.tsx:97:    .replaceAll("€", "\"")
+  components\review-desk\findings-outcome-panel.client.tsx:98:    .trim();
+  components\review-desk\findings-outcome-panel.client.tsx:99:}
+  components\review-desk\findings-outcome-panel.client.tsx:100:
+  components\review-desk\findings-outcome-panel.client.tsx:101:function formatDisplayDate(value: unknown) {
+  components\review-desk\findings-outcome-panel.client.tsx:179:        "Documented backup and recovery procedure",
+  components\review-desk\findings-outcome-panel.client.tsx:180:        "Backup retention schedule",
+  components\review-desk\findings-outcome-panel.client.tsx:181:        "Restore or recovery test evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:182:        "Backup protection or immutability evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:183:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:184:      requiredAttestation: [
+> components\review-desk\findings-outcome-panel.client.tsx:185:        "Backup and recovery control owner attestation",
+  components\review-desk\findings-outcome-panel.client.tsx:186:        "Security or operations owner confirmation",
+  components\review-desk\findings-outcome-panel.client.tsx:187:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:188:      recommendation:
+> components\review-desk\findings-outcome-panel.client.tsx:189:        cleanText(plan?.recommendation) ||
+  components\review-desk\findings-outcome-panel.client.tsx:190:        "Provide documented backup procedures, restore testing
+evidence, backup retention expectations, and proof that recovery responsibilities are assigned.",
+  components\review-desk\findings-outcome-panel.client.tsx:191:      evidenceSignal:
+  components\review-desk\findings-outcome-panel.client.tsx:192:        cleanText(plan?.evidenceSignal || plan?.description) ||
+  components\review-desk\findings-outcome-panel.client.tsx:193:        "Vendor response indicated backup and recovery procedures
+are not maintained.",
+  components\review-desk\findings-outcome-panel.client.tsx:194:    };
+  components\review-desk\findings-outcome-panel.client.tsx:195:  }
+  components\review-desk\findings-outcome-panel.client.tsx:196:
+  components\review-desk\findings-outcome-panel.client.tsx:197:  if (text.includes("policy") || text.includes("pl-2") ||
+text.includes("pm-9")) {
+  components\review-desk\findings-outcome-panel.client.tsx:198:    return {
+  components\review-desk\findings-outcome-panel.client.tsx:199:      ...plan,
+  components\review-desk\findings-outcome-panel.client.tsx:200:      control: "PL-2 / PM-9",
+  components\review-desk\findings-outcome-panel.client.tsx:201:      controlFamily: "Planning / Program Management",
+  components\review-desk\findings-outcome-panel.client.tsx:202:      controlName: "System Security Plan and Risk Management
+Strategy",
+  components\review-desk\findings-outcome-panel.client.tsx:203:      requiredEvidence: [
+  components\review-desk\findings-outcome-panel.client.tsx:204:        "Current security policy set",
+  components\review-desk\findings-outcome-panel.client.tsx:205:        "Annual policy review record",
+  components\review-desk\findings-outcome-panel.client.tsx:206:        "Policy approval evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:207:        "Policy owner assignment evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:208:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:209:      requiredAttestation: [
+> components\review-desk\findings-outcome-panel.client.tsx:210:        "Security policy owner attestation",
+  components\review-desk\findings-outcome-panel.client.tsx:211:        "Executive or security owner confirmation",
+  components\review-desk\findings-outcome-panel.client.tsx:212:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:213:      recommendation:
+> components\review-desk\findings-outcome-panel.client.tsx:214:        cleanText(plan?.recommendation) ||
+> components\review-desk\findings-outcome-panel.client.tsx:215:        "Provide current policies, annual review evidence, approval
+records, and ownership attestation.",
+  components\review-desk\findings-outcome-panel.client.tsx:216:      evidenceSignal:
+  components\review-desk\findings-outcome-panel.client.tsx:217:        cleanText(plan?.evidenceSignal || plan?.description) ||
+  components\review-desk\findings-outcome-panel.client.tsx:218:        "Vendor response indicated security policies are not
+reviewed at least annually.",
+  components\review-desk\findings-outcome-panel.client.tsx:219:    };
+  components\review-desk\findings-outcome-panel.client.tsx:220:  }
+  components\review-desk\findings-outcome-panel.client.tsx:221:
+  components\review-desk\findings-outcome-panel.client.tsx:222:  if (text.includes("endpoint") || text.includes("si-3") ||
+text.includes("si-4")) {
+  components\review-desk\findings-outcome-panel.client.tsx:223:    return {
+  components\review-desk\findings-outcome-panel.client.tsx:224:      ...plan,
+  components\review-desk\findings-outcome-panel.client.tsx:225:      control: "SI-3 / SI-4",
+  components\review-desk\findings-outcome-panel.client.tsx:226:      controlFamily: "System and Information Integrity",
+  components\review-desk\findings-outcome-panel.client.tsx:227:      controlName: "Malicious Code Protection and System Monitoring",
+  components\review-desk\findings-outcome-panel.client.tsx:228:      requiredEvidence: [
+  components\review-desk\findings-outcome-panel.client.tsx:229:        "Endpoint protection deployment evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:230:        "Managed security tooling coverage report",
+  components\review-desk\findings-outcome-panel.client.tsx:231:        "Malware or EDR policy",
+  components\review-desk\findings-outcome-panel.client.tsx:232:        "Endpoint exception and remediation tracking evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:233:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:234:      requiredAttestation: [
+> components\review-desk\findings-outcome-panel.client.tsx:235:        "Endpoint security owner attestation",
+  components\review-desk\findings-outcome-panel.client.tsx:236:        "Security operations owner confirmation",
+  components\review-desk\findings-outcome-panel.client.tsx:237:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:238:      recommendation:
+> components\review-desk\findings-outcome-panel.client.tsx:239:        cleanText(plan?.recommendation) ||
+  components\review-desk\findings-outcome-panel.client.tsx:240:        "Provide endpoint security tooling coverage, monitoring
+evidence, exception handling, and remediation tracking.",
+  components\review-desk\findings-outcome-panel.client.tsx:241:      evidenceSignal:
+  components\review-desk\findings-outcome-panel.client.tsx:242:        cleanText(plan?.evidenceSignal || plan?.description) ||
+  components\review-desk\findings-outcome-panel.client.tsx:243:        "Vendor response indicated endpoints are not protected with
+managed security tooling.",
+  components\review-desk\findings-outcome-panel.client.tsx:244:    };
+  components\review-desk\findings-outcome-panel.client.tsx:245:  }
+  components\review-desk\findings-outcome-panel.client.tsx:246:
+  components\review-desk\findings-outcome-panel.client.tsx:247:  if (text.includes("availability") || text.includes("ca-7") ||
+text.includes("au-6")) {
+  components\review-desk\findings-outcome-panel.client.tsx:248:    return {
+  components\review-desk\findings-outcome-panel.client.tsx:249:      ...plan,
+  components\review-desk\findings-outcome-panel.client.tsx:250:      control: "CA-7 / AU-6",
+  components\review-desk\findings-outcome-panel.client.tsx:251:      controlFamily: "Security Assessment / Audit and
+Accountability",
+  components\review-desk\findings-outcome-panel.client.tsx:252:      controlName: "Continuous Monitoring and Audit Review",
+  components\review-desk\findings-outcome-panel.client.tsx:253:      requiredEvidence: [
+  components\review-desk\findings-outcome-panel.client.tsx:254:        "Availability monitoring evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:255:        "Alerting and escalation procedure",
+  components\review-desk\findings-outcome-panel.client.tsx:256:        "Critical system monitoring coverage report",
+> components\review-desk\findings-outcome-panel.client.tsx:257:        "Monitoring owner attestation",
+  components\review-desk\findings-outcome-panel.client.tsx:258:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:259:      requiredAttestation: [
+> components\review-desk\findings-outcome-panel.client.tsx:260:        "Monitoring control owner attestation",
+  components\review-desk\findings-outcome-panel.client.tsx:261:        "Risk owner confirmation",
+  components\review-desk\findings-outcome-panel.client.tsx:262:      ],
+> components\review-desk\findings-outcome-panel.client.tsx:263:      recommendation:
+> components\review-desk\findings-outcome-panel.client.tsx:264:        cleanText(plan?.recommendation) ||
+  components\review-desk\findings-outcome-panel.client.tsx:265:        "Provide availability monitoring coverage, alerting
+workflow, escalation evidence, and control ownership confirmation.",
+  components\review-desk\findings-outcome-panel.client.tsx:266:      evidenceSignal:
+  components\review-desk\findings-outcome-panel.client.tsx:267:        cleanText(plan?.evidenceSignal || plan?.description) ||
+  components\review-desk\findings-outcome-panel.client.tsx:268:        "Vendor response indicated critical systems are not
+monitored for availability.",
+  components\review-desk\findings-outcome-panel.client.tsx:269:    };
+  components\review-desk\findings-outcome-panel.client.tsx:270:  }
+  components\review-desk\findings-outcome-panel.client.tsx:271:
+  components\review-desk\findings-outcome-panel.client.tsx:272:  return plan;
+  components\review-desk\findings-outcome-panel.client.tsx:273:}
+  components\review-desk\findings-outcome-panel.client.tsx:274:export default function FindingsOutcomePanel({
+  components\review-desk\findings-outcome-panel.client.tsx:275:  assignmentId,
+  components\review-desk\findings-outcome-panel.client.tsx:276:  responses,
+  components\review-desk\findings-outcome-panel.client.tsx:277:  riskLevel,
+> components\review-desk\findings-outcome-panel.client.tsx:278:  decision,
+  components\review-desk\findings-outcome-panel.client.tsx:279:  reviewFindings,
+> components\review-desk\findings-outcome-panel.client.tsx:280:  executiveSummary,
+  components\review-desk\findings-outcome-panel.client.tsx:281:  finalAssessment,
+  components\review-desk\findings-outcome-panel.client.tsx:282:  canRerunIntelligence = false,
+  components\review-desk\findings-outcome-panel.client.tsx:283:  evidenceSummary,
+  components\review-desk\findings-outcome-panel.client.tsx:284:  liveRemediationRequests = [],
+  components\review-desk\findings-outcome-panel.client.tsx:285:}: {
+  components\review-desk\findings-outcome-panel.client.tsx:286:  assignmentId: number;
+  components\review-desk\findings-outcome-panel.client.tsx:287:  responses: any;
+  components\review-desk\findings-outcome-panel.client.tsx:288:  riskLevel?: string | null;
+> components\review-desk\findings-outcome-panel.client.tsx:289:  decision?: string | null;
+  components\review-desk\findings-outcome-panel.client.tsx:290:  reviewFindings?: string | null;
+> components\review-desk\findings-outcome-panel.client.tsx:291:  executiveSummary?: string | null;
+  components\review-desk\findings-outcome-panel.client.tsx:292:  finalAssessment?: string | null;
+  components\review-desk\findings-outcome-panel.client.tsx:293:  canRerunIntelligence?: boolean;
+  components\review-desk\findings-outcome-panel.client.tsx:294:  evidenceSummary?: any;
+  components\review-desk\findings-outcome-panel.client.tsx:295:  liveRemediationRequests?: any[];
+  components\review-desk\findings-outcome-panel.client.tsx:296:}) {
+  components\review-desk\findings-outcome-panel.client.tsx:297:  const [generating, setGenerating] = useState(false);
+  components\review-desk\findings-outcome-panel.client.tsx:298:  const [showAll, setShowAll] = useState(false);
+  components\review-desk\findings-outcome-panel.client.tsx:299:
+  components\review-desk\findings-outcome-panel.client.tsx:300:  const intelligence = responses?.truvernReviewerIntelligence ?? {};
+  components\review-desk\findings-outcome-panel.client.tsx:301:  const remediation = responses?.truvernRemediation ?? {};
+  components\review-desk\findings-outcome-panel.client.tsx:302:const reviewerFollowUps = resolveReviewerFollowUps(responses);
+  components\review-desk\findings-outcome-panel.client.tsx:303:  const reviewerTimeline = resolveReviewerTimeline(responses);
+  components\review-desk\findings-outcome-panel.client.tsx:304:
+  components\review-desk\findings-outcome-panel.client.tsx:305:  const remediationPlans =
+  components\review-desk\findings-outcome-panel.client.tsx:306:    Array.isArray(liveRemediationRequests) &&
+liveRemediationRequests.length > 0
+  components\review-desk\findings-outcome-panel.client.tsx:314:            title: request?.title || request?.requestTitle ||
+"Evidence remediation request",
+  components\review-desk\findings-outcome-panel.client.tsx:315:            control: request?.kind || request?.control ||
+request?.category || "Evidence request",
+  components\review-desk\findings-outcome-panel.client.tsx:316:            severity: request?.severity || "REVIEW",
+  components\review-desk\findings-outcome-panel.client.tsx:317:            status,
+  components\review-desk\findings-outcome-panel.client.tsx:318:            evidenceStatus: request?.fulfilledEvidenceId ||
+request?.fulfilledAt ? "RECEIVED" : "REQUESTED",
+> components\review-desk\findings-outcome-panel.client.tsx:319:            attestationStatus: isClosed ? "APPROVED" : "REQUESTED",
+  components\review-desk\findings-outcome-panel.client.tsx:320:            blockerStatus: isClosed ? "CLOSED" : "OPEN",
+  components\review-desk\findings-outcome-panel.client.tsx:321:            requiredEvidence:
+Array.isArray(request?.requiredEvidence)
+  components\review-desk\findings-outcome-panel.client.tsx:322:              ? request.requiredEvidence
+  components\review-desk\findings-outcome-panel.client.tsx:323:              : request?.title
+  components\review-desk\findings-outcome-panel.client.tsx:324:                ? [request.title]
+  components\review-desk\findings-outcome-panel.client.tsx:325:                : [],
+> components\review-desk\findings-outcome-panel.client.tsx:326:            requiredAttestation:
+Array.isArray(request?.requiredAttestation)
+> components\review-desk\findings-outcome-panel.client.tsx:327:              ? request.requiredAttestation
+  components\review-desk\findings-outcome-panel.client.tsx:328:              : [],
+  components\review-desk\findings-outcome-panel.client.tsx:329:          };
+  components\review-desk\findings-outcome-panel.client.tsx:330:        })
+  components\review-desk\findings-outcome-panel.client.tsx:331:      : safeArray(remediation?.plans);
+  components\review-desk\findings-outcome-panel.client.tsx:332:
+> components\review-desk\findings-outcome-panel.client.tsx:333:  const remediationAttestationCount = remediationPlans.reduce(
+> components\review-desk\findings-outcome-panel.client.tsx:334:    (total: number, plan: any) => total +
+safeArray(plan?.requiredAttestation).length,
+  components\review-desk\findings-outcome-panel.client.tsx:335:    0,
+  components\review-desk\findings-outcome-panel.client.tsx:336:  );
+  components\review-desk\findings-outcome-panel.client.tsx:337:
+  components\review-desk\findings-outcome-panel.client.tsx:338:  const generatedReleaseBlockers = remediationPlans.filter((plan:
+any) => {
+  components\review-desk\findings-outcome-panel.client.tsx:339:    const status = cleanText(plan?.status).toUpperCase();
+  components\review-desk\findings-outcome-panel.client.tsx:340:    const blockerStatus =
+cleanText(plan?.blockerStatus).toUpperCase();
+  components\review-desk\findings-outcome-panel.client.tsx:341:
+  components\review-desk\findings-outcome-panel.client.tsx:342:    return (
+  components\review-desk\findings-outcome-panel.client.tsx:343:      blockerStatus === "OPEN" ||
+  components\review-desk\findings-outcome-panel.client.tsx:344:      blockerStatus === "ACTIVE" ||
+  components\review-desk\findings-outcome-panel.client.tsx:345:      (status === "OPEN" || status === "REQUESTED") ||
+  components\review-desk\findings-outcome-panel.client.tsx:346:      status === "REQUESTED" ||
+  components\review-desk\findings-outcome-panel.client.tsx:347:      status === "PENDING"
+  components\review-desk\findings-outcome-panel.client.tsx:348:    );
+  components\review-desk\findings-outcome-panel.client.tsx:349:  }).length;
+  components\review-desk\findings-outcome-panel.client.tsx:360:    ...safeArray(responses?.evidence),
+  components\review-desk\findings-outcome-panel.client.tsx:361:    ...safeArray(responses?.evidenceItems),
+  components\review-desk\findings-outcome-panel.client.tsx:362:    ...safeArray(responses?.attachments),
+  components\review-desk\findings-outcome-panel.client.tsx:363:    ...safeArray(responses?.uploadedFiles),
+  components\review-desk\findings-outcome-panel.client.tsx:364:    ...safeArray(remediation.requests),
+> components\review-desk\findings-outcome-panel.client.tsx:365:    ...safeArray(remediation.attestationRequests),
+  components\review-desk\findings-outcome-panel.client.tsx:366:    ...remediationPlans.flatMap((plan: any) => [
+  components\review-desk\findings-outcome-panel.client.tsx:367:      ...safeArray(plan?.requiredEvidence),
+> components\review-desk\findings-outcome-panel.client.tsx:368:      ...safeArray(plan?.requiredAttestation),
+  components\review-desk\findings-outcome-panel.client.tsx:369:    ]),
+  components\review-desk\findings-outcome-panel.client.tsx:370:  ];
+  components\review-desk\findings-outcome-panel.client.tsx:371:
+  components\review-desk\findings-outcome-panel.client.tsx:372:  const remediationPlanEvidenceItems =
+safeArray(remediation.plans).flatMap((plan: any) => {
+  components\review-desk\findings-outcome-panel.client.tsx:373:    const title = cleanText(plan?.title || plan?.control ||
+plan?.findingId || "Governance remediation");
+  components\review-desk\findings-outcome-panel.client.tsx:374:
+  components\review-desk\findings-outcome-panel.client.tsx:375:    const evidenceRows =
+safeArray(plan?.requiredEvidence).map((item: any) => ({
+  components\review-desk\findings-outcome-panel.client.tsx:376:      type: "Evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:377:      title,
+  components\review-desk\findings-outcome-panel.client.tsx:378:      text: cleanText(item),
+  components\review-desk\findings-outcome-panel.client.tsx:379:      status: cleanText(plan?.evidenceStatus) || "REQUESTED",
+  components\review-desk\findings-outcome-panel.client.tsx:380:      blockerStatus: cleanText(plan?.blockerStatus) ||
+cleanText(plan?.status) || "OPEN",
+  components\review-desk\findings-outcome-panel.client.tsx:381:    }));
+  components\review-desk\findings-outcome-panel.client.tsx:382:
+> components\review-desk\findings-outcome-panel.client.tsx:383:    const attestationRows =
+safeArray(plan?.requiredAttestation).map((item: any) => ({
+> components\review-desk\findings-outcome-panel.client.tsx:384:      type: "Attestation",
+  components\review-desk\findings-outcome-panel.client.tsx:385:      title,
+  components\review-desk\findings-outcome-panel.client.tsx:386:      text: cleanText(item),
+  components\review-desk\findings-outcome-panel.client.tsx:387:      status: cleanText(plan?.evidenceStatus) || "REQUESTED",
+  components\review-desk\findings-outcome-panel.client.tsx:388:      blockerStatus: cleanText(plan?.blockerStatus) ||
+cleanText(plan?.status) || "OPEN",
+  components\review-desk\findings-outcome-panel.client.tsx:389:    }));
+  components\review-desk\findings-outcome-panel.client.tsx:390:
+> components\review-desk\findings-outcome-panel.client.tsx:391:    return [...evidenceRows, ...attestationRows].filter((item: any)
+=> cleanText(item.text));
+  components\review-desk\findings-outcome-panel.client.tsx:392:  });
+  components\review-desk\findings-outcome-panel.client.tsx:393:  const generatedFindings = safeArray(intelligence.findings);
+  components\review-desk\findings-outcome-panel.client.tsx:394:  const textFindings = fallbackFindingsFromText(reviewFindings ??
+responses?.findings ?? "");
+  components\review-desk\findings-outcome-panel.client.tsx:395:
+  components\review-desk\findings-outcome-panel.client.tsx:396:  const findings = (generatedFindings.length ? generatedFindings :
+textFindings) as Finding[];
+  components\review-desk\findings-outcome-panel.client.tsx:397:  const grouped = groupFindings(findings);
+  components\review-desk\findings-outcome-panel.client.tsx:398:  const visibleGroups = showAll ? grouped : grouped.slice(0, 3);
+  components\review-desk\findings-outcome-panel.client.tsx:399:  const remediationPlanFollowUps = remediationPlans.flatMap((plan:
+any) => {
+  components\review-desk\findings-outcome-panel.client.tsx:400:    const title = cleanText(plan?.title || plan?.control ||
+plan?.findingId || "Governance remediation");
+  components\review-desk\findings-outcome-panel.client.tsx:401:    const rows: string[] = [];
+  components\review-desk\findings-outcome-panel.client.tsx:402:
+  components\review-desk\findings-outcome-panel.client.tsx:403:    if (title) {
+  components\review-desk\findings-outcome-panel.client.tsx:404:      rows.push(`Resolve: ${title}`);
+  components\review-desk\findings-outcome-panel.client.tsx:405:    }
+  components\review-desk\findings-outcome-panel.client.tsx:406:
+  components\review-desk\findings-outcome-panel.client.tsx:410:
+  components\review-desk\findings-outcome-panel.client.tsx:411:    if (evidence.length > 0) {
+  components\review-desk\findings-outcome-panel.client.tsx:412:      rows.push(`Required evidence: ${evidence.join(", ")}.`);
+  components\review-desk\findings-outcome-panel.client.tsx:413:    }
+  components\review-desk\findings-outcome-panel.client.tsx:414:
+> components\review-desk\findings-outcome-panel.client.tsx:415:    const attestations = safeArray(plan?.requiredAttestation)
+  components\review-desk\findings-outcome-panel.client.tsx:416:      .map((item: any) => cleanText(item))
+  components\review-desk\findings-outcome-panel.client.tsx:417:      .filter(Boolean);
+  components\review-desk\findings-outcome-panel.client.tsx:418:
+> components\review-desk\findings-outcome-panel.client.tsx:419:    if (attestations.length > 0) {
+> components\review-desk\findings-outcome-panel.client.tsx:420:      rows.push(`Required attestation: ${attestations.join(", ")}.`);
+  components\review-desk\findings-outcome-panel.client.tsx:421:    }
+  components\review-desk\findings-outcome-panel.client.tsx:422:
+  components\review-desk\findings-outcome-panel.client.tsx:423:    rows.push(`Status: ${cleanText(plan?.status) || "OPEN"} ·
+Evidence: ${cleanText(plan?.evidenceStatus) || "REQUESTED"} · Blocker: ${cleanText(plan?.blockerStatus) || "OPEN"}.`);
+  components\review-desk\findings-outcome-panel.client.tsx:424:
+  components\review-desk\findings-outcome-panel.client.tsx:425:    return rows;
+  components\review-desk\findings-outcome-panel.client.tsx:426:  });
+  components\review-desk\findings-outcome-panel.client.tsx:427:
+  components\review-desk\findings-outcome-panel.client.tsx:428:  const openRemediationPlans = remediationPlans.filter((plan: any)
+=> {
+  components\review-desk\findings-outcome-panel.client.tsx:429:    const status = cleanText(plan?.status).toUpperCase();
+  components\review-desk\findings-outcome-panel.client.tsx:430:    const blocker = cleanText(plan?.blockerStatus).toUpperCase();
+  components\review-desk\findings-outcome-panel.client.tsx:431:
+  components\review-desk\findings-outcome-panel.client.tsx:432:    return (
+  components\review-desk\findings-outcome-panel.client.tsx:433:      blocker === "OPEN" ||
+  components\review-desk\findings-outcome-panel.client.tsx:434:      blocker === "ACTIVE" ||
+  components\review-desk\findings-outcome-panel.client.tsx:435:      (status === "OPEN" || status === "REQUESTED") ||
+  components\review-desk\findings-outcome-panel.client.tsx:468:    evidenceItems.length > 0
+  components\review-desk\findings-outcome-panel.client.tsx:469:      ? evidenceItems
+  components\review-desk\findings-outcome-panel.client.tsx:470:      : findings
+  components\review-desk\findings-outcome-panel.client.tsx:471:          .flatMap((finding: any) => {
+  components\review-desk\findings-outcome-panel.client.tsx:472:            const title = cleanText(finding.title);
+> components\review-desk\findings-outcome-panel.client.tsx:473:            const recommendation = cleanText(finding.recommendation);
+> components\review-desk\findings-outcome-panel.client.tsx:474:            return recommendation
+  components\review-desk\findings-outcome-panel.client.tsx:475:              ? [
+  components\review-desk\findings-outcome-panel.client.tsx:476:                  {
+  components\review-desk\findings-outcome-panel.client.tsx:477:                    type: "Evidence",
+  components\review-desk\findings-outcome-panel.client.tsx:478:                    title,
+> components\review-desk\findings-outcome-panel.client.tsx:479:                    text: recommendation,
+  components\review-desk\findings-outcome-panel.client.tsx:480:                    status: "REQUESTED",
+  components\review-desk\findings-outcome-panel.client.tsx:481:                    blockerStatus:
+> components\review-desk\findings-outcome-panel.client.tsx:482:                      finding.remediationRequired ||
+finding.attestationRequired
+  components\review-desk\findings-outcome-panel.client.tsx:483:                        ? "OPEN"
+  components\review-desk\findings-outcome-panel.client.tsx:484:                        : "REVIEW",
+  components\review-desk\findings-outcome-panel.client.tsx:485:                  },
+  components\review-desk\findings-outcome-panel.client.tsx:486:                ]
+  components\review-desk\findings-outcome-panel.client.tsx:487:              : [];
+  components\review-desk\findings-outcome-panel.client.tsx:488:          })
+  components\review-desk\findings-outcome-panel.client.tsx:489:          .filter((item: any) => cleanText(item?.text || item));
+  components\review-desk\findings-outcome-panel.client.tsx:490:
+  components\review-desk\findings-outcome-panel.client.tsx:491:  const derivedEvidenceItems = Array.from(
+  components\review-desk\findings-outcome-panel.client.tsx:492:    new Map(
+  components\review-desk\findings-outcome-panel.client.tsx:493:      sourceEvidenceItems
+  components\review-desk\findings-outcome-panel.client.tsx:494:        .filter((item: any) => evidenceKey(item))
+  components\review-desk\findings-outcome-panel.client.tsx:495:        .map((item: any) => [evidenceKey(item), item]),
+  components\review-desk\findings-outcome-panel.client.tsx:496:    ).values(),
+  components\review-desk\findings-outcome-panel.client.tsx:497:  );
+  components\review-desk\findings-outcome-panel.client.tsx:507:          ]
+  components\review-desk\findings-outcome-panel.client.tsx:508:        : [];
+  components\review-desk\findings-outcome-panel.client.tsx:509:
+  components\review-desk\findings-outcome-panel.client.tsx:510:
+  components\review-desk\findings-outcome-panel.client.tsx:511:
+> components\review-desk\findings-outcome-panel.client.tsx:512:  const cleanedExecutiveSummary =
+> components\review-desk\findings-outcome-panel.client.tsx:513:    cleanText(intelligence.executiveSummary) ||
+> components\review-desk\findings-outcome-panel.client.tsx:514:    cleanText(executiveSummary) ||
+  components\review-desk\findings-outcome-panel.client.tsx:515:    "Not recorded.";
+  components\review-desk\findings-outcome-panel.client.tsx:516:
+  components\review-desk\findings-outcome-panel.client.tsx:517:  const cleanedFinalAssessment =
+> components\review-desk\findings-outcome-panel.client.tsx:518:    cleanText(intelligence.finalRecommendation) ||
+  components\review-desk\findings-outcome-panel.client.tsx:519:    cleanText(finalAssessment) ||
+  components\review-desk\findings-outcome-panel.client.tsx:520:    "Not recorded.";
+  components\review-desk\findings-outcome-panel.client.tsx:521:
+  components\review-desk\findings-outcome-panel.client.tsx:522:  async function runRemediationAction(action: string, plan: any) {
+  components\review-desk\findings-outcome-panel.client.tsx:523:    try {
+  components\review-desk\findings-outcome-panel.client.tsx:524:      const response = await fetch(
+  components\review-desk\findings-outcome-panel.client.tsx:525:
+`/api/review-desk/reviews/${assignmentId}/remediation-action`,
+  components\review-desk\findings-outcome-panel.client.tsx:526:        {
+  components\review-desk\findings-outcome-panel.client.tsx:527:          method: "POST",
+  components\review-desk\findings-outcome-panel.client.tsx:528:          headers: {
+  components\review-desk\findings-outcome-panel.client.tsx:529:            "Content-Type": "application/json",
+  components\review-desk\findings-outcome-panel.client.tsx:530:          },
+  components\review-desk\findings-outcome-panel.client.tsx:531:          body: JSON.stringify({
+  components\review-desk\findings-outcome-panel.client.tsx:532:            action,
+  components\review-desk\findings-outcome-panel.client.tsx:533:            findingId:
+  components\review-desk\findings-outcome-panel.client.tsx:598:            {cleanText(riskLevel) || cleanText(responses?.riskLevel)
+|| "Not recorded"}
+  components\review-desk\findings-outcome-panel.client.tsx:599:          </div>
+  components\review-desk\findings-outcome-panel.client.tsx:600:        </div>
+  components\review-desk\findings-outcome-panel.client.tsx:601:
+  components\review-desk\findings-outcome-panel.client.tsx:602:        <div>
+> components\review-desk\findings-outcome-panel.client.tsx:603:          <p className="text-sm font-semibold
+text-white">Decision</p>
+  components\review-desk\findings-outcome-panel.client.tsx:604:          <div className="mt-2 rounded-2xl border border-white/10
+bg-slate-950/70 px-4 py-3 text-white">
+> components\review-desk\findings-outcome-panel.client.tsx:605:            {cleanText(decision) || cleanText(responses?.decision)
+|| "Not recorded"}
+  components\review-desk\findings-outcome-panel.client.tsx:606:          </div>
+  components\review-desk\findings-outcome-panel.client.tsx:607:        </div>
+  components\review-desk\findings-outcome-panel.client.tsx:608:      </div>
+  components\review-desk\findings-outcome-panel.client.tsx:609:
+  components\review-desk\findings-outcome-panel.client.tsx:610:      <div className="mt-5">
+  components\review-desk\findings-outcome-panel.client.tsx:611:        <div className="flex items-center justify-between gap-3">
+  components\review-desk\findings-outcome-panel.client.tsx:612:          <p className="text-sm font-semibold text-white">Review
+findings</p>
+  components\review-desk\findings-outcome-panel.client.tsx:613:          {findings.length > 3 ? (
+  components\review-desk\findings-outcome-panel.client.tsx:614:            <button
+  components\review-desk\findings-outcome-panel.client.tsx:615:              type="button"
+  components\review-desk\findings-outcome-panel.client.tsx:616:              onClick={() => setShowAll((value) => !value)}
+  components\review-desk\findings-outcome-panel.client.tsx:617:              className="rounded-xl border border-cyan-300/20
+bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100"
+  components\review-desk\findings-outcome-panel.client.tsx:618:            >
+  components\review-desk\findings-outcome-panel.client.tsx:619:              {showAll ? "Show less" : `Show all findings
+(${findings.length})`}
+  components\review-desk\findings-outcome-panel.client.tsx:620:            </button>
+  components\review-desk\findings-outcome-panel.client.tsx:647:                    {cleanText(finding.description) ? (
+  components\review-desk\findings-outcome-panel.client.tsx:648:                      <p className="mt-2 text-sm leading-6
+text-slate-300">
+  components\review-desk\findings-outcome-panel.client.tsx:649:                        {cleanText(finding.description)}
+  components\review-desk\findings-outcome-panel.client.tsx:650:                      </p>
+  components\review-desk\findings-outcome-panel.client.tsx:651:                    ) : null}
+> components\review-desk\findings-outcome-panel.client.tsx:652:                    {cleanText(finding.recommendation) ? (
+  components\review-desk\findings-outcome-panel.client.tsx:653:                      <p className="mt-2 text-sm leading-6
+text-cyan-100">
+> components\review-desk\findings-outcome-panel.client.tsx:654:                        Recommendation:
+{cleanText(finding.recommendation)}
+  components\review-desk\findings-outcome-panel.client.tsx:655:                      </p>
+  components\review-desk\findings-outcome-panel.client.tsx:656:                    ) : null}
+  components\review-desk\findings-outcome-panel.client.tsx:657:                  </div>
+  components\review-desk\findings-outcome-panel.client.tsx:658:                ))}
+  components\review-desk\findings-outcome-panel.client.tsx:659:              </div>
+  components\review-desk\findings-outcome-panel.client.tsx:660:            </details>
+  components\review-desk\findings-outcome-panel.client.tsx:661:          )) : (
+  components\review-desk\findings-outcome-panel.client.tsx:662:            <div className="p-4 text-sm text-slate-400">
+  components\review-desk\findings-outcome-panel.client.tsx:663:              No generated findings yet. Truvern Ops can generate
+reviewer intelligence after the submitted questionnaire and evidence are ready.
+  components\review-desk\findings-outcome-panel.client.tsx:664:            </div>
+  components\review-desk\findings-outcome-panel.client.tsx:665:          )}
+  components\review-desk\findings-outcome-panel.client.tsx:666:        </div>
+  components\review-desk\findings-outcome-panel.client.tsx:667:      </div>
+  components\review-desk\findings-outcome-panel.client.tsx:668:
+  components\review-desk\findings-outcome-panel.client.tsx:669:      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+  components\review-desk\findings-outcome-panel.client.tsx:670:        <details open className="min-h-[260px] rounded-2xl border
+border-white/10 bg-slate-950/60 p-5">
+  components\review-desk\findings-outcome-panel.client.tsx:671:          <summary className="cursor-pointer list-none text-sm
+font-semibold text-white">
+  components\review-desk\findings-outcome-panel.client.tsx:672:            Executive summary
+  components\review-desk\findings-outcome-panel.client.tsx:673:          </summary>
+  components\review-desk\findings-outcome-panel.client.tsx:674:          <p className="mt-4 whitespace-pre-wrap text-sm leading-6
+text-slate-200">
+> components\review-desk\findings-outcome-panel.client.tsx:675:            {cleanedExecutiveSummary}
+  components\review-desk\findings-outcome-panel.client.tsx:676:          </p>
+  components\review-desk\findings-outcome-panel.client.tsx:677:        </details>
+  components\review-desk\findings-outcome-panel.client.tsx:678:
+  components\review-desk\findings-outcome-panel.client.tsx:679:        <details open className="min-h-[260px] rounded-2xl border
+border-white/10 bg-slate-950/60 p-5">
+  components\review-desk\findings-outcome-panel.client.tsx:680:          <summary className="cursor-pointer list-none text-sm
+font-semibold text-white">
+  components\review-desk\findings-outcome-panel.client.tsx:681:            Final assessment
+  components\review-desk\findings-outcome-panel.client.tsx:682:          </summary>
+  components\review-desk\findings-outcome-panel.client.tsx:683:          <p className="mt-4 whitespace-pre-wrap text-sm leading-6
+text-slate-200">
+  components\review-desk\findings-outcome-panel.client.tsx:684:            {cleanedFinalAssessment}
+  components\review-desk\findings-outcome-panel.client.tsx:685:          </p>
+  components\review-desk\findings-outcome-panel.client.tsx:686:        </details>
+  components\review-desk\findings-outcome-panel.client.tsx:687:      </div>
+  components\review-desk\findings-outcome-panel.client.tsx:688:
+  components\review-desk\findings-outcome-panel.client.tsx:689:      {remediationPlans.length > 0 ? (
+  components\review-desk\findings-outcome-panel.client.tsx:690:        <div className="mt-5 grid gap-3 rounded-2xl border
+border-white/10 bg-slate-950/50 p-4 sm:grid-cols-2 xl:grid-cols-5">
+  components\review-desk\findings-outcome-panel.client.tsx:699:          <div className="rounded-xl border border-cyan-400/20
+bg-cyan-400/10 p-3">
+  components\review-desk\findings-outcome-panel.client.tsx:700:            <p className="text-[10px] font-semibold uppercase
+tracking-[0.2em] text-cyan-200">Evidence items</p>
+  components\review-desk\findings-outcome-panel.client.tsx:701:            <p className="mt-2 text-2xl font-semibold
+text-white">{derivedEvidenceItems.length}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:702:          </div>
+  components\review-desk\findings-outcome-panel.client.tsx:703:          <div className="rounded-xl border border-violet-400/20
+bg-violet-400/10 p-3">
+> components\review-desk\findings-outcome-panel.client.tsx:704:            <p className="text-[10px] font-semibold uppercase
+tracking-[0.2em] text-violet-200">Attestations</p>
+> components\review-desk\findings-outcome-panel.client.tsx:705:            <p className="mt-2 text-2xl font-semibold
+text-white">{remediationAttestationCount}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:706:          </div>
+  components\review-desk\findings-outcome-panel.client.tsx:707:          <div className="rounded-xl border border-red-400/20
+bg-red-400/10 p-3">
+  components\review-desk\findings-outcome-panel.client.tsx:708:            <p className="text-[10px] font-semibold uppercase
+tracking-[0.2em] text-red-200">Release blockers</p>
+  components\review-desk\findings-outcome-panel.client.tsx:709:            <p className="mt-2 text-2xl font-semibold
+text-white">{activeReleaseBlockers}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:710:          </div>
+  components\review-desk\findings-outcome-panel.client.tsx:711:        </div>
+  components\review-desk\findings-outcome-panel.client.tsx:712:      ) : null}
+  components\review-desk\findings-outcome-panel.client.tsx:713:
+  components\review-desk\findings-outcome-panel.client.tsx:714:      {remediationPlans.length > 0 ? (
+  components\review-desk\findings-outcome-panel.client.tsx:715:        <div className="mt-5 rounded-2xl border border-cyan-400/15
+bg-cyan-400/5 p-4">
+  components\review-desk\findings-outcome-panel.client.tsx:716:          <div className="flex items-center justify-between gap-3">
+  components\review-desk\findings-outcome-panel.client.tsx:717:            <div>
+  components\review-desk\findings-outcome-panel.client.tsx:718:              <p className="text-[10px] font-semibold uppercase
+tracking-[0.24em] text-cyan-200">
+  components\review-desk\findings-outcome-panel.client.tsx:719:                Remediation plans
+  components\review-desk\findings-outcome-panel.client.tsx:720:              </p>
+  components\review-desk\findings-outcome-panel.client.tsx:721:              <p className="mt-1 text-sm text-slate-300">
+> components\review-desk\findings-outcome-panel.client.tsx:722:                Control-specific evidence and attestation
+requirements generated from vendor answers.
+  components\review-desk\findings-outcome-panel.client.tsx:723:              </p>
+  components\review-desk\findings-outcome-panel.client.tsx:724:            </div>
+  components\review-desk\findings-outcome-panel.client.tsx:725:            <span className="rounded-full bg-cyan-300/15 px-3 py-1
+text-xs font-semibold text-cyan-100">
+  components\review-desk\findings-outcome-panel.client.tsx:726:              {remediationPlans.length}
+  components\review-desk\findings-outcome-panel.client.tsx:727:            </span>
+  components\review-desk\findings-outcome-panel.client.tsx:728:          </div>
+  components\review-desk\findings-outcome-panel.client.tsx:729:
+  components\review-desk\findings-outcome-panel.client.tsx:730:          <div className="mt-4 grid gap-3">
+  components\review-desk\findings-outcome-panel.client.tsx:731:            {remediationPlans.map((plan: any, index: number) => {
+  components\review-desk\findings-outcome-panel.client.tsx:732:              const displayPlan =
+normalizeRemediationPlanForDisplay(plan);
+  components\review-desk\findings-outcome-panel.client.tsx:733:              const evidence =
+safeArray(displayPlan?.requiredEvidence).map(cleanText).filter(Boolean);
+> components\review-desk\findings-outcome-panel.client.tsx:734:              const attestations =
+safeArray(displayPlan?.requiredAttestation).map(cleanText).filter(Boolean);
+  components\review-desk\findings-outcome-panel.client.tsx:735:
+  components\review-desk\findings-outcome-panel.client.tsx:736:                              return (
+  components\review-desk\findings-outcome-panel.client.tsx:737:                <div key={`${cleanText(displayPlan?.id ||
+displayPlan?.findingId || displayPlan?.title)}-${index}`} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+  components\review-desk\findings-outcome-panel.client.tsx:738:                  <div className="flex flex-col gap-3 lg:flex-row
+lg:items-start lg:justify-between">
+  components\review-desk\findings-outcome-panel.client.tsx:739:                    <div>
+  components\review-desk\findings-outcome-panel.client.tsx:740:                      <p className="text-sm font-semibold
+text-white">
+  components\review-desk\findings-outcome-panel.client.tsx:741:                        {cleanText(displayPlan?.title ||
+displayPlan?.findingId || "Governance remediation plan")}
+  components\review-desk\findings-outcome-panel.client.tsx:742:                      </p>
+  components\review-desk\findings-outcome-panel.client.tsx:743:                      <p className="mt-1 text-xs text-slate-400">
+  components\review-desk\findings-outcome-panel.client.tsx:744:                        {cleanText(displayPlan?.control) || "Control
+pending"} · {cleanText(displayPlan?.controlFamily) || "Governance control"} · Due: {formatDisplayDate(displayPlan?.dueAt)}
+  components\review-desk\findings-outcome-panel.client.tsx:745:                      </p>
+  components\review-desk\findings-outcome-panel.client.tsx:746:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:747:                    <div className="flex flex-wrap gap-2 text-[11px]
+font-semibold uppercase tracking-[0.14em]">
+  components\review-desk\findings-outcome-panel.client.tsx:748:                      <span className="rounded-full border
+border-amber-300/30 bg-amber-300/10 px-2 py-1 text-amber-100">{cleanText(displayPlan?.severity) || "REVIEW"}</span>
+  components\review-desk\findings-outcome-panel.client.tsx:749:                      <span className="rounded-full border
+border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-cyan-100">{cleanText(displayPlan?.status) || "OPEN"}</span>
+  components\review-desk\findings-outcome-panel.client.tsx:760:                        ))}
+  components\review-desk\findings-outcome-panel.client.tsx:761:                      </ul>
+  components\review-desk\findings-outcome-panel.client.tsx:762:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:763:                  ) : null}
+  components\review-desk\findings-outcome-panel.client.tsx:764:
+> components\review-desk\findings-outcome-panel.client.tsx:765:                  {attestations.length > 0 ? (
+  components\review-desk\findings-outcome-panel.client.tsx:766:                    <div className="mt-3 rounded-xl border
+border-violet-400/15 bg-violet-400/5 p-3">
+> components\review-desk\findings-outcome-panel.client.tsx:767:                      <p className="text-xs font-semibold uppercase
+tracking-[0.18em] text-violet-200">Required attestations</p>
+  components\review-desk\findings-outcome-panel.client.tsx:768:                      <ul className="mt-2 list-disc space-y-1 pl-5
+text-sm text-violet-50">
+> components\review-desk\findings-outcome-panel.client.tsx:769:                        {attestations.map((item: string, itemIndex:
+number) => (
+> components\review-desk\findings-outcome-panel.client.tsx:770:                          <li
+key={`plan-attestation-${index}-${itemIndex}`}>{item}</li>
+  components\review-desk\findings-outcome-panel.client.tsx:771:                        ))}
+  components\review-desk\findings-outcome-panel.client.tsx:772:                      </ul>
+  components\review-desk\findings-outcome-panel.client.tsx:773:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:774:                  ) : null}
+  components\review-desk\findings-outcome-panel.client.tsx:775:
+> components\review-desk\findings-outcome-panel.client.tsx:776:                  {cleanText(displayPlan?.recommendation) ? (
+  components\review-desk\findings-outcome-panel.client.tsx:777:                    <div className="mt-3 rounded-xl border
+border-emerald-400/15 bg-emerald-400/5 p-3">
+> components\review-desk\findings-outcome-panel.client.tsx:778:                      <p className="text-xs font-semibold uppercase
+tracking-[0.18em] text-emerald-200">Recommendation</p>
+> components\review-desk\findings-outcome-panel.client.tsx:779:                      <p className="mt-2 text-sm leading-6
+text-emerald-50">{cleanText(displayPlan.recommendation)}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:780:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:781:                  ) : null}
+  components\review-desk\findings-outcome-panel.client.tsx:782:
+  components\review-desk\findings-outcome-panel.client.tsx:783:                  {cleanText(displayPlan?.evidenceSignal) ? (
+  components\review-desk\findings-outcome-panel.client.tsx:784:                    <div className="mt-3 rounded-xl border
+border-sky-400/15 bg-sky-400/5 p-3">
+  components\review-desk\findings-outcome-panel.client.tsx:785:                      <p className="text-xs font-semibold uppercase
+tracking-[0.18em] text-sky-200">Evidence signal</p>
+  components\review-desk\findings-outcome-panel.client.tsx:786:                      <p className="mt-2 text-sm leading-6
+text-sky-50">{cleanText(displayPlan.evidenceSignal)}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:787:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:788:                  ) : null}
+  components\review-desk\findings-outcome-panel.client.tsx:789:
+  components\review-desk\findings-outcome-panel.client.tsx:790:                  <div className="mt-4 flex flex-wrap gap-2">
+  components\review-desk\findings-outcome-panel.client.tsx:791:
+{cleanText(displayPlan?.blockerStatus).toUpperCase() === "CLOSED" ||
+  components\review-desk\findings-outcome-panel.client.tsx:792:                    cleanText(displayPlan?.status).toUpperCase() ===
+"APPROVED" ? (
+  components\review-desk\findings-outcome-panel.client.tsx:793:                      <button
+  components\review-desk\findings-outcome-panel.client.tsx:794:                        type="button"
+  components\review-desk\findings-outcome-panel.client.tsx:806:                        >
+  components\review-desk\findings-outcome-panel.client.tsx:807:                          Request evidence
+  components\review-desk\findings-outcome-panel.client.tsx:808:                        </button>
+  components\review-desk\findings-outcome-panel.client.tsx:809:                        <button
+  components\review-desk\findings-outcome-panel.client.tsx:810:                          type="button"
+> components\review-desk\findings-outcome-panel.client.tsx:811:                          onClick={() =>
+runRemediationAction("REQUEST_ATTESTATION", displayPlan)}
+  components\review-desk\findings-outcome-panel.client.tsx:812:                          className="rounded-full border
+border-violet-300/30 bg-violet-300/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-300/20"
+  components\review-desk\findings-outcome-panel.client.tsx:813:                        >
+> components\review-desk\findings-outcome-panel.client.tsx:814:                          Request attestation
+  components\review-desk\findings-outcome-panel.client.tsx:815:                        </button>
+  components\review-desk\findings-outcome-panel.client.tsx:816:                        <button
+  components\review-desk\findings-outcome-panel.client.tsx:817:                          type="button"
+  components\review-desk\findings-outcome-panel.client.tsx:818:                          onClick={() =>
+runRemediationAction("APPROVE_REMEDIATION", displayPlan)}
+  components\review-desk\findings-outcome-panel.client.tsx:819:                          className="rounded-full border
+border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/20"
+  components\review-desk\findings-outcome-panel.client.tsx:820:                        >
+  components\review-desk\findings-outcome-panel.client.tsx:821:                          Approve remediation
+  components\review-desk\findings-outcome-panel.client.tsx:822:                        </button>
+  components\review-desk\findings-outcome-panel.client.tsx:823:
+{cleanText(displayPlan?.status).toUpperCase() !== "REJECTED" ? (
+  components\review-desk\findings-outcome-panel.client.tsx:824:                          <button
+  components\review-desk\findings-outcome-panel.client.tsx:825:                            type="button"
+  components\review-desk\findings-outcome-panel.client.tsx:826:                            onClick={() =>
+runRemediationAction("REJECT_REMEDIATION", displayPlan)}
+  components\review-desk\findings-outcome-panel.client.tsx:827:                            className="rounded-full border
+border-rose-300/30 bg-rose-300/10 px-3 py-2 text-xs font-semibold text-rose-100 hover:bg-rose-300/20"
+  components\review-desk\findings-outcome-panel.client.tsx:828:                          >
+  components\review-desk\findings-outcome-panel.client.tsx:829:                            Reject
+  components\review-desk\findings-outcome-panel.client.tsx:837:                    <div className="rounded-xl border
+border-white/10 bg-black/20 p-3">
+  components\review-desk\findings-outcome-panel.client.tsx:838:                      <p className="text-slate-400">Evidence
+status</p>
+  components\review-desk\findings-outcome-panel.client.tsx:839:                      <p className="mt-1 font-semibold
+text-white">{cleanText(displayPlan?.evidenceStatus) || "REQUESTED"}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:840:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:841:                    <div className="rounded-xl border
+border-white/10 bg-black/20 p-3">
+> components\review-desk\findings-outcome-panel.client.tsx:842:                      <p className="text-slate-400">Attestation
+status</p>
+> components\review-desk\findings-outcome-panel.client.tsx:843:                      <p className="mt-1 font-semibold
+text-white">{attestations.length > 0 ? (cleanText(displayPlan?.attestationStatus) || "REQUESTED") : "NOT REQUIRED"}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:844:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:845:                    <div className="rounded-xl border
+border-white/10 bg-black/20 p-3">
+  components\review-desk\findings-outcome-panel.client.tsx:846:                      <p className="text-slate-400">Remediation
+status</p>
+  components\review-desk\findings-outcome-panel.client.tsx:847:                      <p className="mt-1 font-semibold
+text-white">{cleanText(displayPlan?.status) || "OPEN"}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:848:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:849:                    <div className="rounded-xl border
+border-white/10 bg-black/20 p-3">
+  components\review-desk\findings-outcome-panel.client.tsx:850:                      <p className="text-slate-400">Release
+blocker</p>
+  components\review-desk\findings-outcome-panel.client.tsx:851:                      <p className="mt-1 font-semibold
+text-white">{cleanText(displayPlan?.blockerStatus) || "OPEN"}</p>
+  components\review-desk\findings-outcome-panel.client.tsx:852:                    </div>
+  components\review-desk\findings-outcome-panel.client.tsx:853:                  </div>
+  components\review-desk\findings-outcome-panel.client.tsx:854:
+  components\review-desk\findings-outcome-panel.client.tsx:855:                  <p className={`mt-3 rounded-xl p-3 text-sm ${
+  components\review-desk\findings-outcome-panel.client.tsx:856:
+cleanText(displayPlan?.blockerStatus).toUpperCase() === "CLOSED"
+  components\review-desk\findings-outcome-panel.client.tsx:857:                      ? "border border-emerald-400/15
+bg-emerald-400/5 text-emerald-100"
+  components\review-desk\findings-outcome-panel.client.tsx:858:                      : "border border-amber-400/15 bg-amber-400/5
+text-amber-100"
+  components\review-desk\findings-outcome-panel.client.tsx:859:                  }`}>
+  components\review-desk\findings-outcome-panel.client.tsx:860:
+{cleanText(displayPlan?.blockerStatus).toUpperCase() === "CLOSED"
+  components\review-desk\findings-outcome-panel.client.tsx:861:                      ? "Release blocker cleared. Finding is ready
+for governance release review."
+> components\review-desk\findings-outcome-panel.client.tsx:862:                      : "Release blocked pending remediation or
+attestation review."}
+  components\review-desk\findings-outcome-panel.client.tsx:863:                  </p>
+  components\review-desk\findings-outcome-panel.client.tsx:864:                </div>
+  components\review-desk\findings-outcome-panel.client.tsx:865:              );
+  components\review-desk\findings-outcome-panel.client.tsx:866:            })}
+  components\review-desk\findings-outcome-panel.client.tsx:867:          </div>
+  components\review-desk\findings-outcome-panel.client.tsx:868:        </div>
+  components\review-desk\findings-outcome-panel.client.tsx:869:      ) : null}
+  components\review-desk\findings-outcome-panel.client.tsx:870:      <div className="mt-4 grid gap-3">
+  components\review-desk\findings-outcome-panel.client.tsx:871:        {[
+  components\review-desk\findings-outcome-panel.client.tsx:872:          ["Conditions & follow-ups", derivedFollowUps.length],
+  components\review-desk\findings-outcome-panel.client.tsx:873:          ["Evidence snapshot", derivedEvidenceItems.length],
+  components\review-desk\findings-outcome-panel.client.tsx:874:          ["Review timeline", derivedTimeline.length],
+  components\review-desk\findings-outcome-panel.client.tsx:875:        ].map(([label, count]) => (
+  components\review-desk\findings-outcome-panel.client.tsx:876:          <details key={label} open className="rounded-2xl border
+border-white/10 bg-slate-950/50 px-4 py-3">
+  components\review-desk\findings-outcome-panel.client.tsx:877:            <summary className="flex cursor-pointer list-none
+items-center justify-between text-sm font-semibold text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:56:    responses?.reviewOutcome ??
+  components\review-desk\review-assignment-workspace.client.tsx:57:    null
+  components\review-desk\review-assignment-workspace.client.tsx:58:  );
+  components\review-desk\review-assignment-workspace.client.tsx:59:}
+  components\review-desk\review-assignment-workspace.client.tsx:60:
+> components\review-desk\review-assignment-workspace.client.tsx:61:function resolveExecutiveSummary(responses: any) {
+  components\review-desk\review-assignment-workspace.client.tsx:62:  const intelligence =
+reviewerIntelligenceFromResponses(responses);
+  components\review-desk\review-assignment-workspace.client.tsx:63:
+  components\review-desk\review-assignment-workspace.client.tsx:64:  return pickReviewerText(
+> components\review-desk\review-assignment-workspace.client.tsx:65:    responses?.executiveSummary,
+  components\review-desk\review-assignment-workspace.client.tsx:66:    responses?.summary,
+> components\review-desk\review-assignment-workspace.client.tsx:67:    responses?.reviewOutcome?.executiveSummary,
+> components\review-desk\review-assignment-workspace.client.tsx:68:    responses?.releasePacket?.executiveSummary,
+> components\review-desk\review-assignment-workspace.client.tsx:69:    intelligence?.executiveSummary,
+  components\review-desk\review-assignment-workspace.client.tsx:70:  );
+  components\review-desk\review-assignment-workspace.client.tsx:71:}
+  components\review-desk\review-assignment-workspace.client.tsx:72:
+  components\review-desk\review-assignment-workspace.client.tsx:73:function resolveFinalAssessment(responses: any) {
+  components\review-desk\review-assignment-workspace.client.tsx:74:  const intelligence =
+reviewerIntelligenceFromResponses(responses);
+  components\review-desk\review-assignment-workspace.client.tsx:75:
+  components\review-desk\review-assignment-workspace.client.tsx:76:  return pickReviewerText(
+  components\review-desk\review-assignment-workspace.client.tsx:77:    responses?.finalAssessment,
+> components\review-desk\review-assignment-workspace.client.tsx:78:    responses?.finalRecommendation,
+  components\review-desk\review-assignment-workspace.client.tsx:79:    responses?.reviewOutcome?.finalAssessment,
+  components\review-desk\review-assignment-workspace.client.tsx:80:    responses?.releasePacket?.finalAssessment,
+  components\review-desk\review-assignment-workspace.client.tsx:81:    intelligence?.finalAssessment,
+> components\review-desk\review-assignment-workspace.client.tsx:82:    intelligence?.finalRecommendation,
+  components\review-desk\review-assignment-workspace.client.tsx:83:  );
+  components\review-desk\review-assignment-workspace.client.tsx:84:}
+  components\review-desk\review-assignment-workspace.client.tsx:85:
+  components\review-desk\review-assignment-workspace.client.tsx:86:function resolveReviewerFollowUps(responses: any) {
+  components\review-desk\review-assignment-workspace.client.tsx:87:  const intelligence =
+reviewerIntelligenceFromResponses(responses);
+  components\review-desk\review-assignment-workspace.client.tsx:88:
+  components\review-desk\review-assignment-workspace.client.tsx:89:  return pickReviewerArray(
+  components\review-desk\review-assignment-workspace.client.tsx:90:    responses?.followUps,
+  components\review-desk\review-assignment-workspace.client.tsx:91:    responses?.conditions,
+  components\review-desk\review-assignment-workspace.client.tsx:92:    responses?.reviewerConditions,
+  components\review-desk\review-assignment-workspace.client.tsx:93:    responses?.truvernRemediation?.reviewerConditions,
+  components\review-desk\review-assignment-workspace.client.tsx:94:    intelligence?.followUps,
+  components\review-desk\review-assignment-workspace.client.tsx:95:  );
+  components\review-desk\review-assignment-workspace.client.tsx:96:}
+  components\review-desk\review-assignment-workspace.client.tsx:97:
+  components\review-desk\review-assignment-workspace.client.tsx:192:    updatedAt: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:193:  }>;
+  components\review-desk\review-assignment-workspace.client.tsx:194:
+  components\review-desk\review-assignment-workspace.client.tsx:195:  governanceMemory?: Array<{
+  components\review-desk\review-assignment-workspace.client.tsx:196:    governanceScore: number | null;
+> components\review-desk\review-assignment-workspace.client.tsx:197:    governanceDecision: string;
+  components\review-desk\review-assignment-workspace.client.tsx:198:    residualRisk: string;
+  components\review-desk\review-assignment-workspace.client.tsx:199:    criticalFailures: number;
+  components\review-desk\review-assignment-workspace.client.tsx:200:    partialControls: number;
+  components\review-desk\review-assignment-workspace.client.tsx:201:    missingEvidenceCount: number;
+  components\review-desk\review-assignment-workspace.client.tsx:202:    remediationCount: number;
+  components\review-desk\review-assignment-workspace.client.tsx:203:    breachDisclosureDetected: boolean;
+  components\review-desk\review-assignment-workspace.client.tsx:204:    federalInvestigationDetected: boolean;
+  components\review-desk\review-assignment-workspace.client.tsx:205:    governanceNarrative: string;
+  components\review-desk\review-assignment-workspace.client.tsx:206:    createdAt: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:207:  }>;
+  components\review-desk\review-assignment-workspace.client.tsx:208:
+  components\review-desk\review-assignment-workspace.client.tsx:209:  remediationRequests?: Array<{
+  components\review-desk\review-assignment-workspace.client.tsx:210:    id: number;
+  components\review-desk\review-assignment-workspace.client.tsx:211:    title: string;
+  components\review-desk\review-assignment-workspace.client.tsx:212:    kind: string;
+  components\review-desk\review-assignment-workspace.client.tsx:217:  }>;
+  components\review-desk\review-assignment-workspace.client.tsx:218:
+  components\review-desk\review-assignment-workspace.client.tsx:219:  latestOutcome: {
+  components\review-desk\review-assignment-workspace.client.tsx:220:    id: number | null;
+  components\review-desk\review-assignment-workspace.client.tsx:221:    status: string;
+> components\review-desk\review-assignment-workspace.client.tsx:222:    decision: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:223:    riskLevel: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:224:    releaseState: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:225:    manifestId?: number | null;
+  components\review-desk\review-assignment-workspace.client.tsx:226:    manifestChecksum?: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:227:    manifestVersion?: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:228:    governanceVersion?: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:229:    findings: string;
+> components\review-desk\review-assignment-workspace.client.tsx:230:    executiveSummary?: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:231:    finalAssessment?: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:232:    conditionsAndFollowUps?: string[];
+  components\review-desk\review-assignment-workspace.client.tsx:233:    updatedAt: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:234:    generatedDraft?: {
+  components\review-desk\review-assignment-workspace.client.tsx:235:      schema: string;
+  components\review-desk\review-assignment-workspace.client.tsx:236:      generatedAt: string | null;
+  components\review-desk\review-assignment-workspace.client.tsx:237:      summary: string;
+> components\review-desk\review-assignment-workspace.client.tsx:238:      recommendations: unknown[];
+  components\review-desk\review-assignment-workspace.client.tsx:239:      structuredAssessment?: Record<string, any> | null;
+  components\review-desk\review-assignment-workspace.client.tsx:240:    };
+  components\review-desk\review-assignment-workspace.client.tsx:241:  };
+  components\review-desk\review-assignment-workspace.client.tsx:242:  auditEvents: Array<{ label: string; at: string | null;
+detail: string }>;
+  components\review-desk\review-assignment-workspace.client.tsx:243:  analysts?: AnalystOption[];
+  components\review-desk\review-assignment-workspace.client.tsx:244:};
+  components\review-desk\review-assignment-workspace.client.tsx:245:
+  components\review-desk\review-assignment-workspace.client.tsx:246:type Tone = "cyan" | "emerald" | "amber" | "slate" | "rose" |
+"violet";
+  components\review-desk\review-assignment-workspace.client.tsx:247:
+  components\review-desk\review-assignment-workspace.client.tsx:248:function upper(v: unknown) {
+  components\review-desk\review-assignment-workspace.client.tsx:249:  return typeof v === "string" ? v.trim().toUpperCase() : "";
+  components\review-desk\review-assignment-workspace.client.tsx:250:}
+  components\review-desk\review-assignment-workspace.client.tsx:251:
+  components\review-desk\review-assignment-workspace.client.tsx:252:function remediationChipClass(status: string) {
+  components\review-desk\review-assignment-workspace.client.tsx:253:  const s = String(status || "").toUpperCase();
+  components\review-desk\review-assignment-workspace.client.tsx:402:          createdAt: plan?.generatedAt ?? null,
+  components\review-desk\review-assignment-workspace.client.tsx:403:          updatedAt: plan?.updatedAt ?? null,
+  components\review-desk\review-assignment-workspace.client.tsx:404:          requiredEvidence:
+Array.isArray(plan?.requiredEvidence)
+  components\review-desk\review-assignment-workspace.client.tsx:405:            ? plan.requiredEvidence
+  components\review-desk\review-assignment-workspace.client.tsx:406:            : [],
+> components\review-desk\review-assignment-workspace.client.tsx:407:          requiredAttestation:
+Array.isArray(plan?.requiredAttestation)
+> components\review-desk\review-assignment-workspace.client.tsx:408:            ? plan.requiredAttestation
+  components\review-desk\review-assignment-workspace.client.tsx:409:            : [],
+  components\review-desk\review-assignment-workspace.client.tsx:410:          releaseImpact:
+  components\review-desk\review-assignment-workspace.client.tsx:411:            plan?.releaseImpact ??
+> components\review-desk\review-assignment-workspace.client.tsx:412:            "Release blocked pending remediation or attestation
+review.",
+  components\review-desk\review-assignment-workspace.client.tsx:413:          evidenceStatus: plan?.evidenceStatus ?? "REQUESTED",
+  components\review-desk\review-assignment-workspace.client.tsx:414:          blockerStatus: plan?.blockerStatus ?? plan?.status ??
+"OPEN",
+  components\review-desk\review-assignment-workspace.client.tsx:415:        }));
+  components\review-desk\review-assignment-workspace.client.tsx:416:
+  components\review-desk\review-assignment-workspace.client.tsx:417:  const lifecycleOpenBlockers =
+lifecycleRemediationRequests.filter((request: any) => {
+  components\review-desk\review-assignment-workspace.client.tsx:418:    const status = upper(request?.status);
+  components\review-desk\review-assignment-workspace.client.tsx:419:    const blockerStatus = upper(request?.blockerStatus);
+  components\review-desk\review-assignment-workspace.client.tsx:420:
+  components\review-desk\review-assignment-workspace.client.tsx:421:    return ![
+  components\review-desk\review-assignment-workspace.client.tsx:422:      "RECEIVED",
+  components\review-desk\review-assignment-workspace.client.tsx:423:      "APPROVED",
+  components\review-desk\review-assignment-workspace.client.tsx:424:      "COMPLETED",
+  components\review-desk\review-assignment-workspace.client.tsx:425:      "FULFILLED",
+  components\review-desk\review-assignment-workspace.client.tsx:426:      "RESOLVED",
+  components\review-desk\review-assignment-workspace.client.tsx:427:      "COMPLETE",
+  components\review-desk\review-assignment-workspace.client.tsx:495:      </h3>
+  components\review-desk\review-assignment-workspace.client.tsx:496:
+  components\review-desk\review-assignment-workspace.client.tsx:497:      <p className="mt-3 max-w-4xl text-sm leading-7
+text-amber-50/90">
+  components\review-desk\review-assignment-workspace.client.tsx:498:        Your assessment responses, findings, and evidence have
+been recorded.
+  components\review-desk\review-assignment-workspace.client.tsx:499:        Upgrade to Pro or request a Truvern Review to generate
+governance
+> components\review-desk\review-assignment-workspace.client.tsx:500:        decisions, board-ready reports, immutable audit
+history, release
+  components\review-desk\review-assignment-workspace.client.tsx:501:        verification, governance memory, and transparency-chain
+records.
+  components\review-desk\review-assignment-workspace.client.tsx:502:      </p>
+  components\review-desk\review-assignment-workspace.client.tsx:503:
+  components\review-desk\review-assignment-workspace.client.tsx:504:      <div className="mt-5 flex flex-wrap gap-3">
+  components\review-desk\review-assignment-workspace.client.tsx:505:        <Link
+  components\review-desk\review-assignment-workspace.client.tsx:506:          href="/plans"
+  components\review-desk\review-assignment-workspace.client.tsx:507:          className="rounded-2xl border border-amber-200/30
+bg-amber-300/15 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-300/20"
+  components\review-desk\review-assignment-workspace.client.tsx:508:        >
+  components\review-desk\review-assignment-workspace.client.tsx:509:          Upgrade to Pro
+  components\review-desk\review-assignment-workspace.client.tsx:510:        </Link>
+  components\review-desk\review-assignment-workspace.client.tsx:511:
+  components\review-desk\review-assignment-workspace.client.tsx:512:        <Link
+  components\review-desk\review-assignment-workspace.client.tsx:513:          href={`/vendors/${vendor.id}?truvernReview=true`}
+  components\review-desk\review-assignment-workspace.client.tsx:514:          className="rounded-2xl border border-cyan-300/20
+bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-50 hover:bg-cyan-400/15"
+  components\review-desk\review-assignment-workspace.client.tsx:515:        >
+  components\review-desk\review-assignment-workspace.client.tsx:587:
+  components\review-desk\review-assignment-workspace.client.tsx:588:    if (Array.isArray(plan.requiredEvidence) &&
+plan.requiredEvidence.length > 0) {
+  components\review-desk\review-assignment-workspace.client.tsx:589:      rows.push(`Required evidence:
+${plan.requiredEvidence.join(", ")}.`);
+  components\review-desk\review-assignment-workspace.client.tsx:590:    }
+  components\review-desk\review-assignment-workspace.client.tsx:591:
+> components\review-desk\review-assignment-workspace.client.tsx:592:    if (Array.isArray(plan.requiredAttestation) &&
+plan.requiredAttestation.length > 0) {
+> components\review-desk\review-assignment-workspace.client.tsx:593:      rows.push(`Required attestation:
+${plan.requiredAttestation.join(", ")}.`);
+  components\review-desk\review-assignment-workspace.client.tsx:594:    }
+  components\review-desk\review-assignment-workspace.client.tsx:595:
+> components\review-desk\review-assignment-workspace.client.tsx:596:    rows.push("Reviewer validation required before governance
+release.");
+  components\review-desk\review-assignment-workspace.client.tsx:597:
+  components\review-desk\review-assignment-workspace.client.tsx:598:    return rows;
+  components\review-desk\review-assignment-workspace.client.tsx:599:  });
+  components\review-desk\review-assignment-workspace.client.tsx:600:
+  components\review-desk\review-assignment-workspace.client.tsx:601:  const [riskLevel, setRiskLevel] =
+useState(latestOutcome.riskLevel || "");
+> components\review-desk\review-assignment-workspace.client.tsx:602:  const [decision, setDecision] =
+useState(latestOutcome.decision || "");
+  components\review-desk\review-assignment-workspace.client.tsx:603:  const [findings, setFindings] =
+useState(latestOutcome.findings || "");
+> components\review-desk\review-assignment-workspace.client.tsx:604:  const initialExecutiveSummary =
+> components\review-desk\review-assignment-workspace.client.tsx:605:  resolveExecutiveSummary(latestOutcome) ||
+> components\review-desk\review-assignment-workspace.client.tsx:606:  resolveExecutiveSummary(responsePayload) ||
+> components\review-desk\review-assignment-workspace.client.tsx:607:  resolveExecutiveSummary(structured) ||
+  components\review-desk\review-assignment-workspace.client.tsx:608:  sectionFromText(latestOutcome.findings, "EXECUTIVE SUMMARY", [
+> components\review-desk\review-assignment-workspace.client.tsx:609:    "GOVERNANCE DECISION",
+  components\review-desk\review-assignment-workspace.client.tsx:610:    "TRUVERN GOVERNANCE REVIEW",
+  components\review-desk\review-assignment-workspace.client.tsx:611:    "CONDITIONS & FOLLOW-UPS",
+  components\review-desk\review-assignment-workspace.client.tsx:612:  ]);
+  components\review-desk\review-assignment-workspace.client.tsx:613:
+  components\review-desk\review-assignment-workspace.client.tsx:614:const initialFinalAssessment =
+  components\review-desk\review-assignment-workspace.client.tsx:615:  resolveFinalAssessment(latestOutcome) ||
+  components\review-desk\review-assignment-workspace.client.tsx:616:  resolveFinalAssessment(responsePayload) ||
+  components\review-desk\review-assignment-workspace.client.tsx:617:  resolveFinalAssessment(structured) ||
+  components\review-desk\review-assignment-workspace.client.tsx:618:  sectionFromText(latestOutcome.findings, "TRUVERN GOVERNANCE
+REVIEW", [
+  components\review-desk\review-assignment-workspace.client.tsx:619:    "CONDITIONS & FOLLOW-UPS",
+  components\review-desk\review-assignment-workspace.client.tsx:620:  ]);
+  components\review-desk\review-assignment-workspace.client.tsx:621:
+  components\review-desk\review-assignment-workspace.client.tsx:622:  const remediationConditions =
+  components\review-desk\review-assignment-workspace.client.tsx:623:    Array.isArray(responsePayload?.truvernRemediation?.plans)
+  components\review-desk\review-assignment-workspace.client.tsx:624:      ? responsePayload.truvernRemediation.plans.flatMap((plan:
+any) => {
+  components\review-desk\review-assignment-workspace.client.tsx:634:                (e: string) => `Evidence required: ${e}`,
+  components\review-desk\review-assignment-workspace.client.tsx:635:              ),
+  components\review-desk\review-assignment-workspace.client.tsx:636:            );
+  components\review-desk\review-assignment-workspace.client.tsx:637:          }
+  components\review-desk\review-assignment-workspace.client.tsx:638:
+> components\review-desk\review-assignment-workspace.client.tsx:639:          if (Array.isArray(plan?.requiredAttestation)) {
+  components\review-desk\review-assignment-workspace.client.tsx:640:            items.push(
+> components\review-desk\review-assignment-workspace.client.tsx:641:              ...plan.requiredAttestation.map(
+> components\review-desk\review-assignment-workspace.client.tsx:642:                (a: string) => `Attestation required: ${a}`,
+  components\review-desk\review-assignment-workspace.client.tsx:643:              ),
+  components\review-desk\review-assignment-workspace.client.tsx:644:            );
+  components\review-desk\review-assignment-workspace.client.tsx:645:          }
+  components\review-desk\review-assignment-workspace.client.tsx:646:
+  components\review-desk\review-assignment-workspace.client.tsx:647:          return items;
+  components\review-desk\review-assignment-workspace.client.tsx:648:        })
+  components\review-desk\review-assignment-workspace.client.tsx:649:      : String(latestOutcome.findings || "")
+  components\review-desk\review-assignment-workspace.client.tsx:650:          .split("\n")
+  components\review-desk\review-assignment-workspace.client.tsx:651:          .map((line: string) => line.trim())
+  components\review-desk\review-assignment-workspace.client.tsx:652:          .filter(Boolean)
+  components\review-desk\review-assignment-workspace.client.tsx:653:          .flatMap((line: string) => {
+  components\review-desk\review-assignment-workspace.client.tsx:654:            const rows: string[] = [];
+  components\review-desk\review-assignment-workspace.client.tsx:655:
+  components\review-desk\review-assignment-workspace.client.tsx:656:            rows.push(`Remediation: ${line.replace(/^- /,
+"")}`);
+  components\review-desk\review-assignment-workspace.client.tsx:657:
+> components\review-desk\review-assignment-workspace.client.tsx:658:            if (line.toLowerCase().includes("recommendation:"))
+{
+> components\review-desk\review-assignment-workspace.client.tsx:659:
+rows.push(line.slice(line.toLowerCase().indexOf("recommendation:")));
+  components\review-desk\review-assignment-workspace.client.tsx:660:            }
+  components\review-desk\review-assignment-workspace.client.tsx:661:
+  components\review-desk\review-assignment-workspace.client.tsx:662:            return rows;
+  components\review-desk\review-assignment-workspace.client.tsx:663:          });
+  components\review-desk\review-assignment-workspace.client.tsx:664:
+  components\review-desk\review-assignment-workspace.client.tsx:665:  const dedupedRemediationConditions = Array.from(
+  components\review-desk\review-assignment-workspace.client.tsx:666:    new Set(
+  components\review-desk\review-assignment-workspace.client.tsx:667:      remediationConditions
+  components\review-desk\review-assignment-workspace.client.tsx:668:        .map((v: string) => String(v).trim())
+  components\review-desk\review-assignment-workspace.client.tsx:669:        .filter(Boolean),
+  components\review-desk\review-assignment-workspace.client.tsx:670:    ),
+  components\review-desk\review-assignment-workspace.client.tsx:671:  );
+  components\review-desk\review-assignment-workspace.client.tsx:672:
+  components\review-desk\review-assignment-workspace.client.tsx:673:  const dedupedGeneratedFollowUps = Array.from(
+  components\review-desk\review-assignment-workspace.client.tsx:674:    new Set(
+  components\review-desk\review-assignment-workspace.client.tsx:675:      generatedFollowUps
+  components\review-desk\review-assignment-workspace.client.tsx:676:        .map((v: string) => String(v).trim())
+  components\review-desk\review-assignment-workspace.client.tsx:677:        .filter(Boolean),
+  components\review-desk\review-assignment-workspace.client.tsx:678:    ),
+  components\review-desk\review-assignment-workspace.client.tsx:679:  );
+> components\review-desk\review-assignment-workspace.client.tsx:680:  const initialRecommendations =
+  components\review-desk\review-assignment-workspace.client.tsx:681:    remediationConditions.length > 0
+  components\review-desk\review-assignment-workspace.client.tsx:682:      ? remediationConditions.join("\n")
+  components\review-desk\review-assignment-workspace.client.tsx:683:      : generatedFollowUps.length > 0
+  components\review-desk\review-assignment-workspace.client.tsx:684:        ? generatedFollowUps.join("\n")
+  components\review-desk\review-assignment-workspace.client.tsx:685:        : Array.isArray(latestOutcome.conditionsAndFollowUps) &&
+  components\review-desk\review-assignment-workspace.client.tsx:686:          latestOutcome.conditionsAndFollowUps.length > 0
+  components\review-desk\review-assignment-workspace.client.tsx:687:          ? latestOutcome.conditionsAndFollowUps.join("\n")
+  components\review-desk\review-assignment-workspace.client.tsx:688:          :
+Array.isArray(responsePayload.conditionsAndFollowUps) &&
+  components\review-desk\review-assignment-workspace.client.tsx:689:            responsePayload.conditionsAndFollowUps.length > 0
+  components\review-desk\review-assignment-workspace.client.tsx:690:            ? responsePayload.conditionsAndFollowUps.join("\n")
+  components\review-desk\review-assignment-workspace.client.tsx:691:            : Array.isArray(structured.conditionsAndFollowUps)
+&&
+  components\review-desk\review-assignment-workspace.client.tsx:692:              structured.conditionsAndFollowUps.length > 0
+  components\review-desk\review-assignment-workspace.client.tsx:693:              ? structured.conditionsAndFollowUps.join("\n")
+  components\review-desk\review-assignment-workspace.client.tsx:694:              : "Reviewer should confirm evidence posture
+before release.";
+  components\review-desk\review-assignment-workspace.client.tsx:695:
+> components\review-desk\review-assignment-workspace.client.tsx:696:  const [executiveSummary, setExecutiveSummary] = useState(
+> components\review-desk\review-assignment-workspace.client.tsx:697:    initialExecutiveSummary,
+  components\review-desk\review-assignment-workspace.client.tsx:698:  );
+  components\review-desk\review-assignment-workspace.client.tsx:699:  const [finalAssessment, setFinalAssessment] = useState(
+  components\review-desk\review-assignment-workspace.client.tsx:700:    initialFinalAssessment,
+  components\review-desk\review-assignment-workspace.client.tsx:701:  );
+> components\review-desk\review-assignment-workspace.client.tsx:702:  const [recommendationsText, setRecommendationsText] =
+useState(
+> components\review-desk\review-assignment-workspace.client.tsx:703:    initialRecommendations,
+  components\review-desk\review-assignment-workspace.client.tsx:704:  );
+  components\review-desk\review-assignment-workspace.client.tsx:705:
+  components\review-desk\review-assignment-workspace.client.tsx:706:  const [selectedAnalystId, setSelectedAnalystId] =
+useState("");
+  components\review-desk\review-assignment-workspace.client.tsx:707:  const [newAnalystName, setNewAnalystName] = useState("");
+  components\review-desk\review-assignment-workspace.client.tsx:708:  const [newAnalystEmail, setNewAnalystEmail] = useState("");
+  components\review-desk\review-assignment-workspace.client.tsx:709:  const [saving, setSaving] = useState(false);
+  components\review-desk\review-assignment-workspace.client.tsx:710:  const [generatingDraft, setGeneratingDraft] = useState(false);
+  components\review-desk\review-assignment-workspace.client.tsx:711:  const [message, setMessage] = useState("");
+  components\review-desk\review-assignment-workspace.client.tsx:712:
+  components\review-desk\review-assignment-workspace.client.tsx:713:  // PERSIST_FINDINGS_GENERATED_NOTIFICATION
+  components\review-desk\review-assignment-workspace.client.tsx:714:  useEffect(() => {
+  components\review-desk\review-assignment-workspace.client.tsx:715:    const generated =
+  components\review-desk\review-assignment-workspace.client.tsx:716:      searchParams.get("status") === "findings-generated" ||
+  components\review-desk\review-assignment-workspace.client.tsx:717:      (typeof window !== "undefined" &&
+  components\review-desk\review-assignment-workspace.client.tsx:718:
+window.localStorage.getItem("truvern-findings-generated") === "1");
+  components\review-desk\review-assignment-workspace.client.tsx:867:
+  components\review-desk\review-assignment-workspace.client.tsx:868:    const openEvidence =
+  components\review-desk\review-assignment-workspace.client.tsx:869:      Number((evidenceSummary as any)?.missingEvidence ?? 0) +
+  components\review-desk\review-assignment-workspace.client.tsx:870:      Number(evidenceSummary.openRemediationRequests ?? 0);
+  components\review-desk\review-assignment-workspace.client.tsx:871:
+> components\review-desk\review-assignment-workspace.client.tsx:872:    const searchText = `${recommendationsText} ${findings}
+${executiveSummary} ${finalAssessment}`.toLowerCase();
+  components\review-desk\review-assignment-workspace.client.tsx:873:
+  components\review-desk\review-assignment-workspace.client.tsx:874:    const breachMention = searchText.includes("breach");
+  components\review-desk\review-assignment-workspace.client.tsx:875:    const federalMention = searchText.includes("federal") ||
+searchText.includes("investigation");
+  components\review-desk\review-assignment-workspace.client.tsx:876:
+  components\review-desk\review-assignment-workspace.client.tsx:877:    let score = 100;
+  components\review-desk\review-assignment-workspace.client.tsx:878:    score -= criticalFailures * 12;
+  components\review-desk\review-assignment-workspace.client.tsx:879:    score -= partialAnswers * 5;
+  components\review-desk\review-assignment-workspace.client.tsx:880:    score -= missingAnswers * 4;
+  components\review-desk\review-assignment-workspace.client.tsx:881:    score -= openEvidence * 6;
+  components\review-desk\review-assignment-workspace.client.tsx:882:    if (breachMention) score -= 18;
+  components\review-desk\review-assignment-workspace.client.tsx:883:    if (federalMention) score -= 25;
+  components\review-desk\review-assignment-workspace.client.tsx:884:
+  components\review-desk\review-assignment-workspace.client.tsx:885:    score = Math.max(0, Math.min(100, score));
+  components\review-desk\review-assignment-workspace.client.tsx:886:
+> components\review-desk\review-assignment-workspace.client.tsx:887:    let recommendedDecision = "APPROVE";
+  components\review-desk\review-assignment-workspace.client.tsx:888:    let residualRisk = "LOW";
+  components\review-desk\review-assignment-workspace.client.tsx:889:
+  components\review-desk\review-assignment-workspace.client.tsx:890:    if (score < 80) {
+> components\review-desk\review-assignment-workspace.client.tsx:891:      recommendedDecision = "APPROVE_WITH_CONDITIONS";
+  components\review-desk\review-assignment-workspace.client.tsx:892:      residualRisk = "MEDIUM";
+  components\review-desk\review-assignment-workspace.client.tsx:893:    }
+  components\review-desk\review-assignment-workspace.client.tsx:894:
+  components\review-desk\review-assignment-workspace.client.tsx:895:    if (score < 60) {
+> components\review-desk\review-assignment-workspace.client.tsx:896:      recommendedDecision = "ESCALATE";
+  components\review-desk\review-assignment-workspace.client.tsx:897:      residualRisk = "HIGH";
+  components\review-desk\review-assignment-workspace.client.tsx:898:    }
+  components\review-desk\review-assignment-workspace.client.tsx:899:
+  components\review-desk\review-assignment-workspace.client.tsx:900:    if (score < 35) {
+> components\review-desk\review-assignment-workspace.client.tsx:901:      recommendedDecision = "REJECT";
+  components\review-desk\review-assignment-workspace.client.tsx:902:      residualRisk = "CRITICAL";
+  components\review-desk\review-assignment-workspace.client.tsx:903:    }
+  components\review-desk\review-assignment-workspace.client.tsx:904:
+  components\review-desk\review-assignment-workspace.client.tsx:905:    const narrative = [
+  components\review-desk\review-assignment-workspace.client.tsx:906:      `Governance review analyzed ${vendorAnswers.length}
+submitted vendor responses.`,
+  components\review-desk\review-assignment-workspace.client.tsx:907:      criticalFailures ? `${criticalFailures} control responses
+were marked NO.` : null,
+  components\review-desk\review-assignment-workspace.client.tsx:908:      partialAnswers ? `${partialAnswers} controls were
+partially implemented or require validation.` : null,
+  components\review-desk\review-assignment-workspace.client.tsx:909:      missingAnswers ? `${missingAnswers} controls did not
+include a recorded answer.` : null,
+  components\review-desk\review-assignment-workspace.client.tsx:910:      openEvidence ? `${openEvidence} evidence or remediation
+items remain unresolved.` : null,
+  components\review-desk\review-assignment-workspace.client.tsx:911:      breachMention ? "Breach disclosure follow-up is present
+and should be validated before release." : null,
+  components\review-desk\review-assignment-workspace.client.tsx:912:      federalMention ? "Federal investigation follow-up is
+present and should be validated before release." : null,
+  components\review-desk\review-assignment-workspace.client.tsx:913:    ].filter(Boolean).join(" ");
+  components\review-desk\review-assignment-workspace.client.tsx:914:
+  components\review-desk\review-assignment-workspace.client.tsx:915:    return {
+  components\review-desk\review-assignment-workspace.client.tsx:916:      score,
+> components\review-desk\review-assignment-workspace.client.tsx:917:      recommendedDecision,
+  components\review-desk\review-assignment-workspace.client.tsx:918:      residualRisk,
+  components\review-desk\review-assignment-workspace.client.tsx:919:      narrative,
+  components\review-desk\review-assignment-workspace.client.tsx:920:    };
+  components\review-desk\review-assignment-workspace.client.tsx:921:  })();
+  components\review-desk\review-assignment-workspace.client.tsx:922:
+> components\review-desk\review-assignment-workspace.client.tsx:923:  function applyGovernanceRecommendation() {
+> components\review-desk\review-assignment-workspace.client.tsx:924:    setDecision(governanceEngine.recommendedDecision);
+  components\review-desk\review-assignment-workspace.client.tsx:925:    setRiskLevel(governanceEngine.residualRisk);
+  components\review-desk\review-assignment-workspace.client.tsx:926:
+> components\review-desk\review-assignment-workspace.client.tsx:927:    if (!executiveSummary.trim()) {
+> components\review-desk\review-assignment-workspace.client.tsx:928:      setExecutiveSummary(governanceEngine.narrative);
+  components\review-desk\review-assignment-workspace.client.tsx:929:    }
+  components\review-desk\review-assignment-workspace.client.tsx:930:
+  components\review-desk\review-assignment-workspace.client.tsx:931:    if (!finalAssessment.trim()) {
+  components\review-desk\review-assignment-workspace.client.tsx:932:      setFinalAssessment([
+  components\review-desk\review-assignment-workspace.client.tsx:933:        governanceEngine.narrative,
+  components\review-desk\review-assignment-workspace.client.tsx:934:        "",
+> components\review-desk\review-assignment-workspace.client.tsx:935:        `Recommended governance decision:
+${governanceLabel(governanceEngine.recommendedDecision)}.`,
+> components\review-desk\review-assignment-workspace.client.tsx:936:        `Residual risk:
+${governanceLabel(governanceEngine.residualRisk)}.`,
+  components\review-desk\review-assignment-workspace.client.tsx:937:        "Validate evidence posture, remediation status, breach
+disclosures, federal investigation disclosures, and compensating controls before final release.",
+  components\review-desk\review-assignment-workspace.client.tsx:938:      ].join("\n"));
+  components\review-desk\review-assignment-workspace.client.tsx:939:    }
+  components\review-desk\review-assignment-workspace.client.tsx:940:
+> components\review-desk\review-assignment-workspace.client.tsx:941:    if (!recommendationsText.trim()) {
+> components\review-desk\review-assignment-workspace.client.tsx:942:      setRecommendationsText([
+  components\review-desk\review-assignment-workspace.client.tsx:943:        "Confirm whether the vendor organization has been under
+federal investigation within the last 24 months.",
+  components\review-desk\review-assignment-workspace.client.tsx:944:        "Confirm whether the vendor organization has
+experienced a security breach within the last 24 months.",
+  components\review-desk\review-assignment-workspace.client.tsx:945:        "Confirm whether the vendor organization has
+experienced material regulatory action within the last 24 months.",
+> components\review-desk\review-assignment-workspace.client.tsx:946:        "Confirm unresolved litigation, ransomware disclosures,
+SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.",
+  components\review-desk\review-assignment-workspace.client.tsx:947:        "Validate all unresolved evidence and remediation items
+before final release.",
+  components\review-desk\review-assignment-workspace.client.tsx:948:      ].join("\n"));
+  components\review-desk\review-assignment-workspace.client.tsx:949:    }
+  components\review-desk\review-assignment-workspace.client.tsx:950:
+> components\review-desk\review-assignment-workspace.client.tsx:951:    setMessage("Governance recommendation applied.");
+  components\review-desk\review-assignment-workspace.client.tsx:952:  }
+  components\review-desk\review-assignment-workspace.client.tsx:953:
+  components\review-desk\review-assignment-workspace.client.tsx:954:
+  components\review-desk\review-assignment-workspace.client.tsx:955:  useEffect(() => {
+  components\review-desk\review-assignment-workspace.client.tsx:956:    if (!message) return;
+  components\review-desk\review-assignment-workspace.client.tsx:957:
+  components\review-desk\review-assignment-workspace.client.tsx:958:    const timer = window.setTimeout(() => {
+  components\review-desk\review-assignment-workspace.client.tsx:959:      setMessage("");
+  components\review-desk\review-assignment-workspace.client.tsx:960:    }, 4000);
+  components\review-desk\review-assignment-workspace.client.tsx:961:
+  components\review-desk\review-assignment-workspace.client.tsx:962:    return () => window.clearTimeout(timer);
+  components\review-desk\review-assignment-workspace.client.tsx:963:  }, [message]);
+  components\review-desk\review-assignment-workspace.client.tsx:964:
+  components\review-desk\review-assignment-workspace.client.tsx:965:
+  components\review-desk\review-assignment-workspace.client.tsx:966:  async function addAnalyst() {
+  components\review-desk\review-assignment-workspace.client.tsx:1222:
+  components\review-desk\review-assignment-workspace.client.tsx:1223:      const cleanedFinalAssessment = finalAssessment
+  components\review-desk\review-assignment-workspace.client.tsx:1224:        .split("CONDITIONS & FOLLOW-UPS")[0]
+  components\review-desk\review-assignment-workspace.client.tsx:1225:        .trim();
+  components\review-desk\review-assignment-workspace.client.tsx:1226:
+> components\review-desk\review-assignment-workspace.client.tsx:1227:      const cleanedExecutiveSummary = executiveSummary
+> components\review-desk\review-assignment-workspace.client.tsx:1228:        .replace(/GOVERNANCE DECISION[\s\S]*/gi, "")
+> components\review-desk\review-assignment-workspace.client.tsx:1229:        .replace(/Decision:.*$/gim, "")
+> components\review-desk\review-assignment-workspace.client.tsx:1230:        .replace(/Residual risk assessment:.*$/gim, "")
+  components\review-desk\review-assignment-workspace.client.tsx:1231:        .trim();
+  components\review-desk\review-assignment-workspace.client.tsx:1232:
+  components\review-desk\review-assignment-workspace.client.tsx:1233:      const missingReleaseFields = [
+> components\review-desk\review-assignment-workspace.client.tsx:1234:        !cleanedExecutiveSummary ? "Executive summary" : null,
+  components\review-desk\review-assignment-workspace.client.tsx:1235:        !cleanedFinalAssessment ? "Final assessment" : null,
+> components\review-desk\review-assignment-workspace.client.tsx:1236:        !recommendationsText.trim() ? "Conditions &
+follow-ups" : null,
+  components\review-desk\review-assignment-workspace.client.tsx:1237:        !riskLevel ? "Risk level" : null,
+> components\review-desk\review-assignment-workspace.client.tsx:1238:        !decision ? "Governance decision" : null,
+  components\review-desk\review-assignment-workspace.client.tsx:1239:      ].filter(Boolean);
+  components\review-desk\review-assignment-workspace.client.tsx:1240:
+  components\review-desk\review-assignment-workspace.client.tsx:1241:      if (
+  components\review-desk\review-assignment-workspace.client.tsx:1242:        (intent === "COMPLETE" || intent === "RELEASE") &&
+  components\review-desk\review-assignment-workspace.client.tsx:1243:        missingReleaseFields.length
+  components\review-desk\review-assignment-workspace.client.tsx:1244:      ) {
+  components\review-desk\review-assignment-workspace.client.tsx:1245:        setMessage(
+  components\review-desk\review-assignment-workspace.client.tsx:1246:          `Complete these fields before ${intent === "RELEASE"
+? "release" : "completion"}: ${missingReleaseFields.join(", ")}.`,
+  components\review-desk\review-assignment-workspace.client.tsx:1247:        );
+  components\review-desk\review-assignment-workspace.client.tsx:1248:        setSaving(false);
+  components\review-desk\review-assignment-workspace.client.tsx:1249:        return;
+  components\review-desk\review-assignment-workspace.client.tsx:1250:      }
+  components\review-desk\review-assignment-workspace.client.tsx:1251:
+  components\review-desk\review-assignment-workspace.client.tsx:1252:
+  components\review-desk\review-assignment-workspace.client.tsx:1253:      if (
+  components\review-desk\review-assignment-workspace.client.tsx:1260:        setSaving(false);
+  components\review-desk\review-assignment-workspace.client.tsx:1261:        return;
+  components\review-desk\review-assignment-workspace.client.tsx:1262:      }
+  components\review-desk\review-assignment-workspace.client.tsx:1263:      const releaseFindings = [
+  components\review-desk\review-assignment-workspace.client.tsx:1264:        "EXECUTIVE SUMMARY",
+> components\review-desk\review-assignment-workspace.client.tsx:1265:        cleanedExecutiveSummary,
+  components\review-desk\review-assignment-workspace.client.tsx:1266:        "",
+> components\review-desk\review-assignment-workspace.client.tsx:1267:        "GOVERNANCE DECISION",
+> components\review-desk\review-assignment-workspace.client.tsx:1268:        `Decision: ${governanceLabel(decision) || "Pending"}`,
+> components\review-desk\review-assignment-workspace.client.tsx:1269:        `Residual risk assessment:
+${governanceLabel(riskLevel) || "Medium"}`,
+  components\review-desk\review-assignment-workspace.client.tsx:1270:        "",
+  components\review-desk\review-assignment-workspace.client.tsx:1271:        "TRUVERN GOVERNANCE REVIEW",
+  components\review-desk\review-assignment-workspace.client.tsx:1272:        cleanedFinalAssessment,
+  components\review-desk\review-assignment-workspace.client.tsx:1273:        "",
+  components\review-desk\review-assignment-workspace.client.tsx:1274:        "CONDITIONS & FOLLOW-UPS",
+> components\review-desk\review-assignment-workspace.client.tsx:1275:        recommendationsText.trim(),
+  components\review-desk\review-assignment-workspace.client.tsx:1276:      ]
+  components\review-desk\review-assignment-workspace.client.tsx:1277:        .filter((part) => part !== null && part !== undefined)
+  components\review-desk\review-assignment-workspace.client.tsx:1278:        .join("\n");
+  components\review-desk\review-assignment-workspace.client.tsx:1279:
+  components\review-desk\review-assignment-workspace.client.tsx:1280:      const res = await
+fetch(`/api/review-desk/reviews/${assignment.id}/outcome`, {
+  components\review-desk\review-assignment-workspace.client.tsx:1281:        method: "POST",
+  components\review-desk\review-assignment-workspace.client.tsx:1282:        headers: { "content-type": "application/json" },
+  components\review-desk\review-assignment-workspace.client.tsx:1283:        body: JSON.stringify({
+  components\review-desk\review-assignment-workspace.client.tsx:1284:          intent,
+  components\review-desk\review-assignment-workspace.client.tsx:1285:          assignmentType: assignment.assignmentType,
+  components\review-desk\review-assignment-workspace.client.tsx:1286:          riskLevel,
+> components\review-desk\review-assignment-workspace.client.tsx:1287:          decision,
+  components\review-desk\review-assignment-workspace.client.tsx:1288:          findings: releaseFindings,
+  components\review-desk\review-assignment-workspace.client.tsx:1289:          structuredAssessment: {
+  components\review-desk\review-assignment-workspace.client.tsx:1290:
+...(latestOutcome.generatedDraft?.structuredAssessment || {}),
+> components\review-desk\review-assignment-workspace.client.tsx:1291:            executiveSummary: cleanedExecutiveSummary,
+  components\review-desk\review-assignment-workspace.client.tsx:1292:            finalAssessment: cleanedFinalAssessment,
+> components\review-desk\review-assignment-workspace.client.tsx:1293:            conditionsAndFollowUps: recommendationsText
+  components\review-desk\review-assignment-workspace.client.tsx:1294:              .split("\n")
+  components\review-desk\review-assignment-workspace.client.tsx:1295:              .map((v: string) => v.trim())
+  components\review-desk\review-assignment-workspace.client.tsx:1296:              .filter(Boolean),
+  components\review-desk\review-assignment-workspace.client.tsx:1297:          },
+  components\review-desk\review-assignment-workspace.client.tsx:1298:        }),
+  components\review-desk\review-assignment-workspace.client.tsx:1299:      });
+  components\review-desk\review-assignment-workspace.client.tsx:1300:
+  components\review-desk\review-assignment-workspace.client.tsx:1301:      const data = await res.json();
+  components\review-desk\review-assignment-workspace.client.tsx:1302:
+  components\review-desk\review-assignment-workspace.client.tsx:1303:      if (!res.ok || !data?.ok) {
+  components\review-desk\review-assignment-workspace.client.tsx:1304:        throw new Error(data?.error || "Failed to save
+outcome.");
+  components\review-desk\review-assignment-workspace.client.tsx:1305:      }
+  components\review-desk\review-assignment-workspace.client.tsx:1306:
+  components\review-desk\review-assignment-workspace.client.tsx:1307:      setMessage(
+  components\review-desk\review-assignment-workspace.client.tsx:1308:        intent === "SAVE_DRAFT"
+  components\review-desk\review-assignment-workspace.client.tsx:1735:              className="mt-1 h-4 w-4 rounded border-white/20
+bg-slate-950 text-cyan-400"
+  components\review-desk\review-assignment-workspace.client.tsx:1736:            />
+  components\review-desk\review-assignment-workspace.client.tsx:1737:
+  components\review-desk\review-assignment-workspace.client.tsx:1738:            <span className="leading-6">
+  components\review-desk\review-assignment-workspace.client.tsx:1739:              {isTruvern
+> components\review-desk\review-assignment-workspace.client.tsx:1740:                ? "I acknowledge that Truvern governance
+outcomes are operational governance assessments and not legal guarantees, certifications, warranties, or regulatory attestations. I
+also understand that Truvern Review credits may still be charged once the service request is accepted, questionnaire delivery
+begins, or vendor work has been initiated, even if I later cancel or revoke the request. Final governance responsibility remains
+with my organization."
+  components\review-desk\review-assignment-workspace.client.tsx:1741:                : "I acknowledge I am approving or finalizing
+this governance outcome as an authorized Truvern operator on behalf of this workspace."}
+  components\review-desk\review-assignment-workspace.client.tsx:1742:            </span>
+  components\review-desk\review-assignment-workspace.client.tsx:1743:          </label>
+  components\review-desk\review-assignment-workspace.client.tsx:1744:
+  components\review-desk\review-assignment-workspace.client.tsx:1745:          <button
+  components\review-desk\review-assignment-workspace.client.tsx:1746:            type="button"
+  components\review-desk\review-assignment-workspace.client.tsx:1747:            disabled={saving || !acceptedAcknowledgement}
+  components\review-desk\review-assignment-workspace.client.tsx:1748:            onClick={confirmRelease}
+  components\review-desk\review-assignment-workspace.client.tsx:1749:            className="mt-5 rounded-2xl border
+border-amber-300/20 bg-amber-400/10 px-5 py-3 text-sm font-semibold text-amber-50 hover:bg-amber-400/15 disabled:cursor-not-allowed
+disabled:opacity-50"
+  components\review-desk\review-assignment-workspace.client.tsx:1750:          >
+  components\review-desk\review-assignment-workspace.client.tsx:1751:            {saving ? "Confirming..." : "Approve review"}
+  components\review-desk\review-assignment-workspace.client.tsx:1752:          </button>
+  components\review-desk\review-assignment-workspace.client.tsx:1753:        </div>
+  components\review-desk\review-assignment-workspace.client.tsx:1754:      ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:1755:
+  components\review-desk\review-assignment-workspace.client.tsx:1966:            >
+  components\review-desk\review-assignment-workspace.client.tsx:1967:              View manifest
+  components\review-desk\review-assignment-workspace.client.tsx:1968:            </a>
+  components\review-desk\review-assignment-workspace.client.tsx:1969:
+  components\review-desk\review-assignment-workspace.client.tsx:1970:            <a
+> components\review-desk\review-assignment-workspace.client.tsx:1971:
+href={`/api/review-desk/reviews/${assignment.id}/attestation`}
+  components\review-desk\review-assignment-workspace.client.tsx:1972:              target="_blank"
+  components\review-desk\review-assignment-workspace.client.tsx:1973:              rel="noreferrer"
+  components\review-desk\review-assignment-workspace.client.tsx:1974:              className="rounded-2xl border border-teal-400/30
+bg-teal-500/15 px-5 py-3 text-sm font-semibold text-teal-50 hover:bg-teal-500/20"
+  components\review-desk\review-assignment-workspace.client.tsx:1975:            >
+> components\review-desk\review-assignment-workspace.client.tsx:1976:              Download attestation
+  components\review-desk\review-assignment-workspace.client.tsx:1977:            </a>
+  components\review-desk\review-assignment-workspace.client.tsx:1978:
+  components\review-desk\review-assignment-workspace.client.tsx:1979:            <a
+  components\review-desk\review-assignment-workspace.client.tsx:1980:              href="/review-desk"
+  components\review-desk\review-assignment-workspace.client.tsx:1981:              className="rounded-2xl border border-white/10
+bg-white/[0.05] px-5 py-3 text-sm font-semibold text-white hover:bg-white/[0.08]"
+  components\review-desk\review-assignment-workspace.client.tsx:1982:            >
+  components\review-desk\review-assignment-workspace.client.tsx:1983:              {isFreeSelfManagedWorkspace ? "Return to
+Reviews" : "Return to Governance Ops"}
+  components\review-desk\review-assignment-workspace.client.tsx:1984:            </a>
+  components\review-desk\review-assignment-workspace.client.tsx:1985:          </div>
+  components\review-desk\review-assignment-workspace.client.tsx:1986:          <div className="mt-8 rounded-3xl border
+border-white/10 bg-black/20 p-6">
+  components\review-desk\review-assignment-workspace.client.tsx:1987:            <p className="text-xs uppercase tracking-[0.22em]
+text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:1988:              Governance archival lifecycle
+  components\review-desk\review-assignment-workspace.client.tsx:1989:            </p>
+  components\review-desk\review-assignment-workspace.client.tsx:1990:
+  components\review-desk\review-assignment-workspace.client.tsx:1991:            <div className="mt-5 flex flex-wrap gap-3 text-xs">
+  components\review-desk\review-assignment-workspace.client.tsx:2118:                            ))}
+  components\review-desk\review-assignment-workspace.client.tsx:2119:                          </ul>
+  components\review-desk\review-assignment-workspace.client.tsx:2120:                        </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2121:                      ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2122:
+> components\review-desk\review-assignment-workspace.client.tsx:2123:                      {Array.isArray((request as
+any).requiredAttestation) &&
+> components\review-desk\review-assignment-workspace.client.tsx:2124:                      (request as
+any).requiredAttestation.length > 0 ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2125:                        <div className="mt-3 rounded-xl border
+border-violet-400/15 bg-violet-400/5 p-3">
+  components\review-desk\review-assignment-workspace.client.tsx:2126:                          <p className="text-xs font-semibold
+uppercase tracking-[0.18em] text-violet-200">
+> components\review-desk\review-assignment-workspace.client.tsx:2127:                            Required attestation
+  components\review-desk\review-assignment-workspace.client.tsx:2128:                          </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2129:                          <ul className="mt-2 list-disc
+space-y-1 pl-5 text-sm text-violet-50">
+> components\review-desk\review-assignment-workspace.client.tsx:2130:                            {(request as
+any).requiredAttestation.map((item: any, index: number) => (
+> components\review-desk\review-assignment-workspace.client.tsx:2131:                              <li
+key={`attestation-${request.id}-${index}`}>{String(item)}</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2132:                            ))}
+  components\review-desk\review-assignment-workspace.client.tsx:2133:                          </ul>
+  components\review-desk\review-assignment-workspace.client.tsx:2134:                        </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2135:                      ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2136:                    </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2137:
+  components\review-desk\review-assignment-workspace.client.tsx:2138:                    <div className="space-y-3 rounded-xl
+border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-200">
+  components\review-desk\review-assignment-workspace.client.tsx:2139:                      <div>
+  components\review-desk\review-assignment-workspace.client.tsx:2140:                        {isResolved
+  components\review-desk\review-assignment-workspace.client.tsx:2141:                          ? "Vendor evidence received. Ready
+for validation."
+  components\review-desk\review-assignment-workspace.client.tsx:2142:                          : "Awaiting vendor remediation
+response."}
+  components\review-desk\review-assignment-workspace.client.tsx:2143:                      </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2144:                      {submittedEvidence?.fulfilledEvidenceId
+? (
+  components\review-desk\review-assignment-workspace.client.tsx:2145:                        <div className="rounded-xl border
+border-emerald-400/20 bg-emerald-400/10 p-3">
+  components\review-desk\review-assignment-workspace.client.tsx:2146:                          <p className="text-[10px]
+font-semibold uppercase tracking-[0.2em] text-emerald-200">
+  components\review-desk\review-assignment-workspace.client.tsx:2268:          </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2269:
+  components\review-desk\review-assignment-workspace.client.tsx:2270:          <div className="mt-5 grid gap-4 md:grid-cols-2
+2xl:grid-cols-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2271:  <div className="rounded-2xl border border-amber-400/20
+bg-amber-500/10 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2272:    <p className="text-xs uppercase tracking-[0.22em]
+text-amber-200">
+> components\review-desk\review-assignment-workspace.client.tsx:2273:      Residual risk
+  components\review-desk\review-assignment-workspace.client.tsx:2274:    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2275:
+  components\review-desk\review-assignment-workspace.client.tsx:2276:    <p className="mt-3 text-2xl font-semibold text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2277:      {governanceLabel(riskLevel) || "Not set"}
+  components\review-desk\review-assignment-workspace.client.tsx:2278:    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2279:  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2280:
+  components\review-desk\review-assignment-workspace.client.tsx:2281:  <div className="rounded-2xl border border-cyan-400/20
+bg-cyan-500/10 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2282:    <p className="text-xs uppercase tracking-[0.22em]
+text-cyan-200">
+> components\review-desk\review-assignment-workspace.client.tsx:2283:      Governance decision
+  components\review-desk\review-assignment-workspace.client.tsx:2284:    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2285:
+  components\review-desk\review-assignment-workspace.client.tsx:2286:    <p className="mt-3 text-2xl font-semibold text-white">
+> components\review-desk\review-assignment-workspace.client.tsx:2287:      {governanceLabel(decision) || "Pending"}
+  components\review-desk\review-assignment-workspace.client.tsx:2288:    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2289:  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2290:
+  components\review-desk\review-assignment-workspace.client.tsx:2291:  <div className="rounded-2xl border border-violet-400/20
+bg-violet-500/10 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2292:    <p className="text-xs uppercase tracking-[0.22em]
+text-violet-200">
+  components\review-desk\review-assignment-workspace.client.tsx:2293:      Release state
+  components\review-desk\review-assignment-workspace.client.tsx:2294:    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2295:
+  components\review-desk\review-assignment-workspace.client.tsx:2296:    <p className="mt-3 text-2xl font-semibold text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2297:      {governanceLabel(releaseState) || "Draft"}
+  components\review-desk\review-assignment-workspace.client.tsx:2298:    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2299:  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2300:
+  components\review-desk\review-assignment-workspace.client.tsx:2301:  <div className="rounded-2xl border border-emerald-400/20
+bg-emerald-500/10 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2302:    <p className="text-xs uppercase tracking-[0.22em]
+text-emerald-200">
+  components\review-desk\review-assignment-workspace.client.tsx:2353:              <label className="text-xs uppercase
+tracking-[0.25em] text-violet-200">
+  components\review-desk\review-assignment-workspace.client.tsx:2354:                Executive summary
+  components\review-desk\review-assignment-workspace.client.tsx:2355:              </label>
+  components\review-desk\review-assignment-workspace.client.tsx:2356:              <textarea
+  components\review-desk\review-assignment-workspace.client.tsx:2357:                disabled={editingLocked}
+> components\review-desk\review-assignment-workspace.client.tsx:2358:                value={executiveSummary}
+> components\review-desk\review-assignment-workspace.client.tsx:2359:                onChange={(e) =>
+setExecutiveSummary(e.target.value)}
+  components\review-desk\review-assignment-workspace.client.tsx:2360:                rows={5}
+  components\review-desk\review-assignment-workspace.client.tsx:2361:                className="mt-3 w-full rounded-2xl border
+border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white disabled:cursor-not-allowed disabled:opacity-70"
+  components\review-desk\review-assignment-workspace.client.tsx:2362:              />
+  components\review-desk\review-assignment-workspace.client.tsx:2363:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2364:
+  components\review-desk\review-assignment-workspace.client.tsx:2365:            <div className="rounded-2xl border border-white/10
+bg-slate-950/40 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:2366:              <label className="text-xs uppercase
+tracking-[0.25em] text-violet-200">
+  components\review-desk\review-assignment-workspace.client.tsx:2367:                Final assessment
+  components\review-desk\review-assignment-workspace.client.tsx:2368:              </label>
+  components\review-desk\review-assignment-workspace.client.tsx:2369:              <textarea
+  components\review-desk\review-assignment-workspace.client.tsx:2370:                disabled={editingLocked}
+  components\review-desk\review-assignment-workspace.client.tsx:2371:                value={finalAssessment}
+  components\review-desk\review-assignment-workspace.client.tsx:2372:                onChange={(e) =>
+setFinalAssessment(e.target.value)}
+  components\review-desk\review-assignment-workspace.client.tsx:2373:                rows={10}
+  components\review-desk\review-assignment-workspace.client.tsx:2374:                className="mt-3 w-full rounded-2xl border
+border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white disabled:cursor-not-allowed disabled:opacity-70"
+  components\review-desk\review-assignment-workspace.client.tsx:2379:              <label className="text-xs uppercase
+tracking-[0.25em] text-violet-200">
+  components\review-desk\review-assignment-workspace.client.tsx:2380:                Conditions & follow-ups
+  components\review-desk\review-assignment-workspace.client.tsx:2381:              </label>
+  components\review-desk\review-assignment-workspace.client.tsx:2382:              <textarea
+  components\review-desk\review-assignment-workspace.client.tsx:2383:                disabled={editingLocked}
+> components\review-desk\review-assignment-workspace.client.tsx:2384:                value={recommendationsText}
+> components\review-desk\review-assignment-workspace.client.tsx:2385:                onChange={(e) =>
+setRecommendationsText(e.target.value)}
+  components\review-desk\review-assignment-workspace.client.tsx:2386:                rows={6}
+  components\review-desk\review-assignment-workspace.client.tsx:2387:                className="mt-3 w-full rounded-2xl border
+border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white disabled:cursor-not-allowed disabled:opacity-70"
+  components\review-desk\review-assignment-workspace.client.tsx:2388:              />
+  components\review-desk\review-assignment-workspace.client.tsx:2389:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2390:
+  components\review-desk\review-assignment-workspace.client.tsx:2391:
+  components\review-desk\review-assignment-workspace.client.tsx:2392:          </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2393:
+  components\review-desk\review-assignment-workspace.client.tsx:2394:          {!editingLocked ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2395:            <div
+  components\review-desk\review-assignment-workspace.client.tsx:2396:              className={`mt-5 rounded-2xl border p-4 text-sm
+${
+  components\review-desk\review-assignment-workspace.client.tsx:2397:                Boolean(evidenceSummary.releaseBlocked &&
+(evidenceSummary.openRemediationRequests ?? 0) > 0)
+  components\review-desk\review-assignment-workspace.client.tsx:2398:                  ? "border-amber-500/40 bg-amber-500/10
+text-amber-100"
+  components\review-desk\review-assignment-workspace.client.tsx:2399:                  : "border-amber-400/20 bg-amber-500/10
+text-amber-50"
+  components\review-desk\review-assignment-workspace.client.tsx:2400:              }`}
+  components\review-desk\review-assignment-workspace.client.tsx:2401:            >
+  components\review-desk\review-assignment-workspace.client.tsx:2402:              {Boolean(evidenceSummary.releaseBlocked &&
+(evidenceSummary.openRemediationRequests ?? 0) > 0)
+  components\review-desk\review-assignment-workspace.client.tsx:2403:                ? `Release blocked: ${lifecycleOpenBlockers}
+unresolved remediation request${
+  components\review-desk\review-assignment-workspace.client.tsx:2404:                    (evidenceSummary.openRemediationRequests
+?? 0) === 1 ? "" : "s"
+  components\review-desk\review-assignment-workspace.client.tsx:2405:                  } must be resolved before governance
+release.`
+> components\review-desk\review-assignment-workspace.client.tsx:2406:                : "Release readiness requires executive
+summary, final assessment, conditions, risk level, and governance decision before completion or release."}
+  components\review-desk\review-assignment-workspace.client.tsx:2407:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2408:          ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2409:
+  components\review-desk\review-assignment-workspace.client.tsx:2410:          {!editingLocked ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2411:            <div className="mt-5 flex flex-wrap gap-3">
+  components\review-desk\review-assignment-workspace.client.tsx:2412:              {canGenerateTruvernDraft ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2413:                <button
+  components\review-desk\review-assignment-workspace.client.tsx:2414:                  type="button"
+  components\review-desk\review-assignment-workspace.client.tsx:2415:                  disabled={generatingDraft || saving}
+  components\review-desk\review-assignment-workspace.client.tsx:2416:                  onClick={generateDraft}
+  components\review-desk\review-assignment-workspace.client.tsx:2417:                  className="rounded-2xl border
+border-violet-300/20 bg-violet-400/10 px-5 py-3 text-sm font-semibold text-violet-50 hover:bg-violet-400/15 disabled:opacity-50"
+  components\review-desk\review-assignment-workspace.client.tsx:2418:                >
+  components\review-desk\review-assignment-workspace.client.tsx:2419:                  {generatingDraft ? "Generating
+assessment..." : "Generate assessment"}
+  components\review-desk\review-assignment-workspace.client.tsx:2420:                </button>
+  components\review-desk\review-assignment-workspace.client.tsx:2421:              ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2556:
+  components\review-desk\review-assignment-workspace.client.tsx:2557:                  <ul className="mt-3 space-y-2 text-sm
+leading-7 text-emerald-50">
+  components\review-desk\review-assignment-workspace.client.tsx:2558:                    <li>• Governance releases are archived
+into immutable audit history.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2559:                    <li>• Historical governance records remain
+accessible for longitudinal review.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2560:                    <li>• Release integrity is protected
+through deterministic governance snapshots.</li>
+> components\review-desk\review-assignment-workspace.client.tsx:2561:                    <li>• Future cryptographic attestation
+support can extend external verification.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2562:                  </ul>
+  components\review-desk\review-assignment-workspace.client.tsx:2563:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2564:
+  components\review-desk\review-assignment-workspace.client.tsx:2565:                <div className="mt-5 rounded-2xl border
+border-white/10 bg-black/20 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:2566:                  <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2567:                    Governance release lifecycle
+  components\review-desk\review-assignment-workspace.client.tsx:2568:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2569:
+  components\review-desk\review-assignment-workspace.client.tsx:2570:                  <div className="mt-4 flex flex-wrap gap-3
+text-xs">
+  components\review-desk\review-assignment-workspace.client.tsx:2571:                    <span className="rounded-full border
+border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-cyan-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2572:                      Assessment completed
+  components\review-desk\review-assignment-workspace.client.tsx:2573:                    </span>
+  components\review-desk\review-assignment-workspace.client.tsx:2574:
+  components\review-desk\review-assignment-workspace.client.tsx:2575:                    <span className="rounded-full border
+border-amber-300/20 bg-amber-400/10 px-3 py-1 text-amber-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2576:                      Governance reviewed
+  components\review-desk\review-assignment-workspace.client.tsx:2577:                    </span>
+  components\review-desk\review-assignment-workspace.client.tsx:2578:
+  components\review-desk\review-assignment-workspace.client.tsx:2579:                    <span className="rounded-full border
+border-purple-300/20 bg-purple-400/10 px-3 py-1 text-purple-100">
+> components\review-desk\review-assignment-workspace.client.tsx:2580:                      Customer attestation
+  components\review-desk\review-assignment-workspace.client.tsx:2581:                    </span>
+  components\review-desk\review-assignment-workspace.client.tsx:2582:
+  components\review-desk\review-assignment-workspace.client.tsx:2583:                    <span className="rounded-full border
+border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-emerald-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2584:                      Immutable archival
+  components\review-desk\review-assignment-workspace.client.tsx:2585:                    </span>
+  components\review-desk\review-assignment-workspace.client.tsx:2586:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2587:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2588:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2589:              {/* CUSTOMER_APPROVAL_RAIL */}
+  components\review-desk\review-assignment-workspace.client.tsx:2590:              <div className="mt-6 rounded-3xl border
+border-emerald-400/20 bg-emerald-500/10 p-6">
+  components\review-desk\review-assignment-workspace.client.tsx:2591:                <p className="text-xs uppercase
+tracking-[0.28em] text-emerald-200">
+> components\review-desk\review-assignment-workspace.client.tsx:2592:                  {canUseGovernanceRelease ? <>Release
+approval rail</> : "Upgrade required"}
+  components\review-desk\review-assignment-workspace.client.tsx:2593:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2594:
+  components\review-desk\review-assignment-workspace.client.tsx:2595:                <div className="mt-5 grid gap-4 md:grid-cols-2
+xl:grid-cols-5">
+  components\review-desk\review-assignment-workspace.client.tsx:2596:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2597:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2598:                      Release state
+  components\review-desk\review-assignment-workspace.client.tsx:2599:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2600:                    <p className="mt-2 text-sm font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2601:                      {releaseState || "Awaiting confirmation"}
+  components\review-desk\review-assignment-workspace.client.tsx:2602:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2603:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2604:
+  components\review-desk\review-assignment-workspace.client.tsx:2605:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2606:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2607:                      Risk
+  components\review-desk\review-assignment-workspace.client.tsx:2611:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2612:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2613:
+  components\review-desk\review-assignment-workspace.client.tsx:2614:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2615:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:2616:                      Decision
+  components\review-desk\review-assignment-workspace.client.tsx:2617:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2618:                    <p className="mt-2 text-sm font-semibold
+text-cyan-100">
+> components\review-desk\review-assignment-workspace.client.tsx:2619:                      {decision || "Not recorded"}
+  components\review-desk\review-assignment-workspace.client.tsx:2620:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2621:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2622:
+  components\review-desk\review-assignment-workspace.client.tsx:2623:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2624:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2625:                      History
+  components\review-desk\review-assignment-workspace.client.tsx:2626:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2627:                    <p className="mt-2 text-sm font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2628:                      {governanceMemory.length} releases
+  components\review-desk\review-assignment-workspace.client.tsx:2629:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2630:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2631:
+  components\review-desk\review-assignment-workspace.client.tsx:2632:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2633:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2634:                      Integrity
+  components\review-desk\review-assignment-workspace.client.tsx:2660:                  metadata before approving this review into
+audit history.
+  components\review-desk\review-assignment-workspace.client.tsx:2661:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2662:
+  components\review-desk\review-assignment-workspace.client.tsx:2663:                <div className="mt-6 grid gap-4
+lg:grid-cols-2">
+  components\review-desk\review-assignment-workspace.client.tsx:2664:                  {[
+> components\review-desk\review-assignment-workspace.client.tsx:2665:                    ["Executive summary", executiveSummary ||
+"No executive summary recorded."],
+  components\review-desk\review-assignment-workspace.client.tsx:2666:                    ["Findings", findings || "No findings
+recorded."],
+> components\review-desk\review-assignment-workspace.client.tsx:2667:                    ["Conditions & follow-ups",
+recommendationsText || "No release conditions recorded."],
+  components\review-desk\review-assignment-workspace.client.tsx:2668:                    ["Final assessment", finalAssessment ||
+"No final assessment recorded."],
+  components\review-desk\review-assignment-workspace.client.tsx:2669:                  ].map(([title, body]) => (
+  components\review-desk\review-assignment-workspace.client.tsx:2670:                    <details
+  components\review-desk\review-assignment-workspace.client.tsx:2671:                      key={title}
+  components\review-desk\review-assignment-workspace.client.tsx:2672:                      className="rounded-2xl border
+border-white/10 bg-slate-950/60 p-4"
+  components\review-desk\review-assignment-workspace.client.tsx:2673:                    >
+  components\review-desk\review-assignment-workspace.client.tsx:2674:                      <summary className="cursor-pointer
+text-sm font-semibold text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2675:                        {title}
+  components\review-desk\review-assignment-workspace.client.tsx:2676:                      </summary>
+  components\review-desk\review-assignment-workspace.client.tsx:2677:
+  components\review-desk\review-assignment-workspace.client.tsx:2678:                      <div className="mt-3 whitespace-pre-wrap
+text-sm leading-7 text-slate-300">
+  components\review-desk\review-assignment-workspace.client.tsx:2679:                        {body}
+  components\review-desk\review-assignment-workspace.client.tsx:2680:                      </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2681:                    </details>
+  components\review-desk\review-assignment-workspace.client.tsx:2682:                  ))}
+  components\review-desk\review-assignment-workspace.client.tsx:2683:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2684:
+  components\review-desk\review-assignment-workspace.client.tsx:2685:                <div className="mt-5 grid gap-4
+lg:grid-cols-3">
+  components\review-desk\review-assignment-workspace.client.tsx:2686:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2687:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:2688:                      Residual risk
+  components\review-desk\review-assignment-workspace.client.tsx:2689:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2690:
+  components\review-desk\review-assignment-workspace.client.tsx:2691:                    <p className="mt-2 text-lg font-semibold
+text-amber-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2692:                      {riskLevel || "Not recorded"}
+  components\review-desk\review-assignment-workspace.client.tsx:2693:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2694:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2695:
+  components\review-desk\review-assignment-workspace.client.tsx:2696:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2697:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:2698:                      Governance decision
+  components\review-desk\review-assignment-workspace.client.tsx:2699:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2700:
+  components\review-desk\review-assignment-workspace.client.tsx:2701:                    <p className="mt-2 text-lg font-semibold
+text-cyan-100">
+> components\review-desk\review-assignment-workspace.client.tsx:2702:                      {decision || "Not recorded"}
+  components\review-desk\review-assignment-workspace.client.tsx:2703:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2704:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2705:
+  components\review-desk\review-assignment-workspace.client.tsx:2706:                  <div className="rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2707:                    <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2708:                      Governance history
+  components\review-desk\review-assignment-workspace.client.tsx:2709:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2710:
+  components\review-desk\review-assignment-workspace.client.tsx:2711:                    <p className="mt-2 text-lg font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2712:                      {governanceMemory.length} prior
+release{governanceMemory.length === 1 ? "" : "s"}
+  components\review-desk\review-assignment-workspace.client.tsx:2713:                    </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2714:                  </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2715:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2716:
+  components\review-desk\review-assignment-workspace.client.tsx:2717:                <div className="mt-5 rounded-2xl border
+border-amber-400/20 bg-amber-500/10 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2718:                  <p className="text-xs uppercase
+tracking-[0.22em] text-amber-200">
+> components\review-desk\review-assignment-workspace.client.tsx:2719:                    Leadership attestation before approval
+  components\review-desk\review-assignment-workspace.client.tsx:2720:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2721:
+  components\review-desk\review-assignment-workspace.client.tsx:2722:                  <ul className="mt-3 space-y-2 text-sm
+leading-6 text-amber-50">
+  components\review-desk\review-assignment-workspace.client.tsx:2723:                    <li>• Customer reviewed governance
+findings and assessment details.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2724:                    <li>• Customer reviewed release conditions
+and disclosure follow-ups.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2725:                    <li>• Customer understands approval
+finalizes the governance artifact.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2726:                    <li>• Customer understands this is not a
+legal certification or warranty.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:2727:                  </ul>
+  components\review-desk\review-assignment-workspace.client.tsx:2728:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2729:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2730:        </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2731:      ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2732:
+  components\review-desk\review-assignment-workspace.client.tsx:2733:      {/* VENDOR_GOVERNANCE_HISTORY_PANEL */}
+  components\review-desk\review-assignment-workspace.client.tsx:2734:      {!truvernCustomerView && activeWorkspaceTab ===
+"history" ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2756:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2757:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2758:
+  components\review-desk\review-assignment-workspace.client.tsx:2759:            <div className="rounded-2xl border border-white/10
+bg-slate-950/70 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2760:              <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:2761:                Last decision
+  components\review-desk\review-assignment-workspace.client.tsx:2762:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2763:              <p className="mt-2 text-sm font-semibold
+text-cyan-100">
+> components\review-desk\review-assignment-workspace.client.tsx:2764:                {governanceMemory[0]?.governanceDecision ||
+"No history"}
+  components\review-desk\review-assignment-workspace.client.tsx:2765:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2766:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2767:
+  components\review-desk\review-assignment-workspace.client.tsx:2768:            <div className="rounded-2xl border border-white/10
+bg-slate-950/70 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2769:              <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:2770:                Last residual risk
+  components\review-desk\review-assignment-workspace.client.tsx:2771:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2772:              <p className="mt-2 text-sm font-semibold
+text-amber-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2773:                {governanceMemory[0]?.residualRisk || "No
+history"}
+  components\review-desk\review-assignment-workspace.client.tsx:2774:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2775:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2776:          </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2777:
+  components\review-desk\review-assignment-workspace.client.tsx:2778:          <div className="mt-5 rounded-2xl border
+border-white/10 bg-black/20 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:2779:            <div className="flex flex-col gap-3 lg:flex-row
+lg:items-start lg:justify-between">
+  components\review-desk\review-assignment-workspace.client.tsx:2780:              <div>
+  components\review-desk\review-assignment-workspace.client.tsx:2781:                <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2782:                  Governance drift
+  components\review-desk\review-assignment-workspace.client.tsx:2783:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2784:                <p className="mt-2 text-lg font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2785:                  {governanceDrift.trend}
+  components\review-desk\review-assignment-workspace.client.tsx:2810:                  className="rounded-2xl border
+border-white/10 bg-black/20 p-4"
+  components\review-desk\review-assignment-workspace.client.tsx:2811:                >
+  components\review-desk\review-assignment-workspace.client.tsx:2812:                  <div className="flex flex-col gap-3
+lg:flex-row lg:items-start lg:justify-between">
+  components\review-desk\review-assignment-workspace.client.tsx:2813:                    <div>
+  components\review-desk\review-assignment-workspace.client.tsx:2814:                      <p className="text-sm font-semibold
+text-white">
+> components\review-desk\review-assignment-workspace.client.tsx:2815:                        {memory.governanceDecision ||
+"Governance release"}
+  components\review-desk\review-assignment-workspace.client.tsx:2816:                      </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2817:                      <p className="mt-1 text-xs
+text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:2818:                        {memory.createdAt ?
+formatDate(memory.createdAt) : "Date unavailable"}
+  components\review-desk\review-assignment-workspace.client.tsx:2819:                      </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2820:                    </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2821:
+  components\review-desk\review-assignment-workspace.client.tsx:2822:                    <div className="flex flex-wrap gap-2
+text-xs">
+  components\review-desk\review-assignment-workspace.client.tsx:2823:                      <span className="rounded-full border
+border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-cyan-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2824:                        Score {memory.governanceScore ?? "—"}
+  components\review-desk\review-assignment-workspace.client.tsx:2825:                      </span>
+  components\review-desk\review-assignment-workspace.client.tsx:2826:                      <span className="rounded-full border
+border-amber-300/20 bg-amber-400/10 px-3 py-1 text-amber-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2827:                        Risk {memory.residualRisk || "—"}
+  components\review-desk\review-assignment-workspace.client.tsx:2828:                      </span>
+  components\review-desk\review-assignment-workspace.client.tsx:2829:                      {memory.breachDisclosureDetected ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2830:                        <span className="rounded-full border
+border-red-300/20 bg-red-400/10 px-3 py-1 text-red-100">
+  components\review-desk\review-assignment-workspace.client.tsx:2881:              <div className="mt-2 text-lg font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:2882:                Upgrade to generate the assessment
+automatically
+  components\review-desk\review-assignment-workspace.client.tsx:2883:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2884:              <p className="mt-2 text-amber-50/90">
+  components\review-desk\review-assignment-workspace.client.tsx:2885:                Automated findings generation creates the
+executive summary, risk rating,
+> components\review-desk\review-assignment-workspace.client.tsx:2886:                findings, remediation recommendations,
+governance decision, and board-ready
+  components\review-desk\review-assignment-workspace.client.tsx:2887:                assessment outcome from submitted
+questionnaires.
+  components\review-desk\review-assignment-workspace.client.tsx:2888:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2889:              <div className="mt-4 flex flex-wrap gap-3">
+  components\review-desk\review-assignment-workspace.client.tsx:2890:                <a
+  components\review-desk\review-assignment-workspace.client.tsx:2891:                  href="/plans"
+  components\review-desk\review-assignment-workspace.client.tsx:2892:                  className="rounded-2xl border
+border-amber-200/30 bg-amber-300/15 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-300/20"
+  components\review-desk\review-assignment-workspace.client.tsx:2893:                >
+  components\review-desk\review-assignment-workspace.client.tsx:2894:                  View plans
+  components\review-desk\review-assignment-workspace.client.tsx:2895:                </a>
+  components\review-desk\review-assignment-workspace.client.tsx:2896:                <span className="rounded-2xl border
+border-white/10 bg-black/20 px-4 py-2 text-sm text-amber-50/80">
+  components\review-desk\review-assignment-workspace.client.tsx:2897:                  Pro and Enterprise plans
+  components\review-desk\review-assignment-workspace.client.tsx:2898:                </span>
+  components\review-desk\review-assignment-workspace.client.tsx:2899:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2900:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2901:          ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2902:
+> components\review-desk\review-assignment-workspace.client.tsx:2903:          {findings.trim() || riskLevel || decision ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2904:            <div className="rounded-3xl border
+border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm font-semibold text-emerald-50">
+  components\review-desk\review-assignment-workspace.client.tsx:2905:              Truvern Findings Engine generated and saved this
+assessment successfully.
+  components\review-desk\review-assignment-workspace.client.tsx:2906:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2907:          ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2908:          {canUseFindingsEngine ? (
+  components\review-desk\review-assignment-workspace.client.tsx:2909:          <FindingsOutcomePanel
+  components\review-desk\review-assignment-workspace.client.tsx:2910:            assignmentId={Number((assignment as any).id)}
+  components\review-desk\review-assignment-workspace.client.tsx:2911:            responses={
+  components\review-desk\review-assignment-workspace.client.tsx:2912:
+((latestOutcome?.generatedDraft?.structuredAssessment as any) ?? {})
+  components\review-desk\review-assignment-workspace.client.tsx:2913:            }
+  components\review-desk\review-assignment-workspace.client.tsx:2914:            riskLevel={riskLevel}
+> components\review-desk\review-assignment-workspace.client.tsx:2915:            decision={decision}
+  components\review-desk\review-assignment-workspace.client.tsx:2916:            reviewFindings={findings}
+> components\review-desk\review-assignment-workspace.client.tsx:2917:            executiveSummary={executiveSummary}
+  components\review-desk\review-assignment-workspace.client.tsx:2918:            finalAssessment={finalAssessment}
+  components\review-desk\review-assignment-workspace.client.tsx:2919:            canRerunIntelligence={canUseFindingsEngine}
+  components\review-desk\review-assignment-workspace.client.tsx:2920:          />
+  components\review-desk\review-assignment-workspace.client.tsx:2921:          ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2922:        </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2923:      ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:2924:      <div
+  components\review-desk\review-assignment-workspace.client.tsx:2925:        className={`mt-5 rounded-3xl border border-white/10
+bg-slate-950/30 p-6 ${
+  components\review-desk\review-assignment-workspace.client.tsx:2926:          canUseFindingsEngine ? "hidden" : ""
+  components\review-desk\review-assignment-workspace.client.tsx:2927:        }`}
+  components\review-desk\review-assignment-workspace.client.tsx:2928:      >
+  components\review-desk\review-assignment-workspace.client.tsx:2929:          <p className="text-[10px] uppercase
+tracking-[0.28em] text-cyan-200/90">
+  components\review-desk\review-assignment-workspace.client.tsx:2930:            Findings and outcome
+  components\review-desk\review-assignment-workspace.client.tsx:2931:          </p>
+  components\review-desk\review-assignment-workspace.client.tsx:2932:
+  components\review-desk\review-assignment-workspace.client.tsx:2972:                <option value="CRITICAL">Critical</option>
+  components\review-desk\review-assignment-workspace.client.tsx:2973:              </select>
+  components\review-desk\review-assignment-workspace.client.tsx:2974:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2975:
+  components\review-desk\review-assignment-workspace.client.tsx:2976:            <div>
+> components\review-desk\review-assignment-workspace.client.tsx:2977:              <label className="text-sm font-medium
+text-slate-200">Decision</label>
+  components\review-desk\review-assignment-workspace.client.tsx:2978:              <select
+  components\review-desk\review-assignment-workspace.client.tsx:2979:                disabled={editingLocked}
+> components\review-desk\review-assignment-workspace.client.tsx:2980:                value={decision}
+> components\review-desk\review-assignment-workspace.client.tsx:2981:                onChange={(e) => setDecision(e.target.value)}
+  components\review-desk\review-assignment-workspace.client.tsx:2982:                className="mt-2 w-full rounded-2xl border
+border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-70"
+  components\review-desk\review-assignment-workspace.client.tsx:2983:              >
+> components\review-desk\review-assignment-workspace.client.tsx:2984:                <option value="">Select decision</option>
+  components\review-desk\review-assignment-workspace.client.tsx:2985:                <option value="APPROVE">Approve</option>
+  components\review-desk\review-assignment-workspace.client.tsx:2986:                <option
+value="APPROVE_WITH_CONDITIONS">Approve with conditions</option>
+  components\review-desk\review-assignment-workspace.client.tsx:2987:                <option value="REJECT">Reject</option>
+  components\review-desk\review-assignment-workspace.client.tsx:2988:                <option value="ESCALATE">Escalate</option>
+  components\review-desk\review-assignment-workspace.client.tsx:2989:              </select>
+  components\review-desk\review-assignment-workspace.client.tsx:2990:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2991:          </div>
+  components\review-desk\review-assignment-workspace.client.tsx:2992:
+  components\review-desk\review-assignment-workspace.client.tsx:2993:          <div className="mt-5 space-y-5">
+  components\review-desk\review-assignment-workspace.client.tsx:2994:            <div>
+  components\review-desk\review-assignment-workspace.client.tsx:2995:              <label className="text-sm font-medium
+text-slate-200">Review findings</label>
+  components\review-desk\review-assignment-workspace.client.tsx:2996:              <textarea
+  components\review-desk\review-assignment-workspace.client.tsx:2997:                disabled={editingLocked}
+  components\review-desk\review-assignment-workspace.client.tsx:2998:                rows={7}
+  components\review-desk\review-assignment-workspace.client.tsx:2999:                value={findings}
+  components\review-desk\review-assignment-workspace.client.tsx:3000:                onChange={(e) => setFindings(e.target.value)}
+> components\review-desk\review-assignment-workspace.client.tsx:3001:                placeholder="Document key evidence reviewed,
+material risks, compensating controls, and recommended decision."
+  components\review-desk\review-assignment-workspace.client.tsx:3002:                className="mt-2 w-full rounded-2xl border
+border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500
+disabled:cursor-not-allowed disabled:opacity-70"
+  components\review-desk\review-assignment-workspace.client.tsx:3003:              />
+  components\review-desk\review-assignment-workspace.client.tsx:3004:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3005:
+  components\review-desk\review-assignment-workspace.client.tsx:3006:            <div className="grid gap-5 lg:grid-cols-2">
+  components\review-desk\review-assignment-workspace.client.tsx:3007:              <div>
+  components\review-desk\review-assignment-workspace.client.tsx:3008:                <label className="text-sm font-medium
+text-slate-200">Executive summary</label>
+  components\review-desk\review-assignment-workspace.client.tsx:3009:                <textarea
+  components\review-desk\review-assignment-workspace.client.tsx:3010:                  disabled={editingLocked}
+  components\review-desk\review-assignment-workspace.client.tsx:3011:                  rows={8}
+> components\review-desk\review-assignment-workspace.client.tsx:3012:                  value={executiveSummary}
+> components\review-desk\review-assignment-workspace.client.tsx:3013:                  onChange={(e) =>
+setExecutiveSummary(e.target.value)}
+> components\review-desk\review-assignment-workspace.client.tsx:3014:                  placeholder="Provide board-level governance
+summary, evidence reviewed, residual risk, and reviewer conclusion."
+  components\review-desk\review-assignment-workspace.client.tsx:3015:                  className="mt-2 w-full rounded-2xl border
+border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500
+disabled:cursor-not-allowed disabled:opacity-70"
+  components\review-desk\review-assignment-workspace.client.tsx:3016:                />
+  components\review-desk\review-assignment-workspace.client.tsx:3017:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3018:
+  components\review-desk\review-assignment-workspace.client.tsx:3019:              <div>
+  components\review-desk\review-assignment-workspace.client.tsx:3020:                <label className="text-sm font-medium
+text-slate-200">Final assessment</label>
+  components\review-desk\review-assignment-workspace.client.tsx:3021:                <textarea
+  components\review-desk\review-assignment-workspace.client.tsx:3022:                  disabled={editingLocked}
+  components\review-desk\review-assignment-workspace.client.tsx:3023:                  rows={8}
+  components\review-desk\review-assignment-workspace.client.tsx:3024:                  value={finalAssessment}
+  components\review-desk\review-assignment-workspace.client.tsx:3025:                  onChange={(e) =>
+setFinalAssessment(e.target.value)}
+> components\review-desk\review-assignment-workspace.client.tsx:3026:                  placeholder="Document control gaps,
+compensating controls, remediation status, release conditions, and final recommendation."
+  components\review-desk\review-assignment-workspace.client.tsx:3027:                  className="mt-2 w-full rounded-2xl border
+border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500
+disabled:cursor-not-allowed disabled:opacity-70"
+  components\review-desk\review-assignment-workspace.client.tsx:3028:                />
+  components\review-desk\review-assignment-workspace.client.tsx:3029:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3030:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3031:          </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3032:
+  components\review-desk\review-assignment-workspace.client.tsx:3033:          {!editingLocked ? (
+  components\review-desk\review-assignment-workspace.client.tsx:3034:            <div
+  components\review-desk\review-assignment-workspace.client.tsx:3035:              className={`mt-5 rounded-2xl border p-4 text-sm
+${
+  components\review-desk\review-assignment-workspace.client.tsx:3036:                Boolean(evidenceSummary.releaseBlocked &&
+(evidenceSummary.openRemediationRequests ?? 0) > 0)
+  components\review-desk\review-assignment-workspace.client.tsx:3037:                  ? "border-amber-500/40 bg-amber-500/10
+text-amber-100"
+  components\review-desk\review-assignment-workspace.client.tsx:3038:                  : "border-amber-400/20 bg-amber-500/10
+text-amber-50"
+  components\review-desk\review-assignment-workspace.client.tsx:3039:              }`}
+  components\review-desk\review-assignment-workspace.client.tsx:3040:            >
+  components\review-desk\review-assignment-workspace.client.tsx:3041:              {Boolean(evidenceSummary.releaseBlocked &&
+(evidenceSummary.openRemediationRequests ?? 0) > 0)
+  components\review-desk\review-assignment-workspace.client.tsx:3042:                ? `Release blocked: ${lifecycleOpenBlockers}
+unresolved remediation request${
+  components\review-desk\review-assignment-workspace.client.tsx:3043:                    (evidenceSummary.openRemediationRequests
+?? 0) === 1 ? "" : "s"
+  components\review-desk\review-assignment-workspace.client.tsx:3044:                  } must be resolved before governance
+release.`
+> components\review-desk\review-assignment-workspace.client.tsx:3045:                : "Release readiness requires executive
+summary, final assessment, conditions, risk level, and governance decision before completion or release."}
+  components\review-desk\review-assignment-workspace.client.tsx:3046:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3047:          ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:3048:
+  components\review-desk\review-assignment-workspace.client.tsx:3049:          {!editingLocked ? (
+  components\review-desk\review-assignment-workspace.client.tsx:3050:            <div className="mt-5 flex flex-wrap gap-3">
+  components\review-desk\review-assignment-workspace.client.tsx:3051:              <button
+  components\review-desk\review-assignment-workspace.client.tsx:3052:                type="button"
+  components\review-desk\review-assignment-workspace.client.tsx:3053:                disabled={saving}
+  components\review-desk\review-assignment-workspace.client.tsx:3054:                onClick={() => {
+  components\review-desk\review-assignment-workspace.client.tsx:3055:                  if (editingLocked) return;
+  components\review-desk\review-assignment-workspace.client.tsx:3056:                  submitOutcome("SAVE_DRAFT");
+  components\review-desk\review-assignment-workspace.client.tsx:3057:                }}
+  components\review-desk\review-assignment-workspace.client.tsx:3058:                className="rounded-2xl border border-white/10
+bg-white/[0.06] px-4 py-3 text-sm font-medium text-white hover:bg-white/[0.1] disabled:opacity-50"
+  components\review-desk\review-assignment-workspace.client.tsx:3059:              >
+  components\review-desk\review-assignment-workspace.client.tsx:3060:                {saving ? "Saving..." : "Save draft"}
+  components\review-desk\review-assignment-workspace.client.tsx:3153:          {canUseGovernanceRelease ? <>Governance assessment
+finalized</> : "Upgrade required"}
+  components\review-desk\review-assignment-workspace.client.tsx:3154:        </h3>
+  components\review-desk\review-assignment-workspace.client.tsx:3155:
+  components\review-desk\review-assignment-workspace.client.tsx:3156:        <p className="mt-3 max-w-3xl text-sm leading-6
+text-slate-300">
+  components\review-desk\review-assignment-workspace.client.tsx:3157:          This governance assessment has completed Truvern
+review,
+> components\review-desk\review-assignment-workspace.client.tsx:3158:          release approval, customer confirmation, and audit
+finalization.
+  components\review-desk\review-assignment-workspace.client.tsx:3159:          The finalized governance outcome is now immutable.
+  components\review-desk\review-assignment-workspace.client.tsx:3160:        </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3161:      </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3162:
+  components\review-desk\review-assignment-workspace.client.tsx:3163:      <div className="rounded-3xl border border-emerald-300/20
+bg-emerald-400/10 px-6 py-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3164:        <p className="text-xs uppercase tracking-[0.28em]
+text-emerald-100">
+  components\review-desk\review-assignment-workspace.client.tsx:3165:          Finalized status
+  components\review-desk\review-assignment-workspace.client.tsx:3166:        </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3167:
+  components\review-desk\review-assignment-workspace.client.tsx:3168:        <p className="mt-3 text-2xl font-semibold text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:3169:          {assignment.assignmentType === "INTERNAL" ?
+"APPROVED" : "CONFIRMED"}
+  components\review-desk\review-assignment-workspace.client.tsx:3170:        </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3171:
+  components\review-desk\review-assignment-workspace.client.tsx:3172:        <Link
+  components\review-desk\review-assignment-workspace.client.tsx:3173:  href={`/review-desk/reviews/${assignment.id}/packet`}
+  components\review-desk\review-assignment-workspace.client.tsx:3371:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3372:
+  components\review-desk\review-assignment-workspace.client.tsx:3373:            <div className="mt-8 grid gap-4 lg:grid-cols-2">
+  components\review-desk\review-assignment-workspace.client.tsx:3374:              <div className="min-h-[170px] rounded-2xl border
+border-cyan-400/10 bg-[#06111f] p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3375:                <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:3376:                  Governance decision
+  components\review-desk\review-assignment-workspace.client.tsx:3377:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3378:
+  components\review-desk\review-assignment-workspace.client.tsx:3379:                <p className="mt-3 text-lg font-semibold
+text-white">
+> components\review-desk\review-assignment-workspace.client.tsx:3380:                  {governanceLabel(decision) || "Pending"}
+  components\review-desk\review-assignment-workspace.client.tsx:3381:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3382:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3383:
+  components\review-desk\review-assignment-workspace.client.tsx:3384:              <div className="min-h-[170px] rounded-2xl border
+border-cyan-400/10 bg-[#06111f] p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3385:                <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:3386:                  Residual risk
+  components\review-desk\review-assignment-workspace.client.tsx:3387:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3388:
+  components\review-desk\review-assignment-workspace.client.tsx:3389:                <p className="mt-3 text-lg font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:3390:                  {governanceLabel(riskLevel) || "Medium"}
+  components\review-desk\review-assignment-workspace.client.tsx:3391:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3392:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3393:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3394:
+  components\review-desk\review-assignment-workspace.client.tsx:3395:            <div className="mt-6 rounded-2xl border
+border-white/10 bg-black/20 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3396:              <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:3397:                Executive summary
+  components\review-desk\review-assignment-workspace.client.tsx:3398:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3399:
+  components\review-desk\review-assignment-workspace.client.tsx:3400:              <div className="mt-3 whitespace-pre-wrap
+leading-8 text-sm leading-7 text-slate-200">
+> components\review-desk\review-assignment-workspace.client.tsx:3401:                {executiveSummary || "No executive summary
+provided."}
+  components\review-desk\review-assignment-workspace.client.tsx:3402:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3403:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3404:
+  components\review-desk\review-assignment-workspace.client.tsx:3405:            <div className="mt-6 rounded-2xl border
+border-white/10 bg-black/20 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3406:              <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:3407:                Final assessment
+  components\review-desk\review-assignment-workspace.client.tsx:3408:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3409:
+  components\review-desk\review-assignment-workspace.client.tsx:3410:              <div className="mt-3 whitespace-pre-wrap
+leading-8 text-sm leading-7 text-slate-200">
+  components\review-desk\review-assignment-workspace.client.tsx:3411:                {finalAssessment || "No final assessment
+provided."}
+  components\review-desk\review-assignment-workspace.client.tsx:3412:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3413:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3414:
+> components\review-desk\review-assignment-workspace.client.tsx:3415:            {/* AUTOMATED_GOVERNANCE_RECOMMENDATION_PANEL */}
+  components\review-desk\review-assignment-workspace.client.tsx:3416:            <div className="mt-6 rounded-2xl border
+border-cyan-400/20 bg-cyan-500/10 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3417:              <p className="text-xs uppercase
+tracking-[0.22em] text-cyan-200">
+> components\review-desk\review-assignment-workspace.client.tsx:3418:                Automated governance recommendation
+  components\review-desk\review-assignment-workspace.client.tsx:3419:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3420:
+  components\review-desk\review-assignment-workspace.client.tsx:3421:              <div className="mt-5 grid gap-4 lg:grid-cols-4">
+  components\review-desk\review-assignment-workspace.client.tsx:3422:                <div className="rounded-2xl border
+border-white/10 bg-slate-950/70 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:3423:                  <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:3424:                    Score
+  components\review-desk\review-assignment-workspace.client.tsx:3425:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3426:                  <p className="mt-2 text-2xl font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:3427:                    {governanceEngine.score}
+  components\review-desk\review-assignment-workspace.client.tsx:3428:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3429:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3430:
+  components\review-desk\review-assignment-workspace.client.tsx:3431:                <div className="rounded-2xl border
+border-white/10 bg-slate-950/70 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:3432:                  <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:3433:                    Decision
+  components\review-desk\review-assignment-workspace.client.tsx:3434:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3435:                  <p className="mt-2 text-sm font-semibold
+text-cyan-100">
+> components\review-desk\review-assignment-workspace.client.tsx:3436:
+{governanceLabel(governanceEngine.recommendedDecision)}
+  components\review-desk\review-assignment-workspace.client.tsx:3437:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3438:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3439:
+  components\review-desk\review-assignment-workspace.client.tsx:3440:                <div className="rounded-2xl border
+border-white/10 bg-slate-950/70 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:3441:                  <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+> components\review-desk\review-assignment-workspace.client.tsx:3442:                    Residual risk
+  components\review-desk\review-assignment-workspace.client.tsx:3443:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3444:                  <p className="mt-2 text-sm font-semibold
+text-amber-100">
+  components\review-desk\review-assignment-workspace.client.tsx:3445:
+{governanceLabel(governanceEngine.residualRisk)}
+  components\review-desk\review-assignment-workspace.client.tsx:3446:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3447:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3448:
+  components\review-desk\review-assignment-workspace.client.tsx:3449:                <div className="rounded-2xl border
+border-white/10 bg-slate-950/70 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:3450:                  <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:3451:                    Vendor answers
+  components\review-desk\review-assignment-workspace.client.tsx:3452:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3453:                  <p className="mt-2 text-2xl font-semibold
+text-white">
+  components\review-desk\review-assignment-workspace.client.tsx:3454:                    {vendorAnswers.length}
+  components\review-desk\review-assignment-workspace.client.tsx:3455:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3456:                </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3457:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3465:                </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3466:
+  components\review-desk\review-assignment-workspace.client.tsx:3467:                {!editingLocked ? (
+  components\review-desk\review-assignment-workspace.client.tsx:3468:                  <button
+  components\review-desk\review-assignment-workspace.client.tsx:3469:                    type="button"
+> components\review-desk\review-assignment-workspace.client.tsx:3470:                    onClick={applyGovernanceRecommendation}
+  components\review-desk\review-assignment-workspace.client.tsx:3471:                    className="mt-5 rounded-2xl border
+border-cyan-300/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-50 hover:bg-cyan-400/15"
+  components\review-desk\review-assignment-workspace.client.tsx:3472:                  >
+> components\review-desk\review-assignment-workspace.client.tsx:3473:                    Apply recommendation
+  components\review-desk\review-assignment-workspace.client.tsx:3474:                  </button>
+  components\review-desk\review-assignment-workspace.client.tsx:3475:                ) : null}
+  components\review-desk\review-assignment-workspace.client.tsx:3476:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3477:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3478:
+  components\review-desk\review-assignment-workspace.client.tsx:3479:            <div className="mt-6 rounded-2xl border
+border-purple-400/20 bg-purple-500/10 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3480:              <p className="text-xs uppercase
+tracking-[0.22em] text-purple-200">
+  components\review-desk\review-assignment-workspace.client.tsx:3481:                Prerelease governance drift
+  components\review-desk\review-assignment-workspace.client.tsx:3482:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3483:
+  components\review-desk\review-assignment-workspace.client.tsx:3484:              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+  components\review-desk\review-assignment-workspace.client.tsx:3485:                <div className="rounded-2xl border
+border-white/10 bg-slate-950/70 p-4">
+  components\review-desk\review-assignment-workspace.client.tsx:3486:                  <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:3487:                    Trend
+  components\review-desk\review-assignment-workspace.client.tsx:3488:                  </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3526:              <p className="text-xs uppercase
+tracking-[0.22em] text-slate-400">
+  components\review-desk\review-assignment-workspace.client.tsx:3527:                Conditions & follow-ups
+  components\review-desk\review-assignment-workspace.client.tsx:3528:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3529:
+  components\review-desk\review-assignment-workspace.client.tsx:3530:              <div className="mt-3 whitespace-pre-wrap text-sm
+leading-7 text-slate-200">
+> components\review-desk\review-assignment-workspace.client.tsx:3531:                {recommendationsText || "No release conditions
+recorded."}
+  components\review-desk\review-assignment-workspace.client.tsx:3532:              </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3533:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3534:
+  components\review-desk\review-assignment-workspace.client.tsx:3535:            <div className="mt-6 rounded-2xl border
+border-amber-400/20 bg-amber-500/10 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3536:              <p className="text-xs uppercase
+tracking-[0.22em] text-amber-200">
+  components\review-desk\review-assignment-workspace.client.tsx:3537:                Federal investigation & breach follow-ups
+  components\review-desk\review-assignment-workspace.client.tsx:3538:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3539:
+  components\review-desk\review-assignment-workspace.client.tsx:3540:              <ul className="mt-4 space-y-2 text-sm leading-6
+text-amber-50">
+  components\review-desk\review-assignment-workspace.client.tsx:3541:                <li>• Confirm whether the vendor organization
+has been under federal investigation within the last 24 months.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:3542:                <li>• Confirm whether the vendor organization
+has experienced a security breach within the last 24 months.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:3543:                <li>• Confirm whether the vendor organization
+has experienced material regulatory action within the last 24 months.</li>
+> components\review-desk\review-assignment-workspace.client.tsx:3544:                <li>• Confirm unresolved litigation,
+ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:3545:              </ul>
+  components\review-desk\review-assignment-workspace.client.tsx:3546:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3547:
+  components\review-desk\review-assignment-workspace.client.tsx:3548:            <div className="mt-6 rounded-2xl border
+border-amber-400/20 bg-amber-500/10 p-5">
+  components\review-desk\review-assignment-workspace.client.tsx:3549:              <p className="text-xs uppercase
+tracking-[0.22em] text-amber-200">
+  components\review-desk\review-assignment-workspace.client.tsx:3550:                Immutable governance warning
+  components\review-desk\review-assignment-workspace.client.tsx:3551:              </p>
+  components\review-desk\review-assignment-workspace.client.tsx:3552:
+  components\review-desk\review-assignment-workspace.client.tsx:3553:              <ul className="mt-4 space-y-2 text-sm leading-6
+text-amber-50">
+  components\review-desk\review-assignment-workspace.client.tsx:3554:                <li>• Editing locks after governance
+release.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:3555:                <li>• Customer confirmation finalizes the
+governance artifact.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:3556:                <li>• Governance manifests and checksums
+become audit records.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:3557:                <li>• Reserved Truvern credits are consumed on
+confirmation.</li>
+  components\review-desk\review-assignment-workspace.client.tsx:3558:              </ul>
+  components\review-desk\review-assignment-workspace.client.tsx:3559:            </div>
+  components\review-desk\review-assignment-workspace.client.tsx:3566:                className="mt-1 h-4 w-4 rounded
+border-white/20 bg-slate-950 text-cyan-400"
+  components\review-desk\review-assignment-workspace.client.tsx:3567:              />
+  components\review-desk\review-assignment-workspace.client.tsx:3568:
+  components\review-desk\review-assignment-workspace.client.tsx:3569:              <span className="leading-6">
+  components\review-desk\review-assignment-workspace.client.tsx:3570:                {isTruvern
+> components\review-desk\review-assignment-workspace.client.tsx:3571:                  ? "I acknowledge that Truvern governance
+outcomes are operational governance assessments and not legal guarantees, certifications, warranties, or regulatory attestations. I
+also understand that Truvern Review credits may still be charged once the service request is accepted, questionnaire delivery
+begins, or vendor work has been initiated, even if I later cancel or revoke the request. Final governance responsibility remains
+with my organization."
+  components\review-desk\review-assignment-workspace.client.tsx:3572:                  : "I acknowledge I am approving or
+finalizing this governance outcome as an authorized Truvern operator on behalf of this workspace."}
+  components\review-desk\review-assignment-workspace.client.tsx:3573:              </span>
+  components\review-desk\review-assignment-workspace.client.tsx:3574:            </label>
+  components\review-desk\review-assignment-workspace.client.tsx:3575:            <div className="sticky bottom-0 -mx-8 mt-8 flex
+flex-wrap gap-3 border-t border-white/10 bg-[#041426]/95 px-8 py-5 backdrop-blur">
+  components\review-desk\review-assignment-workspace.client.tsx:3576:              <button
+  components\review-desk\review-assignment-workspace.client.tsx:3577:                type="button"
+  components\review-desk\review-assignment-workspace.client.tsx:3578:                disabled={saving}
+  components\review-desk\review-assignment-workspace.client.tsx:3579:                onClick={() => setShowReleasePreview(false)}
+  components\review-desk\review-assignment-workspace.client.tsx:3580:                className="rounded-2xl border border-white/10
+bg-white/[0.06] px-5 py-3 text-sm font-medium text-white hover:bg-white/[0.1]"
+  components\review-desk\review-assignment-workspace.client.tsx:3581:              >
+  components\review-desk\review-assignment-workspace.client.tsx:3582:                Continue editing
+  components\review-desk\review-assignment-workspace.client.tsx:3583:              </button>
+  components\review-desk\review-assignment-workspace.client.tsx:3584:
+  components\review-desk\review-assignment-workspace.client.tsx:3585:              <button
+  components\review-desk\review-assignment-workspace.client.tsx:3586:                type="button"
+
+
+PS C:\code\truvern>

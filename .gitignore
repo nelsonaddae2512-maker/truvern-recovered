@@ -1,4 +1,4 @@
-# dependencies
+﻿# dependencies
 node_modules/
 
 # next
@@ -374,7 +374,6 @@ _vendors_1.html
 _write_vendors_page.cmd
 add-health.ps1
 alias-fix.ps1
-app/
 artifacts/
 board-report.csv
 check-og-7-sealed.js
@@ -384,7 +383,6 @@ check-vendor1.js
 ci_secrets_preview.json
 clean-reinstall.ps1
 clean_and_commit.ps1
-components/
 db_backups/
 deploy-log-20251028-200032.txt
 deploy-marker.txt
@@ -411,17 +409,14 @@ instrumentation.ts.disabled.disabled
 jsconfig.json
 last-deploy.txt
 last-truvern-path.txt
-lib/
 logs/
 meta-scan-prod.txt
-middleware.ts
 monitoring/
 neon-auth-test.js
 neon-setup.ps1
 neon-test.js
 next-env.d.ts
 next.config.backup.js
-next.config.js
 next.config.js.backup
 next.config.js.bak_20251023_010547
 next.config.js.bak_20251023_010547.bak
@@ -435,7 +430,6 @@ next.config.js.bak_20251023_023146
 next.config.js.bak_20251023_023146.bak
 next.config.js.bak_20251023_083517
 next.config.js.bak_20251023_083517.bak
-next.config.mjs
 next.config.mjs.bak
 next.config.mjs.bak_20251031-011840
 og_board.png
@@ -456,16 +450,12 @@ pages/
 phase5-db-verify.ps1
 phase6-deploy.ps1
 pnpm-workspace.yaml
-postcss.config.cjs
-postcss.config.js
-postcss.config.mjs
 prisma-ping.cjs
 prisma.config.ts.disabled
 production_build.ps1
 project-tree.txt
 proxy.ts
 public-status/
-public/
 raw.txt
 redeploy-vercel.ps1
 repair-build-and-deploy.ps1
@@ -483,8 +473,6 @@ site_preview.html
 site_preview_1_20251018_150614.html
 site_preview_2_20251018_150614.html
 src/
-styles/
-tailwind.config.js
 vercel-all.ps1
 vercel-env-sync.ps1
 vercel_backup.json

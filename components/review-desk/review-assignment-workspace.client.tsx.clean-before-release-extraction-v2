@@ -1,0 +1,3136 @@
+﻿      "use client";
+import FindingsOutcomePanel from "@/components/review-desk/findings-outcome-panel.client";
+import CompactSubmittedAnswersPanel from "@/components/review-desk/compact-submitted-answers-panel.client";
+
+function isInternalReviewLabel(value: unknown) {
+  return String(value ?? "").trim().toUpperCase() !== "TRUVERN";
+}
+
+function approvalLanguage(assignmentType: unknown) {
+  const internal = isInternalReviewLabel(assignmentType);
+
+  return {
+    awaitingConfirmation: internal ? "Pending approval" : "Awaiting confirmation",
+    awaitingCustomerConfirmation: internal
+      ? "Pending internal approval"
+      : "Awaiting customer confirmation",
+    releasedByGovernance: internal ? "Submitted for approval" : "Released by governance",
+    confirmReleasedOutcome: internal ? "Approve review" : "Confirm released outcome",
+    outcomeRelease: internal ? "Ready for approval" : "Outcome release",
+    panelDescription: internal
+      ? "This internal governance review is complete and awaiting organizational approval before finalization."
+      : "This internal governance review is complete and awaiting organizational approval before finalization.",
+  };
+}
+
+import Link from "next/link";
+import { governanceLabel } from "@/lib/governance/labels";
+import EvidenceRequestForm from "@/components/evidence-request-form";
+import { useEffect, useState } from "react";
+
+type AnalystOption = {
+  userId: string;
+  name: string;
+  email?: string | null;
+};
+
+type TruvernCreditRouteResponse = {
+  ok?: boolean;
+  code?: string;
+  error?: string;
+  detail?: string;
+  requiredCredits?: number;
+  availableCredits?: number;
+  reservedCredits?: number;
+  consumedCredits?: number;
+  effectiveCredits?: number;
+  fundingUrl?: string;
+};
+
+type Props = {
+  vendor: { id: number; name: string; category: string | null; organizationId?: number | null };
+    canManageTruvernReview?: boolean;
+assignment: {
+    id: number;
+    status: string;
+    assignmentType: string;
+    assignedReviewerName: string;
+    createdAt: string | null;
+    updatedAt: string | null;
+  };
+  request: { id: number | null; status: string };
+  evidenceSummary: {
+    totalEvidence: number;
+    pendingRequests: number;
+    completedRequests: number;
+    openRemediationRequests?: number;
+    approvedRemediationRequests?: number;
+    rejectedRemediationRequests?: number;
+    submittedRemediationRequests?: number;
+    overdueRemediationRequests?: number;
+    releaseBlocked?: boolean;
+  };
+  vendorAnswers?: Array<{
+    assessmentId: number;
+    assessmentStatus: string;
+    score: number | null;
+    questionId: number;
+    prompt: string;
+    questionType: string;
+    value: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+  }>;
+
+  governanceMemory?: Array<{
+    governanceScore: number | null;
+    governanceDecision: string;
+    residualRisk: string;
+    criticalFailures: number;
+    partialControls: number;
+    missingEvidenceCount: number;
+    remediationCount: number;
+    breachDisclosureDetected: boolean;
+    federalInvestigationDetected: boolean;
+    governanceNarrative: string;
+    createdAt: string | null;
+  }>;
+
+  remediationRequests?: Array<{
+    id: number;
+    title: string;
+    kind: string;
+    status: string;
+    dueAt: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+  }>;
+
+  latestOutcome: {
+    id: number | null;
+    status: string;
+    decision: string | null;
+    riskLevel: string | null;
+    releaseState: string | null;
+    manifestId?: number | null;
+    manifestChecksum?: string | null;
+    manifestVersion?: string | null;
+    governanceVersion?: string | null;
+    findings: string;
+    updatedAt: string | null;
+    generatedDraft?: {
+      schema: string;
+      generatedAt: string | null;
+      summary: string;
+      recommendations: unknown[];
+      structuredAssessment?: Record<string, any> | null;
+    };
+  };
+  auditEvents: Array<{ label: string; at: string | null; detail: string }>;
+  analysts?: AnalystOption[];
+};
+
+type Tone = "cyan" | "emerald" | "amber" | "slate" | "rose" | "violet";
+
+function upper(v: unknown) {
+  return typeof v === "string" ? v.trim().toUpperCase() : "";
+}
+
+function remediationChipClass(status: string) {
+  const s = String(status || "").toUpperCase();
+
+  if (["RECEIVED", "APPROVED", "COMPLETED", "FULFILLED", "RESOLVED"].includes(s)) {
+    return "border-emerald-400/25 bg-emerald-400/10 text-emerald-100";
+  }
+
+  if (["REJECTED", "FAILED"].includes(s)) {
+    return "border-rose-400/25 bg-rose-400/10 text-rose-100";
+  }
+
+  if (["SUBMITTED", "UNDER_REVIEW"].includes(s)) {
+    return "border-cyan-400/25 bg-cyan-400/10 text-cyan-100";
+  }
+
+  return "border-amber-400/25 bg-amber-400/10 text-amber-100";
+}
+
+function chipClass(tone: Tone) {
+  const base =
+    "rounded-2xl border px-3 py-1 text-xs font-medium uppercase tracking-[0.18em]";
+
+  if (tone === "emerald") return `${base} border-emerald-400/25 bg-emerald-500/10 text-emerald-100`;
+  if (tone === "amber") return `${base} border-amber-400/25 bg-amber-500/10 text-amber-100`;
+  if (tone === "rose") return `${base} border-rose-400/25 bg-rose-500/10 text-rose-100`;
+  if (tone === "cyan") return `${base} border-cyan-400/25 bg-cyan-500/10 text-cyan-100`;
+  if (tone === "violet") return `${base} border-violet-400/25 bg-violet-500/10 text-violet-100`;
+
+  return `${base} border-white/10 bg-white/[0.04] text-slate-200`;
+}
+
+function statusTone(status: string): Tone {
+  const s = upper(status);
+
+  if (s === "AWAITING_CONFIRMATION") return "amber";
+  if (["CONFIRMED", "COMPLETED", "SUBMITTED", "COMPLETE"].includes(s)) return "emerald";
+  if (s === "RELEASED") return "cyan";
+  if (["PENDING", "REQUESTED", "IN_REVIEW", "IN_PROGRESS", "SAVE_DRAFT"].includes(s)) return "amber";
+  if (["CANCELLED", "REJECTED", "FAILED"].includes(s)) return "rose";
+
+  return "slate";
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "Not recorded";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Not recorded";
+  return d.toLocaleString();
+}
+
+function sectionFromText(
+  text: string,
+  heading: string,
+  nextHeadings: string[],
+) {
+  const source = text || "";
+  const start = source.toUpperCase().indexOf(heading.toUpperCase());
+
+  if (start < 0) return "";
+
+  const afterHeading = source.slice(start + heading.length).trim();
+
+  let end = afterHeading.length;
+
+  for (const next of nextHeadings) {
+    const idx = afterHeading.toUpperCase().indexOf(next.toUpperCase());
+    if (idx >= 0 && idx < end) end = idx;
+  }
+
+  return afterHeading.slice(0, end).trim();
+}
+
+export default function ReviewAssignmentWorkspace({
+  vendor,
+  canManageTruvernReview = false,
+  assignment,
+  request,
+  evidenceSummary,
+  vendorAnswers = [],
+  governanceMemory = [],
+  remediationRequests = [],
+  latestOutcome,
+  auditEvents,
+  analysts = [],
+}: Props) {
+  const isTruvern = upper(assignment.assignmentType) === "TRUVERN";
+  const showTruvernOperatorControls = isTruvern && canManageTruvernReview;
+  const truvernCustomerView = isTruvern && !canManageTruvernReview;
+  const assignmentStatus = upper(assignment.status);
+  const outcomeStatus = upper(latestOutcome.status);
+  const releaseState = upper(latestOutcome.releaseState);
+
+  const outcomeConfirmed = releaseState === "CONFIRMED";
+  const outcomeReleased = releaseState === "RELEASED" || outcomeStatus === "RELEASED";
+  const awaitingCustomerConfirmation = outcomeReleased && !outcomeConfirmed;
+
+  const displayStatus = outcomeConfirmed
+    ? "CONFIRMED"
+    : awaitingCustomerConfirmation
+      ? "AWAITING_CONFIRMATION"
+      : outcomeStatus === "COMPLETE"
+        ? "COMPLETED"
+        : assignmentStatus || "OPEN";
+
+  const rawReviewerName = assignment.assignedReviewerName || "";
+  const reviewerName =
+    isTruvern && (!rawReviewerName || rawReviewerName.toLowerCase().includes("Self-Managed Reviewer"))
+      ? "Truvern expert"
+      : rawReviewerName || "Truvern Review Team";
+  const editingLocked =
+    outcomeReleased ||
+    outcomeConfirmed ||
+    truvernCustomerView;
+
+  const canCancelPendingTruvernReview =
+    isTruvern &&
+    assignmentStatus === "PENDING" &&
+    !outcomeReleased &&
+    !outcomeConfirmed;
+  const canGenerateTruvernDraft =
+    showTruvernOperatorControls &&
+    !outcomeReleased &&
+    !outcomeConfirmed;
+  const reviewerUnassigned = !reviewerName || reviewerName === "Truvern Review Team";
+  const reviewInProgress =
+    assignmentStatus === "IN_PROGRESS" && !awaitingCustomerConfirmation && !outcomeConfirmed;
+
+  const structured = latestOutcome.generatedDraft?.structuredAssessment || {};
+
+  const [riskLevel, setRiskLevel] = useState(latestOutcome.riskLevel || "");
+  const [decision, setDecision] = useState(latestOutcome.decision || "");
+  const [findings, setFindings] = useState(latestOutcome.findings || "");
+  const initialExecutiveSummary =
+  typeof structured.executiveSummary === "string" &&
+  structured.executiveSummary.trim()
+    ? structured.executiveSummary.trim()
+    : sectionFromText(latestOutcome.findings, "EXECUTIVE SUMMARY", [
+        "GOVERNANCE DECISION",
+        "TRUVERN GOVERNANCE REVIEW",
+        "CONDITIONS & FOLLOW-UPS",
+      ]);
+
+const initialFinalAssessment =
+  typeof structured.finalAssessment === "string" &&
+  structured.finalAssessment.trim()
+    ? structured.finalAssessment.trim()
+    : sectionFromText(latestOutcome.findings, "TRUVERN GOVERNANCE REVIEW", [
+        "CONDITIONS & FOLLOW-UPS",
+      ]);
+
+  const initialRecommendations =
+    Array.isArray(structured.conditionsAndFollowUps) &&
+    structured.conditionsAndFollowUps.length > 0
+      ? structured.conditionsAndFollowUps.join("\n")
+      : [
+          "Continue periodic governance monitoring.",
+          "Maintain evidence and operational control documentation.",
+          "Notify customers of material operational or security changes when applicable.",
+        ].join("\n");
+
+  const [executiveSummary, setExecutiveSummary] = useState(
+    initialExecutiveSummary,
+  );
+  const [finalAssessment, setFinalAssessment] = useState(
+    initialFinalAssessment,
+  );
+  const [recommendationsText, setRecommendationsText] = useState(
+    initialRecommendations,
+  );
+
+  const [selectedAnalystId, setSelectedAnalystId] = useState("");
+  const [newAnalystName, setNewAnalystName] = useState("");
+  const [newAnalystEmail, setNewAnalystEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [message, setMessage] = useState("");
+  const [showAuditTimeline, setShowAuditTimeline] = useState(false);
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<
+    "overview" | "questionnaire" | "evidence" | "findings" | "release" | "history"
+  >("overview");
+  const [showTruvernCreditPanel, setShowTruvernCreditPanel] = useState(false);
+  const [acceptedTruvernCreditSpend, setAcceptedTruvernCreditSpend] = useState(false);
+  const [truvernCreditError, setTruvernCreditError] =
+    useState<TruvernCreditRouteResponse | null>(null);
+  const [showReleasePreview, setShowReleasePreview] = useState(false);
+  const [acceptedAcknowledgement, setAcceptedAcknowledgement] = useState(false);
+  const [unlockReason, setUnlockReason] = useState("");
+  const [acceptedUnlockOverride, setAcceptedUnlockOverride] = useState(false);
+  const [unlockingEditing, setUnlockingEditing] = useState(false);
+
+
+  const governanceDrift = (() => {
+    const latest = governanceMemory[0];
+    const previous = governanceMemory[1];
+
+    if (!latest) {
+      return {
+        trend: "NO_HISTORY",
+        scoreDelta: 0,
+        flags: ["No prior governance release baseline exists yet."],
+      };
+    }
+
+    const latestScore =
+      typeof latest.governanceScore === "number" ? latest.governanceScore : null;
+    const previousScore =
+      typeof previous?.governanceScore === "number" ? previous.governanceScore : null;
+
+    const scoreDelta =
+      latestScore !== null && previousScore !== null
+        ? latestScore - previousScore
+        : 0;
+
+    const flags: string[] = [];
+
+    if (scoreDelta <= -10) {
+      flags.push("Vendor governance posture deteriorating.");
+    }
+
+    if (governanceMemory.filter((item) => item.breachDisclosureDetected).length >= 2) {
+      flags.push("Multiple historical breach disclosures detected.");
+    }
+
+    if (governanceMemory.filter((item) => item.federalInvestigationDetected).length >= 1) {
+      flags.push("Federal investigation history detected.");
+    }
+
+    if (governanceMemory.filter((item) => item.remediationCount > 0).length >= 2) {
+      flags.push("Repeat remediation cycles identified.");
+    }
+
+    if (governanceMemory.filter((item) => item.missingEvidenceCount > 0).length >= 2) {
+      flags.push("Recurring evidence deficiencies detected.");
+    }
+
+    if (!flags.length) {
+      flags.push("No recurring governance drift warnings detected.");
+    }
+
+    return {
+      trend:
+        scoreDelta <= -10
+          ? "DETERIORATING"
+          : scoreDelta >= 10
+            ? "IMPROVING"
+            : "STABLE",
+      scoreDelta,
+      flags,
+    };
+  })();
+  const governanceEngine = (() => {
+    const criticalFailures = vendorAnswers.filter((item: any) => {
+      const value = String(item?.value ?? "").trim().toLowerCase();
+      return value === "no";
+    }).length;
+
+    const partialAnswers = vendorAnswers.filter((item: any) => {
+      const value = String(item?.value ?? "").trim().toLowerCase();
+      return value === "partial" || value === "partially_implemented";
+    }).length;
+
+    const missingAnswers = vendorAnswers.filter((item: any) => {
+      const value = String(item?.value ?? "").trim();
+      return !value;
+    }).length;
+
+    const openEvidence =
+      Number((evidenceSummary as any)?.missingEvidence ?? 0) +
+      Number(evidenceSummary.openRemediationRequests ?? 0);
+
+    const searchText = `${recommendationsText} ${findings} ${executiveSummary} ${finalAssessment}`.toLowerCase();
+
+    const breachMention = searchText.includes("breach");
+    const federalMention = searchText.includes("federal") || searchText.includes("investigation");
+
+    let score = 100;
+    score -= criticalFailures * 12;
+    score -= partialAnswers * 5;
+    score -= missingAnswers * 4;
+    score -= openEvidence * 6;
+    if (breachMention) score -= 18;
+    if (federalMention) score -= 25;
+
+    score = Math.max(0, Math.min(100, score));
+
+    let recommendedDecision = "APPROVE";
+    let residualRisk = "LOW";
+
+    if (score < 80) {
+      recommendedDecision = "APPROVE_WITH_CONDITIONS";
+      residualRisk = "MEDIUM";
+    }
+
+    if (score < 60) {
+      recommendedDecision = "ESCALATE";
+      residualRisk = "HIGH";
+    }
+
+    if (score < 35) {
+      recommendedDecision = "REJECT";
+      residualRisk = "CRITICAL";
+    }
+
+    const narrative = [
+      `Governance review analyzed ${vendorAnswers.length} submitted vendor responses.`,
+      criticalFailures ? `${criticalFailures} control responses were marked NO.` : null,
+      partialAnswers ? `${partialAnswers} controls were partially implemented or require validation.` : null,
+      missingAnswers ? `${missingAnswers} controls did not include a recorded answer.` : null,
+      openEvidence ? `${openEvidence} evidence or remediation items remain unresolved.` : null,
+      breachMention ? "Breach disclosure follow-up is present and should be validated before release." : null,
+      federalMention ? "Federal investigation follow-up is present and should be validated before release." : null,
+    ].filter(Boolean).join(" ");
+
+    return {
+      score,
+      recommendedDecision,
+      residualRisk,
+      narrative,
+    };
+  })();
+
+  function applyGovernanceRecommendation() {
+    setDecision(governanceEngine.recommendedDecision);
+    setRiskLevel(governanceEngine.residualRisk);
+
+    if (!executiveSummary.trim()) {
+      setExecutiveSummary(governanceEngine.narrative);
+    }
+
+    if (!finalAssessment.trim()) {
+      setFinalAssessment([
+        governanceEngine.narrative,
+        "",
+        `Recommended governance decision: ${governanceLabel(governanceEngine.recommendedDecision)}.`,
+        `Residual risk: ${governanceLabel(governanceEngine.residualRisk)}.`,
+        "Validate evidence posture, remediation status, breach disclosures, federal investigation disclosures, and compensating controls before final release.",
+      ].join("\n"));
+    }
+
+    if (!recommendationsText.trim()) {
+      setRecommendationsText([
+        "Confirm whether the vendor organization has been under federal investigation within the last 24 months.",
+        "Confirm whether the vendor organization has experienced a security breach within the last 24 months.",
+        "Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.",
+        "Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.",
+        "Validate all unresolved evidence and remediation items before final release.",
+      ].join("\n"));
+    }
+
+    setMessage("Governance recommendation applied.");
+  }
+
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timer = window.setTimeout(() => {
+      setMessage("");
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+
+  async function addAnalyst() {
+    if (!vendor.organizationId || !newAnalystEmail.trim()) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const res = await fetch("/api/review-desk/analysts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          organizationId: vendor.organizationId,
+          name: newAnalystName,
+          email: newAnalystEmail,
+        }),
+      });
+
+      const raw = await res.text();
+      console.log("TRUVERN_ROUTE_RAW", raw);
+      const data = raw ? JSON.parse(raw) : null;
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to add analyst.");
+      }
+
+      setMessage("Analyst added. Refreshing list...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to add analyst.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function assignAnalyst() {
+    if (!selectedAnalystId || editingLocked) return;
+
+    const analyst =
+      analysts.find((a) => a.userId === selectedAnalystId);
+
+    if (!analyst) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const res = await fetch(
+        `/api/review-desk/reviews/${assignment.id}/assign`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "assign",
+            reviewerUserId: analyst.userId,
+            reviewerName: analyst.name,
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || "Failed to assign analyst.",
+        );
+      }
+
+      setMessage("Analyst assigned successfully.");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(
+        error?.message || "Failed to assign analyst.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function unassignReview() {
+    if (editingLocked && !canCancelPendingTruvernReview) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const res = await fetch(
+        `/api/review-desk/reviews/${assignment.id}/assign`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "unassign",
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error || "Failed to unassign review.",
+        );
+      }
+
+      setMessage("Review Truvern Review Team.");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(
+        error?.message || "Failed to unassign review.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function routeToTruvern() {
+    if (editingLocked) return;
+
+    if (!acceptedTruvernCreditSpend) {
+      setShowTruvernCreditPanel(true);
+      setMessage("Review the Truvern credit reservation before routing.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setMessage("");
+      setTruvernCreditError(null);
+
+      const res = await fetch(
+        `/api/review-desk/reviews/${assignment.id}/assign`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "truvern",
+          }),
+        },
+      );
+
+      const data = (await res.json().catch(() => ({}))) as TruvernCreditRouteResponse;
+
+      if (!res.ok || !data?.ok) {
+        if (
+          res.status === 402 ||
+          data?.code === "TRUVERN_ACCESS_REQUIRED" ||
+          data?.code === "INSUFFICIENT_CREDITS"
+        ) {
+          setTruvernCreditError(data);
+          setShowTruvernCreditPanel(true);
+          setAcceptedTruvernCreditSpend(false);
+          setMessage("");
+          return;
+        }
+
+        throw new Error(data?.error || data?.detail || data?.code || "Failed to route to Truvern.");
+      }
+
+      setMessage("Review routed to Truvern. Credit reserved.");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to route to Truvern.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function claimAssignment() {
+    if (editingLocked) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const res = await fetch(`/api/review-desk/reviews/${assignment.id}/claim`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          reviewerUserId: "local-reviewer",
+          reviewerName:
+  upper(assignment.assignmentType) === "TRUVERN"
+    ? "Truvern expert"
+    : "Internal governance owner",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to claim assignment.");
+      }
+
+      setMessage("Assignment claimed successfully.");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to claim assignment.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function generateDraft() {
+    if (!canGenerateTruvernDraft) return;
+
+    try {
+      setGeneratingDraft(true);
+      setMessage("");
+
+      const res = await fetch(`/api/review-desk/reviews/${assignment.id}/generate-draft`, {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to generate assessment.");
+      }
+
+      setMessage("Truvern Findings Engine generated an assessment successfully.");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to generate assessment.");
+    } finally {
+      setGeneratingDraft(false);
+    }
+  }
+
+  async function submitOutcome(intent: "SAVE_DRAFT" | "COMPLETE" | "RELEASE") {
+    if (editingLocked) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const cleanedFinalAssessment = finalAssessment
+        .split("CONDITIONS & FOLLOW-UPS")[0]
+        .trim();
+
+      const cleanedExecutiveSummary = executiveSummary
+        .replace(/GOVERNANCE DECISION[\s\S]*/gi, "")
+        .replace(/Decision:.*$/gim, "")
+        .replace(/Residual risk assessment:.*$/gim, "")
+        .trim();
+
+      const missingReleaseFields = [
+        !cleanedExecutiveSummary ? "Executive summary" : null,
+        !cleanedFinalAssessment ? "Final assessment" : null,
+        !recommendationsText.trim() ? "Conditions & follow-ups" : null,
+        !riskLevel ? "Risk level" : null,
+        !decision ? "Governance decision" : null,
+      ].filter(Boolean);
+
+      if (
+        (intent === "COMPLETE" || intent === "RELEASE") &&
+        missingReleaseFields.length
+      ) {
+        setMessage(
+          `Complete these fields before ${intent === "RELEASE" ? "release" : "completion"}: ${missingReleaseFields.join(", ")}.`,
+        );
+        setSaving(false);
+        return;
+      }
+
+
+      if (
+        intent === "RELEASE" &&
+        Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)
+      ) {
+        setMessage(
+          "Governance release is blocked until all remediation evidence requests are resolved.",
+        );
+        setSaving(false);
+        return;
+      }
+      const releaseFindings = [
+        "EXECUTIVE SUMMARY",
+        cleanedExecutiveSummary,
+        "",
+        "GOVERNANCE DECISION",
+        `Decision: ${governanceLabel(decision) || "Pending"}`,
+        `Residual risk assessment: ${governanceLabel(riskLevel) || "Medium"}`,
+        "",
+        "TRUVERN GOVERNANCE REVIEW",
+        cleanedFinalAssessment,
+        "",
+        "CONDITIONS & FOLLOW-UPS",
+        recommendationsText.trim(),
+      ]
+        .filter((part) => part !== null && part !== undefined)
+        .join("\n");
+
+      const res = await fetch(`/api/review-desk/reviews/${assignment.id}/outcome`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          intent,
+          assignmentType: assignment.assignmentType,
+          riskLevel,
+          decision,
+          findings: releaseFindings,
+          structuredAssessment: {
+            ...(latestOutcome.generatedDraft?.structuredAssessment || {}),
+            executiveSummary: cleanedExecutiveSummary,
+            finalAssessment: cleanedFinalAssessment,
+            conditionsAndFollowUps: recommendationsText
+              .split("\n")
+              .map((v) => v.trim())
+              .filter(Boolean),
+          },
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to save outcome.");
+      }
+
+      setMessage(
+        intent === "SAVE_DRAFT"
+          ? "Assessment saved successfully."
+          : intent === "COMPLETE"
+            ? "Review marked complete."
+            : `${approvalLanguage(assignment.assignmentType).outcomeRelease}d successfully.`,
+      );
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to save outcome.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function unlockEditing() {
+    if (!canManageTruvernReview || !editingLocked) return;
+
+    try {
+      setUnlockingEditing(true);
+      setMessage("");
+
+      const res = await fetch(`/api/review-desk/reviews/${assignment.id}/unlock-editing`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          acceptedOverride: acceptedUnlockOverride,
+          reason: unlockReason,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to unlock editing.");
+      }
+
+      setMessage("Editing unlocked by Truvern operator override.");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 900);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to unlock editing.");
+    } finally {
+      setUnlockingEditing(false);
+    }
+  }
+  async function confirmRelease() {
+    if (!awaitingCustomerConfirmation) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const res = await fetch(`/api/review-desk/reviews/${assignment.id}/confirm-release`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          acceptedAcknowledgement,
+          acknowledgementType: isTruvern
+            ? "CUSTOMER_RELEASE_CONFIRMATION"
+            : "TRUVERN_OPERATOR_OVERRIDE",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to confirm release.");
+      }
+
+      setMessage(
+  assignment.assignmentType === "INTERNAL"
+    ? "Self-managed review approved."
+    : "Governance outcome confirmed."
+);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to confirm release.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      {message ? (
+        <div className="fixed right-6 top-6 z-[9999] max-w-md rounded-2xl border border-emerald-400/30 bg-emerald-500 px-5 py-4 text-sm font-semibold text-slate-950 shadow-2xl shadow-black/40">
+          {message}
+        </div>
+      ) : null}
+
+    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200/90">
+            Governance review workspace
+          </p>
+
+          <h3 className="mt-3 text-2xl font-semibold text-white">
+            {isTruvern ? "Truvern expert review" : "Self-managed governance review"}
+          </h3>
+
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+            {isTruvern
+              ? "This assignment is routed to Truvern experts. Outcomes remain hidden until Truvern releases the review."
+              : "Use this workspace to review vendor answers, validate evidence, assign internal analysts, record findings, and prepare leadership approval."}
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <span className={chipClass(statusTone(displayStatus))}>{displayStatus}</span>
+            <span className={chipClass(isTruvern ? "cyan" : "emerald")}>
+              {assignment.assignmentType || "INTERNAL"}
+            </span>
+            <span className={chipClass("slate")}>Assigned analyst: {reviewerName}</span>
+            <span className={chipClass("slate")}>Request #{request.id ?? "—"}</span>
+            <span className={chipClass("slate")}>Assignment #{assignment.id}</span>
+
+            {latestOutcome.id ? (
+              <span className={chipClass(statusTone(outcomeStatus || "DRAFT"))}>
+                {outcomeStatus === "SAVE_DRAFT"
+                  ? "Assessment prepared"
+                  : `Outcome ${outcomeStatus || "DRAFT"}`}
+              </span>
+            ) : null}
+
+            {outcomeConfirmed ? (
+              <span className={chipClass("emerald")}>
+  {assignment.assignmentType === "INTERNAL"
+    ? "Self-managed review approved"
+    : "Governance finalized"}
+</span>
+            ) : awaitingCustomerConfirmation ? (
+              <span className={chipClass("amber")}>{approvalLanguage(assignment.assignmentType).awaitingCustomerConfirmation}</span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {reviewerUnassigned && !editingLocked ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={claimAssignment}
+              className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-5 py-3 text-sm font-medium text-cyan-50 hover:bg-cyan-400/15 disabled:opacity-50"
+            >
+              {saving ? "Assigning..." : "Assign to me"}
+            </button>
+          ) : null}
+
+          {!editingLocked ? (
+            <div className="rounded-3xl border border-cyan-300/15 bg-cyan-400/[0.04] p-5 shadow-xl shadow-cyan-950/10">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">
+                Add governance analyst
+              </p>
+
+
+
+
+              {/* IMMUTABLE_RELEASE_MANIFEST_PANEL */}
+              <div className="mt-6 rounded-3xl border border-indigo-400/20 bg-indigo-500/10 p-6">
+                <p className="text-xs uppercase tracking-[0.28em] text-indigo-200">
+                  Immutable release manifest
+                </p>
+
+                <h3 className="mt-3 text-2xl font-semibold text-white">
+                  Governance integrity metadata
+                </h3>
+
+                <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">
+                  This governance release becomes immutable after customer approval and is archived
+                  as a permanent governance artifact for audit, assurance, and operational review history.
+                </p>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Release state
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {releaseState || "Awaiting confirmation"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Reviewer
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {assignment.assignedReviewerName || "Truvern reviewer"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Governance history
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {governanceMemory.length} immutable releases
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Integrity state
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-emerald-100">
+                      Verification ready
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-5">
+                  <p className="text-xs uppercase tracking-[0.22em] text-emerald-200">
+                    Immutable retention controls
+                  </p>
+
+                  <ul className="mt-3 space-y-2 text-sm leading-7 text-emerald-50">
+                    <li>• Governance releases are archived into immutable audit history.</li>
+                    <li>• Historical governance records remain accessible for longitudinal review.</li>
+                    <li>• Release integrity is protected through deterministic governance snapshots.</li>
+                    <li>• Future cryptographic attestation support can extend external verification.</li>
+                  </ul>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Governance release lifecycle
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-3 text-xs">
+                    <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-cyan-100">
+                      Assessment completed
+                    </span>
+
+                    <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-amber-100">
+                      Governance reviewed
+                    </span>
+
+                    <span className="rounded-full border border-purple-300/20 bg-purple-400/10 px-3 py-1 text-purple-100">
+                      Customer attestation
+                    </span>
+
+                    <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-emerald-100">
+                      Immutable archival
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {/* CUSTOMER_APPROVAL_RAIL */}
+              <div className="mt-6 rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-6">
+                <p className="text-xs uppercase tracking-[0.28em] text-emerald-200">
+                  Release approval rail
+                </p>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Release state
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {releaseState || "Awaiting confirmation"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Risk
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-amber-100">
+                      {riskLevel || "Not recorded"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Decision
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-cyan-100">
+                      {decision || "Not recorded"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      History
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {governanceMemory.length} releases
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Integrity
+                    </p>
+                    <p className="mt-2 text-xs font-semibold text-emerald-100">
+                      Immutable after approval
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-7 text-slate-200">
+                  Approval closes this release into immutable governance history. Editing, release changes,
+                  and reviewer outcome changes are locked after customer confirmation.
+                </div>
+              </div>
+              {/* CUSTOMER_RELEASE_PACKET_PREVIEW */}
+              <div className="mt-6 rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-6">
+                <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">
+                  Release packet preview
+                </p>
+
+                <h3 className="mt-3 text-2xl font-semibold text-white">
+                  Review governance packet before approval
+                </h3>
+
+                <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">
+                  Confirm the executive summary, findings, release conditions,
+                  disclosure follow-ups, governance history, and immutable release
+                  metadata before approving this review into audit history.
+                </p>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                  {[
+                    ["Executive summary", executiveSummary || "No executive summary recorded."],
+                    ["Findings", findings || "No findings recorded."],
+                    ["Conditions & follow-ups", recommendationsText || "No release conditions recorded."],
+                    ["Final assessment", finalAssessment || "No final assessment recorded."],
+                  ].map(([title, body]) => (
+                    <details
+                      key={title}
+                      className="rounded-2xl border border-white/10 bg-slate-950/60 p-4"
+                    >
+                      <summary className="cursor-pointer text-sm font-semibold text-white">
+                        {title}
+                      </summary>
+
+                      <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">
+                        {body}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+
+                <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Residual risk
+                    </p>
+
+                    <p className="mt-2 text-lg font-semibold text-amber-100">
+                      {riskLevel || "Not recorded"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Governance decision
+                    </p>
+
+                    <p className="mt-2 text-lg font-semibold text-cyan-100">
+                      {decision || "Not recorded"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                      Governance history
+                    </p>
+
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {governanceMemory.length} prior release{governanceMemory.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-amber-200">
+                    Leadership attestation before approval
+                  </p>
+
+                  <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-50">
+                    <li>• Customer reviewed governance findings and assessment details.</li>
+                    <li>• Customer reviewed release conditions and disclosure follow-ups.</li>
+                    <li>• Customer understands approval finalizes the governance artifact.</li>
+                    <li>• Customer understands this is not a legal certification or warranty.</li>
+                  </ul>
+                </div>
+              </div>
+              <input
+                value={newAnalystName}
+                onChange={(e) => setNewAnalystName(e.target.value)}
+                placeholder="Name"
+                className="mb-2 w-full rounded-xl border border-white/10 bg-[#041426] px-3 py-2 text-sm text-white outline-none"
+              />
+
+              <input
+                value={newAnalystEmail}
+                onChange={(e) => setNewAnalystEmail(e.target.value)}
+                placeholder="Email"
+                className="mb-2 w-full rounded-xl border border-white/10 bg-[#041426] px-3 py-2 text-sm text-white outline-none"
+              />
+
+              <button
+                type="button"
+                disabled={saving || !newAnalystEmail.trim()}
+                onClick={addAnalyst}
+                className="w-full rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-50 hover:bg-emerald-400/15 disabled:opacity-50"
+              >
+                Add governance analyst
+              </button>
+            </div>
+          ) : null}
+
+          {analysts.length > 0 && !editingLocked ? (
+            <>
+              <select
+                value={selectedAnalystId}
+                onChange={(e) =>
+                  setSelectedAnalystId(e.target.value)
+                }
+                className="rounded-2xl border border-white/10 bg-[#041426] px-4 py-3 text-sm text-white outline-none"
+              >
+                <option value="">
+                  Select governance analyst
+                </option>
+
+                {analysts.map((analyst) => (
+                  <option
+                    key={analyst.userId}
+                    value={analyst.userId}
+                  >
+                    {analyst.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                disabled={!selectedAnalystId || saving}
+                onClick={assignAnalyst}
+                className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-5 py-3 text-sm font-medium text-cyan-50 hover:bg-cyan-400/15 disabled:opacity-50"
+              >
+                Assign governance analyst
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={unassignReview}
+                className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-5 py-3 text-sm font-medium text-amber-50 hover:bg-amber-400/15 disabled:opacity-50"
+              >
+                Unassign
+              </button>
+
+              {!isTruvern ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTruvernCreditPanel(true);
+                    setTruvernCreditError(null);
+                    setMessage("Review the Truvern credit reservation before routing.");
+                  }}
+                  className="group relative overflow-hidden rounded-3xl border border-cyan-300/30 bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-violet-500/20 px-6 py-5 text-left shadow-xl shadow-cyan-950/30 transition hover:scale-[1.01] hover:border-cyan-200/40 hover:from-cyan-400/30 hover:to-violet-400/30"
+                >
+                  <div className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">Truvern Expert Review</div>
+                  <div className="mt-2 text-xl font-semibold text-white">Route to Truvern</div>
+                  <p className="mt-2 text-sm leading-6 text-slate-200/80">Reserve credits and send this assessment to Truvern Ops.</p>
+                  <div className="mt-3 inline-flex rounded-2xl border border-cyan-300/20 bg-black/30 px-4 py-2 text-sm font-semibold text-white">Cost: 1 Credit</div>
+                </button>
+              ) : null}
+            </>
+          ) : null}
+
+          {canCancelPendingTruvernReview ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={unassignReview}
+              className="rounded-2xl border border-amber-300/25 bg-amber-400/10 px-5 py-3 text-center text-sm font-semibold text-amber-50 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? "Cancelling..." : "Cancel Truvern review"}
+            </button>
+          ) : null}
+
+
+          {showTruvernCreditPanel && !isTruvern ? (
+            <div className="rounded-3xl border border-cyan-300/20 bg-slate-950/70 p-5 shadow-xl shadow-cyan-950/20">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
+                Truvern credit reservation
+              </p>
+
+              <h4 className="mt-3 text-xl font-semibold text-white">
+                Confirm expert review spend
+              </h4>
+
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Truvern expert review is sold separately from platform plans. This action will reserve 1 Truvern credit before Truvern Ops begins review work.
+              </p>
+
+              {truvernCreditError ? (
+                <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-50">
+                  <p className="font-semibold text-white">Purchase credits to continue</p>
+                  <p className="mt-1 text-amber-100/90">
+                    This organization does not have enough available Truvern credits for expert review.
+                  </p>
+
+                  <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+                    <CreditMiniCard label="Available" value={truvernCreditError.availableCredits ?? 0} />
+                    <CreditMiniCard label="Required" value={truvernCreditError.requiredCredits ?? 1} />
+                    <CreditMiniCard label="Shortfall" value={Math.max((truvernCreditError.requiredCredits ?? 1) - (truvernCreditError.availableCredits ?? 0), 0)} accent />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <a
+                      href={`${truvernCreditError.fundingUrl || "/billing/credits"}?returnTo=/review-desk/reviews/${assignment.id}`}
+                      className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100 hover:bg-cyan-400/20"
+                    >
+                      Purchase credits
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTruvernCreditPanel(false);
+                        setTruvernCreditError(null);
+                        setAcceptedTruvernCreditSpend(false);
+                      }}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white hover:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+                    <CreditMiniCard label="Reservation" value={1} accent />
+                    <CreditMiniCard label="Consumed at release" value={1} />
+                    <CreditMiniCard label="Due now" value={1} />
+                  </div>
+
+                  <label className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTruvernCreditSpend}
+                      onChange={(event) => setAcceptedTruvernCreditSpend(event.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950 text-cyan-400"
+                    />
+                    <span className="leading-6">
+                      I acknowledge that routing this assignment to Truvern Ops will reserve 1 Truvern credit from this organization&apos;s balance.
+                    </span>
+                  </label>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={saving || !acceptedTruvernCreditSpend}
+                      onClick={routeToTruvern}
+                      className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saving ? "Routing..." : "Confirm and reserve credit"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTruvernCreditPanel(false);
+                        setTruvernCreditError(null);
+                        setAcceptedTruvernCreditSpend(false);
+                      }}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white hover:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          <Link
+            href={`/vendors/${vendor.id}`}
+            className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-center text-sm font-medium text-white hover:bg-white/[0.08]"
+          >
+            View vendor
+          </Link>
+        </div>
+      </div>
+
+
+
+      {awaitingCustomerConfirmation ? (
+        <div className="mt-5 rounded-3xl border border-amber-400/25 bg-amber-500/10 p-6">
+          <p className="text-xs uppercase tracking-[0.3em] text-amber-200">
+            {approvalLanguage(assignment.assignmentType).releasedByGovernance}
+          </p>
+          <h4 className="mt-3 text-2xl font-semibold text-white">
+            {approvalLanguage(assignment.assignmentType).awaitingCustomerConfirmation}
+          </h4>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+            The governance outcome has been released for customer review. Editing
+            and reopen actions are locked. Confirm the release to close this
+            review into audit history.
+          </p>
+          <label className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              checked={acceptedAcknowledgement}
+              onChange={(event) => setAcceptedAcknowledgement(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950 text-cyan-400"
+            />
+
+            <span className="leading-6">
+              {isTruvern
+                ? "I acknowledge that Truvern governance outcomes are operational governance assessments and not legal guarantees, certifications, warranties, or regulatory attestations. I also understand that Truvern Review credits may still be charged once the service request is accepted, questionnaire delivery begins, or vendor work has been initiated, even if I later cancel or revoke the request. Final governance responsibility remains with my organization."
+                : "I acknowledge I am approving or finalizing this governance outcome as an authorized Truvern operator on behalf of this workspace."}
+            </span>
+          </label>
+
+          <button
+            type="button"
+            disabled={saving || !acceptedAcknowledgement}
+            onClick={confirmRelease}
+            className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-5 py-3 text-sm font-semibold text-amber-50 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Confirming..." : "Approve review"}
+          </button>
+        </div>
+      ) : null}
+
+      {outcomeConfirmed ? (
+        <div className="mt-5 rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-6">
+          <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">
+            Governance finalized
+          </p>
+          <h4 className="mt-3 text-2xl font-semibold text-white">
+  {assignment.assignmentType === "INTERNAL"
+    ? "Approved and finalized"
+    : "Confirmed and closed for audit history"}
+</h4>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+            This released outcome has been confirmed. The review is locked and
+            preserved as the final governance record.
+          </p>
+        </div>
+      ) : null}
+
+      {reviewInProgress ? (
+        <div className="mt-5 rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-5">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200/90">
+            Review claimed
+          </p>
+          <p className="mt-2 text-sm leading-6 text-cyan-50">
+            Claimed by {reviewerName}. Review work is in progress.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="rounded-3xl border border-white/10 bg-slate-950/30 p-5">
+          <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Vendor</p>
+          <p className="mt-3 text-xl font-semibold text-white">{vendor.name}</p>
+          <p className="mt-1 text-sm text-slate-400">{vendor.category || "Uncategorized"}</p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-slate-950/30 p-5">
+          <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Reviewer</p>
+          <p className="mt-3 text-xl font-semibold text-white">{reviewerName}</p>
+          <p className="mt-1 text-sm text-slate-400">Updated {formatDate(assignment.updatedAt)}</p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-slate-950/30 p-5">
+          <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Request state</p>
+          <p className="mt-3 text-xl font-semibold text-white">{request.status || "OPEN"}</p>
+          <p className="mt-1 text-sm text-slate-400">Created {formatDate(assignment.createdAt)}</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="rounded-3xl border border-cyan-400/15 bg-cyan-500/10 p-5">
+          <p className="text-sm text-cyan-100">Evidence files</p>
+          <p className="mt-3 text-2xl font-semibold text-white">
+            {evidenceSummary.totalEvidence}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-amber-400/15 bg-amber-500/10 p-5">
+          <p className="text-sm text-amber-100">Pending evidence requests</p>
+          <p className="mt-3 text-2xl font-semibold text-white">
+            {evidenceSummary.pendingRequests}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-emerald-400/15 bg-emerald-500/10 p-5">
+          <p className="text-sm text-emerald-100">Completed evidence requests</p>
+          <p className="mt-3 text-2xl font-semibold text-white">
+            {evidenceSummary.completedRequests}
+          </p>
+        </div>
+      </div>
+
+
+      {!editingLocked ? (
+        <div className="mt-5 rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-6">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200/90">
+            Evidence remediation
+          </p>
+
+          <h4 className="mt-3 text-2xl font-semibold text-white">
+            Request remediation evidence
+          </h4>
+
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+            Create evidence requests directly from this governance review. Vendors will see the request in their evidence portal, and unresolved evidence can block release readiness.
+          </p>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+            <EvidenceRequestForm
+              vendorId={vendor.id}
+              organizationId={vendor.organizationId ?? null}
+            />
+          </div>
+        </div>
+      ) : null}
+
+
+      {/* IMMUTABLE_ARCHIVE_COMPLETION_STATE */}
+      {releaseState === "CONFIRMED" ? (
+        <div className="mt-8 rounded-[2rem] border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 via-cyan-500/10 to-slate-950 p-8 shadow-2xl shadow-emerald-500/10">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-4xl">
+              <p className="text-xs uppercase tracking-[0.32em] text-emerald-200">
+                Immutable governance archive
+              </p>
+
+              <h2 className="mt-3 text-3xl font-semibold text-white">
+                Governance release finalized into audit history
+              </h2>
+
+              <p className="mt-4 text-sm leading-8 text-slate-200">
+                This governance review has been confirmed, archived, and sealed into the
+                Truvern governance history system as an immutable operational record.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3 text-xs">
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-4 py-2 text-emerald-50">
+                  Immutable release archived
+                </span>
+
+                <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-cyan-50">
+                  Governance integrity preserved
+                </span>
+
+                <span className="rounded-full border border-indigo-300/20 bg-indigo-400/10 px-4 py-2 text-indigo-50">
+                  Verification ready
+                </span>
+
+                <span className="rounded-full border border-purple-300/20 bg-purple-400/10 px-4 py-2 text-purple-50">
+                  Historical governance memory updated
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-black/20 p-6 xl:w-[340px]">
+              <div className="flex items-center justify-center">
+                <div className="flex h-28 w-28 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-400/10 text-center">
+                  <div>
+                    <div className="text-3xl">✓</div>
+                    <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-emerald-100">
+                      Archived
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Release state
+                  </p>
+
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {releaseState}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Governance history
+                  </p>
+
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {governanceMemory.length} immutable releases
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Integrity status
+                  </p>
+
+                  <p className="mt-2 text-sm font-semibold text-emerald-100">
+                    Audit verification ready
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          {/* ARCHIVE_COMPLETION_ACTIONS */}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a
+              href={`/review-desk/reviews/${assignment.id}/packet`}
+              className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-5 py-3 text-sm font-semibold text-emerald-50 hover:bg-emerald-500/20"
+            >
+              View packet
+            </a>
+
+            <a
+              href={`/review-desk/reviews/${assignment.id}/packet/pdf`}
+              className="rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-5 py-3 text-sm font-semibold text-cyan-50 hover:bg-cyan-500/20"
+            >
+              Download PDF
+            </a>
+
+            <a
+              href={`/api/review-desk/reviews/${assignment.id}/verify-seal`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-2xl border border-purple-400/30 bg-purple-500/15 px-5 py-3 text-sm font-semibold text-purple-50 hover:bg-purple-500/20"
+            >
+              Verify seal
+            </a>
+
+            <a
+              href={`/api/governance/manifests/${assignment.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-2xl border border-indigo-400/30 bg-indigo-500/15 px-5 py-3 text-sm font-semibold text-indigo-50 hover:bg-indigo-500/20"
+            >
+              View manifest
+            </a>
+
+            <a
+              href={`/api/review-desk/reviews/${assignment.id}/attestation`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-2xl border border-teal-400/30 bg-teal-500/15 px-5 py-3 text-sm font-semibold text-teal-50 hover:bg-teal-500/20"
+            >
+              Download attestation
+            </a>
+
+            <a
+              href="/review-desk"
+              className="rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-3 text-sm font-semibold text-white hover:bg-white/[0.08]"
+            >
+              Return to Governance Ops
+            </a>
+          </div>
+          <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-6">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+              Governance archival lifecycle
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3 text-xs">
+              <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-cyan-100">
+                Vendor assessed
+              </span>
+
+              <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-4 py-2 text-amber-100">
+                Findings reviewed
+              </span>
+
+              <span className="rounded-full border border-purple-300/20 bg-purple-400/10 px-4 py-2 text-purple-100">
+                Customer approved
+              </span>
+
+              <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-4 py-2 text-emerald-100">
+                Immutable governance archive
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {!truvernCustomerView ? (
+      <div className="mt-5 rounded-3xl border border-white/10 bg-slate-950/30 p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200/90">
+              Remediation tracking
+            </p>
+
+            <h4 className="mt-3 text-2xl font-semibold text-white">
+              Evidence request lifecycle
+            </h4>
+
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+              Track remediation requests from vendor response through governance validation. Open requests remain release blockers until resolved.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white">
+            Open blockers:{" "}
+            <span className="font-semibold text-amber-200">
+              {evidenceSummary.openRemediationRequests ?? 0}
+            </span>
+          </div>
+        </div>
+
+        {remediationRequests.length > 0 ? (
+          <div className="mt-5 grid gap-3">
+            {remediationRequests.map((request) => {
+              const status = String(request.status || "REQUESTED").toUpperCase();
+              const isResolved = ["RECEIVED", "APPROVED", "COMPLETED", "FULFILLED", "RESOLVED"].includes(status);
+              const dueText = request.dueAt
+                ? new Date(request.dueAt).toLocaleString()
+                : "No due date";
+              const updatedText = request.updatedAt
+                ? new Date(request.updatedAt).toLocaleString()
+                : "Not updated";
+
+              return (
+                <div
+                  key={request.id}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.18em] ${remediationChipClass(status)}`}>
+                          {status}
+                        </span>
+
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-200">
+                          {request.kind}
+                        </span>
+
+                        {isResolved ? (
+                          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-100">
+                            Release blocker cleared
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-100">
+                            Blocking release
+                          </span>
+                        )}
+                      </div>
+
+                      <h5 className="mt-3 text-lg font-semibold text-white">
+                        {request.title}
+                      </h5>
+
+                      <p className="mt-1 text-sm text-slate-400">
+                        Request #{request.id} · Due: {dueText} · Updated: {updatedText}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-200">
+                      <div>
+                        {isResolved
+                          ? "Vendor evidence received. Ready for validation."
+                          : "Awaiting vendor remediation response."}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {status !== "APPROVED" ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await fetch(`/api/evidence-requests/${request.id}/review`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "APPROVE" }),
+                              });
+
+                              window.location.reload();
+                            }}
+                            className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                          >
+                            Approve remediation
+                          </button>
+                        ) : null}
+
+                        {status !== "REJECTED" ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await fetch(`/api/evidence-requests/${request.id}/review`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "REJECT" }),
+                              });
+
+                              window.location.reload();
+                            }}
+                            className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
+                          >
+                            Reject
+                          </button>
+                        ) : null}
+
+                        {status === "APPROVED" || status === "REJECTED" ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await fetch(`/api/evidence-requests/${request.id}/review`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "REOPEN" }),
+                              });
+
+                              window.location.reload();
+                            }}
+                            className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
+                          >
+                            Reopen
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-300">
+            No remediation requests have been issued for this vendor review yet.
+          </div>
+        )}
+      </div>
+      ) : null}
+      {isTruvern && showTruvernOperatorControls ? (
+        <div className="mt-5 rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-6">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200/90">
+            Truvern release gate
+          </p>
+
+          <h4 className="mt-3 text-2xl font-semibold text-white">
+            {outcomeConfirmed
+              ? "Truvern outcome confirmed"
+              : awaitingCustomerConfirmation
+                ? approvalLanguage(assignment.assignmentType).releasedByGovernance
+                : "Awaiting Truvern review"}
+          </h4>
+
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            {outcomeConfirmed
+              ? "This Truvern outcome is finalized and locked for governance audit history."
+              : awaitingCustomerConfirmation
+                ? "The Truvern outcome is available for customer confirmation. Editing and reopen actions remain locked."
+                : "Truvern can prepare, edit, complete, and release the governance assessment from this workspace."}
+          </p>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+  <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+    <p className="text-xs uppercase tracking-[0.22em] text-amber-200">
+      Residual risk
+    </p>
+
+    <p className="mt-3 text-2xl font-semibold text-white">
+      {governanceLabel(riskLevel) || "Not set"}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
+    <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">
+      Governance decision
+    </p>
+
+    <p className="mt-3 text-2xl font-semibold text-white">
+      {governanceLabel(decision) || "Pending"}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
+    <p className="text-xs uppercase tracking-[0.22em] text-violet-200">
+      Release state
+    </p>
+
+    <p className="mt-3 text-2xl font-semibold text-white">
+      {governanceLabel(releaseState) || "Draft"}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+    <p className="text-xs uppercase tracking-[0.22em] text-emerald-200">
+      Review status
+    </p>
+
+    <p className="mt-3 text-2xl font-semibold text-white">
+      {governanceLabel(displayStatus) || "Open"}
+    </p>
+  </div>
+</div>
+
+<div className="mt-5 grid gap-4 lg:grid-cols-3">
+  <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+      Vendor category
+    </p>
+
+    <p className="mt-2 text-sm font-semibold text-white">
+      {vendor.category || "Uncategorized"}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+      Vendor tier
+    </p>
+
+    <p className="mt-2 text-sm font-semibold text-white">
+      {String(
+        latestOutcome.generatedDraft?.structuredAssessment?.vendorOverview?.tier ||
+          latestOutcome.generatedDraft?.structuredAssessment?.vendorOverview?.vendorTier ||
+          "Not assigned",
+      )}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+      Criticality
+    </p>
+
+    <p className="mt-2 text-sm font-semibold text-white">
+      {String(
+        latestOutcome.generatedDraft?.structuredAssessment?.vendorOverview?.criticality ||
+          "Not specified",
+      )}
+    </p>
+  </div>
+</div>
+
+          <div className="mt-5 space-y-5">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+              <label className="text-xs uppercase tracking-[0.25em] text-violet-200">
+                Executive summary
+              </label>
+              <textarea
+                disabled={editingLocked}
+                value={executiveSummary}
+                onChange={(e) => setExecutiveSummary(e.target.value)}
+                rows={5}
+                className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white disabled:cursor-not-allowed disabled:opacity-70"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+              <label className="text-xs uppercase tracking-[0.25em] text-violet-200">
+                Final assessment
+              </label>
+              <textarea
+                disabled={editingLocked}
+                value={finalAssessment}
+                onChange={(e) => setFinalAssessment(e.target.value)}
+                rows={10}
+                className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white disabled:cursor-not-allowed disabled:opacity-70"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+              <label className="text-xs uppercase tracking-[0.25em] text-violet-200">
+                Conditions & follow-ups
+              </label>
+              <textarea
+                disabled={editingLocked}
+                value={recommendationsText}
+                onChange={(e) => setRecommendationsText(e.target.value)}
+                rows={6}
+                className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white disabled:cursor-not-allowed disabled:opacity-70"
+              />
+            </div>
+
+
+          </div>
+
+          {!editingLocked ? (
+            <div
+              className={`mt-5 rounded-2xl border p-4 text-sm ${
+                Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                  : "border-amber-400/20 bg-amber-500/10 text-amber-50"
+              }`}
+            >
+              {Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)
+                ? `Release blocked: ${evidenceSummary.openRemediationRequests ?? 0} unresolved remediation request${
+                    (evidenceSummary.openRemediationRequests ?? 0) === 1 ? "" : "s"
+                  } must be resolved before governance release.`
+                : "Release readiness requires executive summary, final assessment, conditions, risk level, and governance decision before completion or release."}
+            </div>
+          ) : null}
+
+          {!editingLocked ? (
+            <div className="mt-5 flex flex-wrap gap-3">
+              {canGenerateTruvernDraft ? (
+                <button
+                  type="button"
+                  disabled={generatingDraft || saving}
+                  onClick={generateDraft}
+                  className="rounded-2xl border border-violet-300/20 bg-violet-400/10 px-5 py-3 text-sm font-semibold text-violet-50 hover:bg-violet-400/15 disabled:opacity-50"
+                >
+                  {generatingDraft ? "Generating assessment..." : "Generate assessment"}
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (editingLocked) return;
+                  submitOutcome("SAVE_DRAFT");
+                }}
+                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white hover:bg-white/[0.1] disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save assessment"}
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (editingLocked) return;
+                  submitOutcome("COMPLETE");
+                }}
+                className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm font-medium text-emerald-50 hover:bg-emerald-400/15 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Mark complete"}
+              </button>
+
+              <button
+                type="button"
+                disabled={editingLocked || saving || Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)}
+                title={Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0) ? "Resolve remediation evidence before release" : "Preview release before final confirmation"}
+                onClick={() => {
+                  if (Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)) {
+                    setMessage("Resolve all remediation evidence requests before governance release.");
+                    return;
+                  }
+
+                  setShowReleasePreview(true);
+                }}
+                className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm font-medium text-cyan-50 hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {saving ? "Saving..." : "Preview release"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+
+      {activeWorkspaceTab === "release" ? (
+        <div className="mt-6 grid gap-6">
+          {/* RELEASE_TAB_CONTENT */}
+        </div>
+      ) : null}
+
+      {/* VENDOR_GOVERNANCE_HISTORY_PANEL */}
+      {!truvernCustomerView ? (
+        <div className="mt-6 rounded-3xl border border-purple-400/20 bg-purple-500/10 p-5">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-purple-200">
+            Vendor governance history
+          </p>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Prior releases
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {governanceMemory.length}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Latest score
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {governanceMemory[0]?.governanceScore ?? "—"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Last decision
+              </p>
+              <p className="mt-2 text-sm font-semibold text-cyan-100">
+                {governanceMemory[0]?.governanceDecision || "No history"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Last residual risk
+              </p>
+              <p className="mt-2 text-sm font-semibold text-amber-100">
+                {governanceMemory[0]?.residualRisk || "No history"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Governance drift
+                </p>
+                <p className="mt-2 text-lg font-semibold text-white">
+                  {governanceDrift.trend}
+                </p>
+              </div>
+
+              <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-slate-200">
+                Score delta {governanceDrift.scoreDelta >= 0 ? "+" : ""}{governanceDrift.scoreDelta}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              {governanceDrift.flags.map((flag) => (
+                <div
+                  key={flag}
+                  className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-200"
+                >
+                  {flag}
+                </div>
+              ))}
+            </div>
+          </div>
+          {governanceMemory.length > 0 ? (
+            <div className="mt-5 grid gap-3">
+              {governanceMemory.slice(0, 5).map((memory, index) => (
+                <div
+                  key={`${memory.createdAt ?? "memory"}-${index}`}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {memory.governanceDecision || "Governance release"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {memory.createdAt ? formatDate(memory.createdAt) : "Date unavailable"}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-cyan-100">
+                        Score {memory.governanceScore ?? "—"}
+                      </span>
+                      <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-amber-100">
+                        Risk {memory.residualRisk || "—"}
+                      </span>
+                      {memory.breachDisclosureDetected ? (
+                        <span className="rounded-full border border-red-300/20 bg-red-400/10 px-3 py-1 text-red-100">
+                          Breach history
+                        </span>
+                      ) : null}
+                      {memory.federalInvestigationDetected ? (
+                        <span className="rounded-full border border-red-300/20 bg-red-400/10 px-3 py-1 text-red-100">
+                          Federal history
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-2 text-xs text-slate-300 sm:grid-cols-3">
+                    <div>Critical: {memory.criticalFailures}</div>
+                    <div>Partial: {memory.partialControls}</div>
+                    <div>Remediation: {memory.remediationCount}</div>
+                  </div>
+
+                  {memory.governanceNarrative ? (
+                    <p className="mt-3 text-sm leading-6 text-slate-300">
+                      {memory.governanceNarrative}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
+              No prior governance memory exists yet. The first confirmed release will create the vendor governance history baseline.
+            </p>
+          )}
+        </div>
+      ) : null}
+      {/* COMPACT_FINDINGS_PANEL_RENDERED */}
+      {!truvernCustomerView && activeWorkspaceTab === "questionnaire" ? (
+        <div className="mt-6 grid gap-5">
+          <CompactSubmittedAnswersPanel
+            responses={((assignment as any).response?.responses as any) ?? {}}
+            vendorAnswers={vendorAnswers}
+          />
+        </div>
+      ) : null}
+
+      {!truvernCustomerView && activeWorkspaceTab === "findings" ? (
+        <div className="mt-6 grid gap-5">
+          <FindingsOutcomePanel
+            assignmentId={Number((assignment as any).id)}
+            responses={((assignment as any).response?.responses as any) ?? {}}
+            riskLevel={riskLevel}
+            decision={decision}
+            reviewFindings={findings}
+            executiveSummary={executiveSummary}
+            finalAssessment={finalAssessment}
+            canRerunIntelligence={canManageTruvernReview}
+          />
+        </div>
+      ) : null}
+      <div className="hidden mt-5 rounded-3xl border border-white/10 bg-slate-950/30 p-6">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200/90">
+            Findings and outcome
+          </p>
+
+          {latestOutcome.updatedAt ? (
+            <p className="mt-2 text-sm text-slate-400">
+              Last saved {formatDate(latestOutcome.updatedAt)}
+            </p>
+          ) : null}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium text-slate-200">Risk level</label>
+              <select
+                disabled={editingLocked}
+                value={riskLevel}
+                onChange={(e) => setRiskLevel(e.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <option value="">Select risk level</option>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="CRITICAL">Critical</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-200">Decision</label>
+              <select
+                disabled={editingLocked}
+                value={decision}
+                onChange={(e) => setDecision(e.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <option value="">Select decision</option>
+                <option value="APPROVE">Approve</option>
+                <option value="APPROVE_WITH_CONDITIONS">Approve with conditions</option>
+                <option value="REJECT">Reject</option>
+                <option value="ESCALATE">Escalate</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-5">
+            <div>
+              <label className="text-sm font-medium text-slate-200">Review findings</label>
+              <textarea
+                disabled={editingLocked}
+                rows={7}
+                value={findings}
+                onChange={(e) => setFindings(e.target.value)}
+                placeholder="Document key evidence reviewed, material risks, compensating controls, and recommended decision."
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-70"
+              />
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-slate-200">Executive summary</label>
+                <textarea
+                  disabled={editingLocked}
+                  rows={8}
+                  value={executiveSummary}
+                  onChange={(e) => setExecutiveSummary(e.target.value)}
+                  placeholder="Provide board-level governance summary, evidence reviewed, residual risk, and reviewer conclusion."
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-70"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-200">Final assessment</label>
+                <textarea
+                  disabled={editingLocked}
+                  rows={8}
+                  value={finalAssessment}
+                  onChange={(e) => setFinalAssessment(e.target.value)}
+                  placeholder="Document control gaps, compensating controls, remediation status, release conditions, and final recommendation."
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-70"
+                />
+              </div>
+            </div>
+          </div>
+
+          {!editingLocked ? (
+            <div
+              className={`mt-5 rounded-2xl border p-4 text-sm ${
+                Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                  : "border-amber-400/20 bg-amber-500/10 text-amber-50"
+              }`}
+            >
+              {Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)
+                ? `Release blocked: ${evidenceSummary.openRemediationRequests ?? 0} unresolved remediation request${
+                    (evidenceSummary.openRemediationRequests ?? 0) === 1 ? "" : "s"
+                  } must be resolved before governance release.`
+                : "Release readiness requires executive summary, final assessment, conditions, risk level, and governance decision before completion or release."}
+            </div>
+          ) : null}
+
+          {!editingLocked ? (
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (editingLocked) return;
+                  submitOutcome("SAVE_DRAFT");
+                }}
+                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white hover:bg-white/[0.1] disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save draft"}
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (editingLocked) return;
+                  submitOutcome("COMPLETE");
+                }}
+                className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm font-medium text-emerald-50 hover:bg-emerald-400/15 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Mark complete"}
+              </button>
+
+              <button
+                type="button"
+                disabled={editingLocked || saving || Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)}
+                title={Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0) ? "Resolve remediation evidence before release" : "Preview release before final confirmation"}
+                onClick={() => {
+                  if (Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)) {
+                    setMessage("Resolve all remediation evidence requests before governance release.");
+                    return;
+                  }
+
+                  setShowReleasePreview(true);
+                }}
+                className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm font-medium text-cyan-50 hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {saving ? "Saving..." : "Preview release"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-50">
+                This governance review is managed internally by Truvern. Assessment results, remediation handling, and governance release activity are controlled by the Truvern review team.
+              </div>
+
+              {canManageTruvernReview ? (
+                <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5">
+                  <p className="text-xs uppercase tracking-[0.22em] text-amber-200">
+                    Truvern operator override
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-amber-50/90">
+                    Unlocking a released or confirmed outcome preserves prior release history and records this action as an operator override.
+                  </p>
+
+                  <textarea
+                    value={unlockReason}
+                    onChange={(event) => setUnlockReason(event.target.value)}
+                    rows={3}
+                    placeholder="Reason for unlocking editing..."
+                    className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-amber-300/50"
+                  />
+
+                  <label className="mt-4 flex items-start gap-3 text-sm text-amber-50">
+                    <input
+                      type="checkbox"
+                      checked={acceptedUnlockOverride}
+                      onChange={(event) => setAcceptedUnlockOverride(event.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950 text-amber-400"
+                    />
+
+                    <span className="leading-6">
+                      I acknowledge I am unlocking a released or confirmed governance outcome as an authorized Truvern operator and that this override will be preserved in the audit history.
+                    </span>
+                  </label>
+
+                  <button
+                    type="button"
+                    disabled={unlockingEditing || !acceptedUnlockOverride || unlockReason.trim().length < 8}
+                    onClick={unlockEditing}
+                    className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-400/10 px-5 py-3 text-sm font-semibold text-amber-50 transition hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {unlockingEditing ? "Unlocking..." : "Unlock editing"}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+
+
+       {outcomeConfirmed ? (
+  <div className="mt-5 rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-cyan-500/10 to-slate-950/40 p-8">
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <p className="text-xs uppercase tracking-[0.35em] text-emerald-200">
+          Final Truvern Governance Seal
+        </p>
+
+        <h3 className="mt-4 text-2xl font-semibold text-white">
+          Governance assessment finalized
+        </h3>
+
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          This governance assessment has completed Truvern review,
+          release approval, customer confirmation, and audit finalization.
+          The finalized governance outcome is now immutable.
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-emerald-300/20 bg-emerald-400/10 px-6 py-5">
+        <p className="text-xs uppercase tracking-[0.28em] text-emerald-100">
+          Finalized status
+        </p>
+
+        <p className="mt-3 text-2xl font-semibold text-white">
+          {assignment.assignmentType === "INTERNAL" ? "APPROVED" : "CONFIRMED"}
+        </p>
+
+        <Link
+  href={`/review-desk/reviews/${assignment.id}/packet`}
+  className="mt-5 inline-flex rounded-2xl border border-emerald-300/25 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-50 hover:bg-emerald-300/15"
+>
+  Export governance packet archive
+</Link>
+      </div>
+    </div>
+
+    <div className="mt-8 grid gap-4 lg:grid-cols-4">
+      <div className="min-h-[170px] rounded-2xl border border-cyan-400/10 bg-[#06111f] p-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+          Released by
+        </p>
+
+        <p className="mt-3 text-sm font-semibold text-white">
+          {reviewerName || "Truvern governance"}
+        </p>
+      </div>
+
+      <div className="min-h-[170px] rounded-2xl border border-cyan-400/10 bg-[#06111f] p-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+          Finalized at
+        </p>
+
+        <p className="mt-3 text-sm font-semibold text-white">
+          {formatDate(latestOutcome.updatedAt)}
+        </p>
+      </div>
+
+      <div className="min-h-[170px] rounded-2xl border border-cyan-400/10 bg-[#06111f] p-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+          Governance version
+        </p>
+
+        <p className="mt-3 text-sm font-semibold text-white">
+          {latestOutcome.governanceVersion || "TRV-GOV-1.0"}
+        </p>
+      </div>
+
+      <div className="min-h-[170px] rounded-2xl border border-cyan-400/10 bg-[#06111f] p-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+          Assessment scope
+        </p>
+
+        <p className="mt-3 text-sm font-semibold text-white">
+          Vendor governance review
+        </p>
+      </div>
+    </div>
+
+    {latestOutcome.manifestId ? (
+      <div className="mt-5 rounded-3xl border border-violet-400/20 bg-violet-500/10 p-6">
+        <p className="text-xs uppercase tracking-[0.35em] text-violet-200">
+          Governance Manifest
+        </p>
+
+        <h4 className="mt-3 text-2xl font-semibold text-white">
+          Machine-verifiable release record
+        </h4>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+              Manifest ID
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">
+              #{latestOutcome.manifestId}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+              Manifest version
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">
+              {latestOutcome.manifestVersion || "GRM-1.0"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+              Governance version
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">
+              {latestOutcome.governanceVersion || "TRV-GOV-1.0"}
+            </p>
+          </div>
+        </div>
+
+        {latestOutcome.manifestChecksum ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+              Manifest checksum
+            </p>
+            <p className="mt-2 break-all font-mono text-xs text-violet-100">
+              {latestOutcome.manifestChecksum}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            href={`/api/governance/manifests/${latestOutcome.manifestId}`}
+            target="_blank"
+            className="rounded-2xl border border-violet-300/25 bg-violet-300/10 px-4 py-3 text-sm font-semibold text-violet-50 hover:bg-violet-300/15"
+          >
+            Export manifest JSON
+          </Link>
+
+          <Link
+            href={`/api/governance/verify/${latestOutcome.manifestId}`}
+            target="_blank"
+            className="rounded-2xl border border-emerald-300/25 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-50 hover:bg-emerald-300/15"
+          >
+            Verify manifest
+          </Link>
+        </div>
+      </div>
+    ) : null}
+  </div>
+) : null}
+<div className="mt-5 rounded-3xl border border-white/10 bg-slate-950/30 p-6">
+        <button
+          type="button"
+          onClick={() => setShowAuditTimeline((value) => !value)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <span className="text-[10px] uppercase tracking-[0.28em] text-cyan-200/90">
+            Audit timeline
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-slate-300">
+            {showAuditTimeline ? "Hide" : "Show"}
+          </span>
+        </button>
+
+        {showAuditTimeline ? (
+        <div className="mt-5 space-y-4">
+          {auditEvents.map((event, index) => {
+            const done = Boolean(event.at);
+
+            return (
+              <div
+                key={`${event.label}-${index}`}
+                className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              >
+                <div
+                  className={
+                    done
+                      ? "mt-1 h-3 w-3 rounded-full bg-emerald-300"
+                      : "mt-1 h-3 w-3 rounded-full bg-slate-600"
+                  }
+                />
+
+                <div>
+                  <p className="text-sm font-semibold text-white">{event.label}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {done ? formatDate(event.at) : "Pending"}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-300">{event.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        ) : (
+          <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+            Audit timeline is collapsed. Expand it to inspect release events and governance history.
+          </p>
+        )}
+      </div>
+  
+      {showReleasePreview ? (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-cyan-400/20 bg-[#041426] p-8 shadow-2xl shadow-black/50">
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <p className="text-xs uppercase tracking-[0.35em] text-cyan-200">
+                  Release Preview
+                </p>
+
+                <h3 className="mt-3 text-2xl font-semibold text-white">
+                  Immutable governance release
+                </h3>
+
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                  Confirm the governance outcome before release. Editing locks after release and customer confirmation finalizes the governance record.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowReleasePreview(false)}
+                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm text-white hover:bg-white/[0.1]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-8 grid gap-4 lg:grid-cols-2">
+              <div className="min-h-[170px] rounded-2xl border border-cyan-400/10 bg-[#06111f] p-5">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Governance decision
+                </p>
+
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {governanceLabel(decision) || "Pending"}
+                </p>
+              </div>
+
+              <div className="min-h-[170px] rounded-2xl border border-cyan-400/10 bg-[#06111f] p-5">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Residual risk
+                </p>
+
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {governanceLabel(riskLevel) || "Medium"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Executive summary
+              </p>
+
+              <div className="mt-3 whitespace-pre-wrap leading-8 text-sm leading-7 text-slate-200">
+                {executiveSummary || "No executive summary provided."}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Final assessment
+              </p>
+
+              <div className="mt-3 whitespace-pre-wrap leading-8 text-sm leading-7 text-slate-200">
+                {finalAssessment || "No final assessment provided."}
+              </div>
+            </div>
+
+            {/* AUTOMATED_GOVERNANCE_RECOMMENDATION_PANEL */}
+            <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">
+                Automated governance recommendation
+              </p>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-4">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Score
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {governanceEngine.score}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Decision
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-cyan-100">
+                    {governanceLabel(governanceEngine.recommendedDecision)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Residual risk
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-amber-100">
+                    {governanceLabel(governanceEngine.residualRisk)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Vendor answers
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {vendorAnswers.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Board narrative
+                </p>
+                <p className="mt-3 text-sm leading-7 text-slate-200">
+                  {governanceEngine.narrative}
+                </p>
+
+                {!editingLocked ? (
+                  <button
+                    type="button"
+                    onClick={applyGovernanceRecommendation}
+                    className="mt-5 rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-50 hover:bg-cyan-400/15"
+                  >
+                    Apply recommendation
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-purple-400/20 bg-purple-500/10 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-purple-200">
+                Prerelease governance drift
+              </p>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Trend
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {governanceDrift.trend}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Score delta
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {governanceDrift.scoreDelta >= 0 ? "+" : ""}{governanceDrift.scoreDelta}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                    Prior releases
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {governanceMemory.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2">
+                {governanceDrift.flags.map((flag) => (
+                  <div
+                    key={`preview-${flag}`}
+                    className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-200"
+                  >
+                    {flag}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* PRERELEASE_CONDITIONS_AND_FOLLOWUPS */}
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Conditions & follow-ups
+              </p>
+
+              <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-200">
+                {recommendationsText || "No release conditions recorded."}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-amber-200">
+                Federal investigation & breach follow-ups
+              </p>
+
+              <ul className="mt-4 space-y-2 text-sm leading-6 text-amber-50">
+                <li>• Confirm whether the vendor organization has been under federal investigation within the last 24 months.</li>
+                <li>• Confirm whether the vendor organization has experienced a security breach within the last 24 months.</li>
+                <li>• Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.</li>
+                <li>• Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.</li>
+              </ul>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-amber-200">
+                Immutable governance warning
+              </p>
+
+              <ul className="mt-4 space-y-2 text-sm leading-6 text-amber-50">
+                <li>• Editing locks after governance release.</li>
+                <li>• Customer confirmation finalizes the governance artifact.</li>
+                <li>• Governance manifests and checksums become audit records.</li>
+                <li>• Reserved Truvern credits are consumed on confirmation.</li>
+              </ul>
+            </div>
+
+            <label className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-slate-200">
+              <input
+                type="checkbox"
+                checked={acceptedAcknowledgement}
+                onChange={(event) => setAcceptedAcknowledgement(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950 text-cyan-400"
+              />
+
+              <span className="leading-6">
+                {isTruvern
+                  ? "I acknowledge that Truvern governance outcomes are operational governance assessments and not legal guarantees, certifications, warranties, or regulatory attestations. I also understand that Truvern Review credits may still be charged once the service request is accepted, questionnaire delivery begins, or vendor work has been initiated, even if I later cancel or revoke the request. Final governance responsibility remains with my organization."
+                  : "I acknowledge I am approving or finalizing this governance outcome as an authorized Truvern operator on behalf of this workspace."}
+              </span>
+            </label>
+            <div className="sticky bottom-0 -mx-8 mt-8 flex flex-wrap gap-3 border-t border-white/10 bg-[#041426]/95 px-8 py-5 backdrop-blur">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setShowReleasePreview(false)}
+                className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-medium text-white hover:bg-white/[0.1]"
+              >
+                Continue editing
+              </button>
+
+              <button
+                type="button"
+                disabled={editingLocked || saving || Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)}
+                title={Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0) ? "Resolve remediation evidence before release" : "Confirm release"}
+                onClick={async () => {
+                  if (Boolean(evidenceSummary.releaseBlocked && (evidenceSummary.openRemediationRequests ?? 0) > 0)) {
+                    setMessage("Resolve all remediation evidence requests before governance release.");
+                    setShowReleasePreview(false);
+                    return;
+                  }
+
+                  setShowReleasePreview(false);
+                  await submitOutcome("RELEASE");
+                }}
+                className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-50 hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {saving ? "Releasing..." : "Confirm release"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+  </section>
+    </>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function CreditMiniCard({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={
+        accent
+          ? "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"
+          : "rounded-2xl border border-white/10 bg-black/20 p-4"
+      }
+    >
+      <p className={accent ? "text-xs uppercase tracking-[0.2em] text-cyan-200" : "text-xs uppercase tracking-[0.2em] text-slate-400"}>
+        {label}
+      </p>
+
+      <p className="mt-2 text-2xl font-semibold text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

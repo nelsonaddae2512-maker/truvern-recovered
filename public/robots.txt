@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+Allow: /pricing
+Allow: /trust-network
+
+Disallow: /vendors
+Disallow: /trust
+Disallow: /docs
+Disallow: /buyers
+Disallow: /review-desk
+Disallow: /truvern
+Disallow: /board-packet
+Disallow: /api
+Disallow: /assessment
+Disallow: /assessments
+Disallow: /assessment-templates
+Disallow: /vendor-assessment
+Disallow: /vendor-evidence
+Disallow: /settings
+Disallow: /billing
+Disallow: /onboarding
+Disallow: /dashboard
+Disallow: /program-state
+Disallow: /admin
+Disallow: /select-org
+Disallow: /sign-in
+Disallow: /sign-up
+
+Sitemap: https://www.truvern.com/sitemap.xml
