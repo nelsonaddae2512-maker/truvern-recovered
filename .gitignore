@@ -461,7 +461,6 @@ postcss.config.js
 postcss.config.mjs
 prisma-ping.cjs
 prisma.config.ts.disabled
-prisma/
 production_build.ps1
 project-tree.txt
 proxy.ts
@@ -509,3 +508,26 @@ rc9-*.cjs
 .env.production.local
 .env.production.local.*
 .env.restore-test.local
+
+# Local dependency/cache recovery artifacts
+.ignored_node_modules/
+
+# Prisma local utilities, seeds, verification scripts, and backups
+prisma/*.bak*
+prisma/schema.bak.prisma
+prisma/schema.before-framework-foundation.prisma
+prisma/schema.prisma.bak*
+prisma/schema.prisma.bak.*
+prisma/schema.prisma.bak_*
+prisma/schema.prisma.bak-*
+prisma/schema.prisma.bak_phase*
+prisma/_fix_*.ts
+prisma/demo-seed*.cjs
+prisma/seed.cjs
+prisma/seed.js
+prisma/seed.ts
+prisma/seed.prod.ts
+prisma/seed.prod.ts.bak*
+prisma/verify.ts
+prisma/verify.prod.ts
+prisma/seed/
