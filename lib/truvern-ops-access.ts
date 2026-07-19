@@ -99,6 +99,7 @@ export async function getCurrentTruvernAccess(): Promise<TruvernAccess> {
   );
 
   const opsEmails = [
+    ...envEmails("TRUVERN_MASTER_EMAIL"),
     ...envEmails("TRUVERN_OPS_EMAILS"),
     ...envEmails("TRUVERN_ADMIN_EMAILS"),
     ...envEmails("ADMIN_EMAILS"),
@@ -175,4 +176,5 @@ export async function requireTruvernReviewer() {
 
   return access;
 }
+
 
