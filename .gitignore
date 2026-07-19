@@ -492,3 +492,23 @@ tailwind.config.js
 vercel-all.ps1
 vercel-env-sync.ps1
 vercel_backup.json
+.vercel
+.env*.local
+
+# clerk configuration (can include secrets)
+/.clerk/
+# Truvern local production-hardening ignores
+.env
+.env.*
+!.env.example
+vercel_ver.err
+inspect-*.cjs
+audit-*.cjs
+rc9-*.cjs
+.env.neon-production-backup
+*.dump
+*.backup
+.env.local-postgres-backup
+.env.production.local
+.env.production.local.*
+.env.restore-test.local
