@@ -1,4 +1,4 @@
-﻿# dependencies
+# dependencies
 node_modules/
 
 # next
@@ -443,11 +443,9 @@ og_board_2.png
 og_board_real
 og_board_real.png
 og_body.json
-package-lock.json
 package.backup.json
 package.bak.json
 package.broken.20251129121203.json
-package.json
 package.json.bak
 package.json.bak_20251020232731
 package.json.broken
@@ -457,7 +455,6 @@ package.rebuild-backup.20251129121836.json
 pages/
 phase5-db-verify.ps1
 phase6-deploy.ps1
-pnpm-lock.yaml
 pnpm-workspace.yaml
 postcss.config.cjs
 postcss.config.js
