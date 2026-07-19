@@ -1,0 +1,581 @@
+import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
+import prisma from "@/lib/prisma";
+import { generateFindings, type TruvernGeneratedFinding } from "@/lib/governance/findings-engine";
+import type { TruvernScoringInput } from "@/lib/governance/scoring-engine";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+type ReviewResponseRow = {
+  id: number;
+  responses: unknown;
+};
+
+function parseId(value: unknown) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function safeObject(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : {};
+}
+
+function safeText(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function normalizeResponses(responses: any[]): TruvernScoringInput[] {
+  return responses.map((response) => ({
+    questionId: response.questionId,
+    controlId: response.question.control.id,
+    controlCode: response.question.control.controlId,
+    family: response.question.control.family,
+    prompt: response.question.prompt,
+    answer: response.answer,
+    score: response.score,
+    maxScore: response.question.weight ?? 1,
+    weight: response.question.weight ?? 1,
+    requiresEvidence: response.question.requiresEvidence,
+    requiresAttestation: response.question.requiresAttestation,
+    evidence: response.evidence,
+  }));
+}
+
+function toSeverity(severity: TruvernGeneratedFinding["severity"]) {
+  if (severity === "CRITICAL") return "CRITICAL";
+  if (severity === "HIGH") return "HIGH";
+  if (severity === "MODERATE") return "MODERATE";
+  if (severity === "LOW") return "LOW";
+  return "INFO";
+}
+
+function decisionForRisk(riskLevel: string | null | undefined, blocked: boolean) {
+  const level = String(riskLevel ?? "").toUpperCase();
+
+  if (level === "CRITICAL") return "REJECT_OR_ESCALATE";
+  if (blocked) return "APPROVE_WITH_REMEDIATION";
+  if (level === "HIGH") return "APPROVE_WITH_CONDITIONS";
+  return "APPROVE";
+}
+
+type FallbackFinding = {
+  id: string;
+  severity: string;
+  title: string;
+  description: string;
+  recommendation: string;
+  remediationRequired: boolean;
+  attestationRequired: boolean;
+  dueAt: string | null;
+};
+
+function fallbackFindingsFromResponses(responses: Record<string, any>, vendorName: string): FallbackFinding[] {
+  const joined = JSON.stringify(responses).toLowerCase();
+
+  const findings: FallbackFinding[] = [
+    {
+      id: "fallback-summary",
+      severity: "MEDIUM",
+      title: "Truvern reviewer intelligence generated",
+      description: `${vendorName} completed a Truvern governance assessment review for operational, security, and vendor risk evaluation.`,
+      recommendation: "Reviewer should validate the submitted responses, evidence posture, and release conditions before final governance release.",
+      remediationRequired: false,
+      attestationRequired: false,
+      dueAt: null,
+    },
+    {
+      id: "fallback-review",
+      severity: "LOW",
+      title: "Evidence and response validation required",
+      description: "Truvern performed an initial governance review using submitted assessment data, vendor profile context, operational metadata, and available evidence artifacts.",
+      recommendation: "Confirm that all required evidence is present before releasing the governance outcome.",
+      remediationRequired: false,
+      attestationRequired: false,
+      dueAt: null,
+    },
+  ];
+
+  if (joined.includes("no") || joined.includes("missing") || joined.includes("gap") || joined.includes("partial")) {
+    findings.push({
+      id: "fallback-gap",
+      severity: "HIGH",
+      title: "Remediation or attestation may be required",
+      description: "The submitted responses include signals that may indicate missing controls, incomplete evidence, or partial implementation.",
+      recommendation: "Request remediation evidence, compensating control detail, or formal attestation from the vendor before release.",
+      remediationRequired: true,
+      attestationRequired: true,
+      dueAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+  }
+
+  return findings;
+}
+
+function findingText(findings: Array<{ severity: string; title: string; description: string; recommendation?: string | null }>) {
+  return findings
+    .map((finding) => `- [${finding.severity}] ${finding.title}: ${finding.description}${finding.recommendation ? ` Recommendation: ${finding.recommendation}` : ""}`)
+    .join("\n");
+}
+
+async function latestReviewResponse(tx: any, assignmentId: number) {
+  const rows = await tx.$queryRaw<ReviewResponseRow[]>`
+    select id, responses
+    from "ReviewResponse"
+    where "reviewAssignmentId" = ${assignmentId}
+    order by "updatedAt" desc, id desc
+    limit 1
+  `;
+
+  return rows[0] ?? null;
+}
+
+export async function POST(_request: Request, context: RouteContext) {
+  try {
+    const { id: rawId } = await context.params;
+    const assignmentId = parseId(rawId);
+
+    if (!assignmentId) {
+      return NextResponse.json({ ok: false, error: "Invalid review assignment id." }, { status: 400 });
+    }
+
+    const assignment = await prisma.reviewAssignment.findUnique({
+      where: { id: assignmentId },
+      select: {
+        id: true,
+        organizationId: true,
+        vendorId: true,
+        assignmentType: true,
+        status: true,
+      },
+    });
+
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Review assignment not found." }, { status: 404 });
+    }
+
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: assignment.vendorId },
+      select: { id: true, name: true },
+    });
+
+    const vendorName = vendor?.name ?? "This vendor";
+
+    const frameworkAssessment = await prisma.truvernFrameworkAssessment.findFirst({
+      where: { reviewAssignmentId: assignmentId },
+      include: {
+        responses: {
+          include: {
+            question: {
+              include: {
+                control: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const generatedAt = new Date();
+
+    if (!frameworkAssessment || frameworkAssessment.responses.length === 0) {
+      const output = await prisma.$transaction(async (tx) => {
+        const responseRow = await latestReviewResponse(tx, assignmentId);
+
+        if (!responseRow) {
+          throw new Error("No review response exists yet for this assignment.");
+        }
+
+        const existingResponses = safeObject(responseRow.responses);
+        const findings = fallbackFindingsFromResponses(existingResponses, vendorName);
+        const remediationRequired = findings.some((finding) => finding.remediationRequired);
+        const attestationRequired = findings.some((finding) => finding.attestationRequired);
+        const riskLevel = remediationRequired ? "HIGH" : "MEDIUM";
+        const decision = decisionForRisk(riskLevel, remediationRequired || attestationRequired);
+
+        const executiveSummary = [
+          `${vendorName} was evaluated through the Truvern Review workflow.`,
+          `Reviewer intelligence was generated from the submitted review response payload.`,
+          `${findings.length} initial finding signal(s) were generated.`,
+        ].join("\n\n");
+
+        const finalAssessment = remediationRequired
+          ? "Release should remain blocked until remediation evidence and attestations are reviewed."
+          : "Release may proceed after reviewer confirmation and governance acknowledgement.";
+
+        const intelligence = {
+          generatedAt: generatedAt.toISOString(),
+          source: "review-response-fallback-engine",
+          frameworkAssessmentId: null,
+          score: {
+            score: remediationRequired ? 70 : 88,
+            maxScore: 100,
+            riskLevel,
+          },
+          findings,
+          executiveSummary,
+          finalRecommendation: finalAssessment,
+          followUps: remediationRequired
+            ? ["Request remediation evidence or attestation before release."]
+            : ["Reviewer should confirm evidence posture before release."],
+          timeline: [
+            {
+              label: "Reviewer intelligence generated",
+              at: generatedAt.toISOString(),
+              actor: "Truvern Findings Engine",
+            },
+          ],
+        };
+
+        const remediation = {
+          generatedAt: generatedAt.toISOString(),
+          remediationStatus: remediationRequired ? "REMEDIATION_RECOMMENDED" : "READY_FOR_RELEASE",
+          remediationDueAt: findings.find((finding) => finding.dueAt)?.dueAt ?? null,
+          requests: findings
+            .filter((finding) => finding.remediationRequired)
+            .map((finding) => ({
+              id: finding.id,
+              status: "RECOMMENDED",
+              requestText: finding.recommendation,
+              dueAt: finding.dueAt,
+            })),
+          attestationRequests: findings
+            .filter((finding) => finding.attestationRequired)
+            .map((finding) => ({
+              id: finding.id,
+              title: `${finding.title} attestation`,
+              description: finding.recommendation,
+              status: "RECOMMENDED",
+              expiresAt: finding.dueAt,
+            })),
+          history: [
+            {
+              label: "Fallback findings generated",
+              at: generatedAt.toISOString(),
+              count: findings.length,
+            },
+          ],
+          reviewerConditions: remediationRequired
+            ? ["Resolve recommended remediation evidence before release."]
+            : [],
+        };
+
+        const nextResponses = {
+          ...existingResponses,
+          riskLevel,
+          decision,
+          intelligenceMode: "fallback",
+          findings: findingText(findings),
+          executiveSummary,
+          finalAssessment,
+          truvernReviewerIntelligence: intelligence,
+          truvernRemediation: remediation,
+          releaseBlocked: remediationRequired || attestationRequired,
+          generatedFindingsAt: generatedAt.toISOString(),
+        };
+
+        await tx.$executeRaw`
+          update "ReviewResponse"
+          set responses = ${JSON.stringify(nextResponses)}::jsonb,
+              "updatedAt" = now()
+          where id = ${responseRow.id}
+        `;
+
+        await tx.reviewAssignment.update({
+          where: { id: assignmentId },
+          data: {
+            status: remediationRequired || attestationRequired ? "IN_REVIEW" : "COMPLETED",
+            reviewerName: "Truvern Review Team",
+            assignedReviewerName: "Truvern Review Team",
+            assignedTo: "Truvern Review Team",
+          },
+        });
+
+        return {
+          findings,
+          riskLevel,
+          decision,
+          intelligenceMode: "fallback",
+          remediationRequired,
+          attestationRequired,
+          responseUpdated: true,
+          fallback: true,
+        };
+      });
+
+      return NextResponse.json({ ok: true, ...output });
+    }
+
+    const result = generateFindings(normalizeResponses(frameworkAssessment.responses));
+    const dueFallback = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const output = await prisma.$transaction(async (tx) => {
+      await tx.truvernAssessmentFinding.deleteMany({
+        where: {
+          assessmentId: frameworkAssessment.id,
+          status: { in: ["OPEN", "REMEDIATION_REQUESTED"] },
+        },
+      });
+
+      await tx.truvernAssessmentAttestation.deleteMany({
+        where: {
+          assessmentId: frameworkAssessment.id,
+          status: { in: ["REQUESTED", "SUBMITTED"] },
+        },
+      });
+
+      if (result.findings.length > 0) {
+        await tx.truvernAssessmentFinding.createMany({
+          data: result.findings.map((finding) => ({
+            assessmentId: frameworkAssessment.id,
+            controlId: Number.isInteger(Number(finding.controlKey)) ? Number(finding.controlKey) : null,
+            severity: toSeverity(finding.severity),
+            status: "OPEN",
+            title: finding.title,
+            description: finding.description,
+            recommendation: finding.recommendation,
+            remediationRequired: finding.remediationRequired,
+            attestationRequired: finding.attestationRequired,
+            dueAt: new Date(Date.now() + finding.dueInDays * 24 * 60 * 60 * 1000),
+            metadata: finding.metadata as Prisma.InputJsonValue,
+          })),
+        });
+      }
+
+      const findings = await tx.truvernAssessmentFinding.findMany({
+        where: { assessmentId: frameworkAssessment.id },
+        include: {
+          control: { select: { controlId: true, family: true, title: true } },
+        },
+        orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
+      });
+
+      const remediationRequests: any[] = [];
+      const attestationRequests: any[] = [];
+
+      for (const finding of findings.filter((item) => item.remediationRequired)) {
+        const request = await tx.truvernRemediationRequest.create({
+          data: {
+            findingId: finding.id,
+            status: "REQUESTED",
+            requestText: finding.recommendation ?? "Please provide remediation evidence or corrective action documentation.",
+            dueAt: finding.dueAt ?? dueFallback,
+            metadata: {
+              source: "review-desk-generate-findings",
+              assignmentId,
+              frameworkAssessmentId: frameworkAssessment.id,
+              severity: finding.severity,
+            },
+          },
+        });
+
+        await tx.truvernAssessmentFinding.update({
+          where: { id: finding.id },
+          data: { status: "REMEDIATION_REQUESTED" },
+        });
+
+        remediationRequests.push(request);
+      }
+
+      for (const finding of findings.filter((item) => item.attestationRequired)) {
+        const controlLabel = finding.control ? `${finding.control.controlId} · ${finding.control.title}` : finding.title;
+
+        const attestation = await tx.truvernAssessmentAttestation.create({
+          data: {
+            assessmentId: frameworkAssessment.id,
+            title: `Attestation required: ${controlLabel}`,
+            description: finding.recommendation ?? "Please provide a signed attestation, certification, or formal assurance statement.",
+            status: "REQUESTED",
+            expiresAt: finding.dueAt ?? dueFallback,
+            metadata: {
+              source: "review-desk-generate-findings",
+              assignmentId,
+              frameworkAssessmentId: frameworkAssessment.id,
+              findingId: finding.id,
+              severity: finding.severity,
+              controlId: finding.controlId,
+              controlCode: finding.control?.controlId ?? null,
+              family: finding.control?.family ?? null,
+            },
+          },
+        });
+
+        attestationRequests.push(attestation);
+      }
+
+      const riskLevel = result.score.riskLevel;
+      const blocked = remediationRequests.length > 0 || attestationRequests.length > 0;
+      const decision = decisionForRisk(riskLevel, blocked);
+
+      const executiveSummary = [
+        `${vendorName} was evaluated through the Truvern Review workflow.`,
+        `The automated governance score is ${result.score.score}/${result.score.maxScore}, with residual risk level ${riskLevel}.`,
+        `${findings.length} finding(s), ${remediationRequests.length} remediation request(s), and ${attestationRequests.length} attestation request(s) were generated.`,
+      ].join("\n\n");
+
+      const finalAssessment = blocked
+        ? "Release should remain blocked until remediation evidence and attestations are reviewed."
+        : "Release may proceed after reviewer confirmation and governance acknowledgement.";
+
+      const intelligence = {
+        generatedAt: generatedAt.toISOString(),
+        source: "truvern-findings-engine",
+        frameworkAssessmentId: frameworkAssessment.id,
+        score: result.score,
+        findings: findings.map((finding) => ({
+          id: finding.id,
+          controlId: finding.controlId,
+          controlCode: finding.control?.controlId ?? null,
+          family: finding.control?.family ?? null,
+          severity: finding.severity,
+          status: finding.status,
+          title: finding.title,
+          description: finding.description,
+          recommendation: finding.recommendation,
+          remediationRequired: finding.remediationRequired,
+          attestationRequired: finding.attestationRequired,
+          dueAt: finding.dueAt?.toISOString() ?? null,
+        })),
+        executiveSummary,
+        finalRecommendation: finalAssessment,
+        followUps: [
+          remediationRequests.length > 0 ? `${remediationRequests.length} remediation request(s) require vendor response.` : null,
+          attestationRequests.length > 0 ? `${attestationRequests.length} attestation request(s) require vendor submission.` : null,
+        ].filter(Boolean),
+        timeline: [
+          {
+            label: "Reviewer intelligence generated",
+            at: generatedAt.toISOString(),
+            actor: "Truvern Findings Engine",
+          },
+        ],
+      };
+
+      const remediation = {
+        generatedAt: generatedAt.toISOString(),
+        remediationStatus: remediationRequests.length > 0 ? "REMEDIATION_REQUESTED" : attestationRequests.length > 0 ? "ATTESTATION_REQUESTED" : "READY_FOR_RELEASE",
+        remediationDueAt: remediationRequests[0]?.dueAt?.toISOString?.() ?? attestationRequests[0]?.expiresAt?.toISOString?.() ?? null,
+        requests: remediationRequests.map((request) => ({
+          id: request.id,
+          findingId: request.findingId,
+          status: request.status,
+          requestText: request.requestText,
+          dueAt: request.dueAt?.toISOString() ?? null,
+        })),
+        attestationRequests: attestationRequests.map((attestation) => ({
+          id: attestation.id,
+          title: attestation.title,
+          description: attestation.description,
+          status: attestation.status,
+          expiresAt: attestation.expiresAt?.toISOString() ?? null,
+        })),
+        history: [
+          { label: "Findings generated", at: generatedAt.toISOString(), count: findings.length },
+          { label: "Remediation requests created", at: generatedAt.toISOString(), count: remediationRequests.length },
+          { label: "Attestation requests created", at: generatedAt.toISOString(), count: attestationRequests.length },
+        ],
+        reviewerConditions: [
+          remediationRequests.length > 0 ? "Resolve remediation requests before release." : null,
+          attestationRequests.length > 0 ? "Collect and approve attestations before release." : null,
+        ].filter(Boolean),
+      };
+
+      await tx.truvernFrameworkAssessment.update({
+        where: { id: frameworkAssessment.id },
+        data: {
+          score: result.score.score,
+          maxScore: result.score.maxScore,
+          riskLevel,
+          status: remediationRequests.length > 0 ? "REMEDIATION_REQUESTED" : attestationRequests.length > 0 ? "ATTESTATION_REQUESTED" : "READY_FOR_RELEASE",
+          readyForReleaseAt: blocked ? null : generatedAt,
+          metadata: {
+            ...(safeObject(frameworkAssessment.metadata) as Prisma.InputJsonObject),
+            scoring: result.score,
+            findingsGeneratedAt: generatedAt.toISOString(),
+            remediationRequired: remediationRequests.length > 0,
+            attestationRequired: attestationRequests.length > 0,
+            reviewAssignmentId: assignmentId,
+          },
+        },
+      });
+
+      const responseRow = await latestReviewResponse(tx, assignmentId);
+
+      if (responseRow) {
+        const existingResponses = safeObject(responseRow.responses);
+        const nextResponses = {
+          ...existingResponses,
+          riskLevel,
+          decision,
+          intelligenceMode: "fallback",
+          findings: findingText(findings),
+          executiveSummary,
+          finalAssessment,
+          truvernReviewerIntelligence: intelligence,
+          truvernRemediation: remediation,
+          releaseBlocked: blocked,
+          generatedFindingsAt: generatedAt.toISOString(),
+        };
+
+        await tx.$executeRaw`
+          update "ReviewResponse"
+          set responses = ${JSON.stringify(nextResponses)}::jsonb,
+              "updatedAt" = now()
+          where id = ${responseRow.id}
+        `;
+      }
+
+      await tx.reviewAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: blocked ? "IN_REVIEW" : "COMPLETED",
+          reviewerName: "Truvern Review Team",
+          assignedReviewerName: "Truvern Review Team",
+          assignedTo: "Truvern Review Team",
+        },
+      });
+
+      return {
+        findings,
+        remediationRequests,
+        attestationRequests,
+        riskLevel,
+        decision,
+        responseUpdated: Boolean(responseRow),
+      };
+    });
+
+    return NextResponse.json({
+      ok: true,
+      frameworkAssessmentId: frameworkAssessment.id,
+      score: result.score,
+      remediationRequired: output.remediationRequests.length > 0,
+      attestationRequired: output.attestationRequests.length > 0,
+      findings: output.findings,
+      remediationRequests: output.remediationRequests,
+      attestationRequests: output.attestationRequests,
+      riskLevel: output.riskLevel,
+      decision: output.decision,
+      responseUpdated: output.responseUpdated,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Failed to generate review findings.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+
+
