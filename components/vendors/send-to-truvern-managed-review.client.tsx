@@ -1,13 +1,25 @@
-﻿"use client";
+"use client";
 
 import { MouseEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+
+type TruvernReviewTemplate = {
+  id: number;
+  name: string;
+  description?: string | null;
+  standard?: string | null;
+  category?: string | null;
+  version?: string | null;
+  source?: string | null;
+  isSystem?: boolean;
+};
 
 type Props = {
   vendorId: number;
   availableCredits?: number;
   reservedCredits?: number;
   consumedCredits?: number;
+  templates?: TruvernReviewTemplate[];
 };
 
 export default function SendToTruvernManagedReview({
@@ -15,6 +27,7 @@ export default function SendToTruvernManagedReview({
   availableCredits = 0,
   reservedCredits = 0,
   consumedCredits = 0,
+  templates = [],
 }: Props) {
   const hasAvailableCredit = Number(availableCredits || 0) >= 1;
   const needsCredits = !hasAvailableCredit;
@@ -25,6 +38,9 @@ export default function SendToTruvernManagedReview({
   const [error, setError] = useState<string | null>(null);
   const [acceptedAcknowledgement, setAcceptedAcknowledgement] = useState(false);
 
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
+    templates[0]?.id ?? null,
+  );
     Boolean(error) &&
     (error?.toLowerCase().includes("credit") ||
       error?.toLowerCase().includes("insufficient") ||
@@ -62,6 +78,7 @@ export default function SendToTruvernManagedReview({
         },
         body: JSON.stringify({
           vendorId,
+          templateId: selectedTemplateId,
           mode: "truvern",
           acceptedAcknowledgement,
         }),
@@ -207,6 +224,90 @@ export default function SendToTruvernManagedReview({
                 ) : null}
               </div>
             ) : null}
+            <div className="mt-6">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-white">
+                  Select assessment template
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  Choose the questionnaire Truvern should launch and manage.
+                  Select a Truvern template or one of your organization's custom templates.
+                </p>
+              </div>
+
+              {templates.length > 0 ? (
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {templates.map((template) => {
+                    const selected =
+                      selectedTemplateId === template.id;
+
+                    const truvernTemplate =
+                      template.isSystem === true ||
+                      template.source === "SYSTEM" ||
+                      template.source === "TRUVERN";
+
+                    return (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedTemplateId(template.id)
+                        }
+                        className={`w-full rounded-2xl border p-4 text-left transition ${
+                          selected
+                            ? "border-cyan-400/60 bg-cyan-400/10"
+                            : "border-white/10 bg-white/[0.03] hover:border-white/20"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-white">
+                              {template.name}
+                            </p>
+
+                            {template.description ? (
+                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
+                                {template.description}
+                              </p>
+                            ) : null}
+
+                            <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                              <span>
+                                {truvernTemplate
+                                  ? "Truvern Template"
+                                  : "My Organization Template"}
+                              </span>
+
+                              {template.standard ? (
+                                <span>• {template.standard}</span>
+                              ) : null}
+
+                              {template.version ? (
+                                <span>• v{template.version}</span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <span
+                            aria-hidden="true"
+                            className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${
+                              selected
+                                ? "border-cyan-300 bg-cyan-300"
+                                : "border-slate-500"
+                            }`}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  No active assessment templates are currently available.
+                </div>
+              )}
+            </div>
 
             <label className="mt-6 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
               <input
@@ -219,7 +320,7 @@ export default function SendToTruvernManagedReview({
               />
 
               <span className="leading-6">
-                I acknowledge that this starts a Truvern Review end-to-end workflow. Truvern will launch the locked NIST 800-53 questionnaire, begin vendor coordination, and reserve review capacity. Cancellation is restricted once questionnaire delivery or vendor work begins. This starts a Truvern-managed governance
+                I acknowledge that this starts a Truvern Review end-to-end workflow. Truvern will launch the assessment template selected above, begin vendor coordination, and reserve review capacity. Cancellation is restricted once questionnaire delivery or vendor work begins. This starts a Truvern-managed governance
                 review, may reserve and consume Truvern credits, and does not
                 constitute a certification, legal guarantee, or regulatory
                 attestation.
@@ -239,7 +340,7 @@ export default function SendToTruvernManagedReview({
               <button
                 type="button"
                 onClick={submit}
-                disabled={submitting || !acceptedAcknowledgement}
+                disabled={submitting || !acceptedAcknowledgement || !selectedTemplateId}
                 className="rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
               >
                 {submitting ? "Sending to Truvern Ops..." : "Request Truvern Review"}

@@ -1,6 +1,11 @@
-﻿import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
+import { NextResponse } from "next/server";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
+import { findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
+import { createEvidenceRequest, findEvidenceRequests } from "@/lib/repositories/evidence-request-repository";
+import { findVendor } from "@/lib/repositories/vendor-repository";
 
 type RouteContext = {
   params: Promise<{
@@ -101,27 +106,39 @@ export async function POST(request: Request, context: RouteContext) {
       { status: 400 },
     );
   }
+  const response = await findLatestReviewResponse(assignmentId);
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      rr.id,
-      rr.responses,
-      ra."vendorId",
-      v."organizationId"
-    from "ReviewResponse" rr
-    join "ReviewAssignment" ra
-      on ra.id = rr."reviewAssignmentId"
-    left join "Vendor" v
-      on v.id = ra."vendorId"
-    where rr."reviewAssignmentId" = $1
-    order by rr."updatedAt" desc, rr.id desc
-    limit 1
-    `,
-    assignmentId,
-  );
+  const assignment = response
+    ? await findReviewAssignment({
+        where: {
+          id: assignmentId,
+        },
+        select: {
+          vendorId: true,
+        },
+      })
+    : null;
 
-  const row = rows?.[0];
+  const vendor =
+    assignment?.vendorId
+      ? await findVendor({
+          where: {
+            id: assignment.vendorId,
+          },
+          select: {
+            organizationId: true,
+          },
+        })
+      : null;
+
+  const row = response
+    ? {
+        id: response.id,
+        responses: response.responses,
+        vendorId: assignment?.vendorId ?? null,
+        organizationId: vendor?.organizationId ?? null,
+      }
+    : null;
 
   if (!row) {
     return NextResponse.json(
@@ -131,7 +148,11 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const responses =
-    row.responses && typeof row.responses === "object" ? row.responses : {};
+    row.responses &&
+    typeof row.responses === "object" &&
+    !Array.isArray(row.responses)
+      ? (row.responses as Record<string, any>)
+      : {};
 
   const remediation =
     responses.truvernRemediation &&
@@ -261,17 +282,17 @@ export async function POST(request: Request, context: RouteContext) {
       updatedAt: now,
     },
   };
+  const updatedResponsesJson =
+    JSON.parse(
+      JSON.stringify(updatedResponses),
+    ) as Prisma.InputJsonValue;
 
-  await prisma.$executeRawUnsafe(
-    `
-    update "ReviewResponse"
-    set responses = $1::jsonb,
-        "updatedAt" = now()
-    where id = $2
-    `,
-    JSON.stringify(updatedResponses),
-    row.id,
-  );
+  await updateReviewResponse({
+    id: row.id,
+    data: {
+      responses: updatedResponsesJson,
+    },
+  });
 
   if (action === "REQUEST_EVIDENCE") {
     const matchedPlan = updatedPlans.find((plan: any) => matchesPlan(plan, findingId, title));
@@ -286,62 +307,44 @@ export async function POST(request: Request, context: RouteContext) {
 
       for (const item of requiredEvidence) {
         const reviewNote = `Review assignment #${assignmentId}. Finding: ${matchedPlan?.title ?? title}`;
+        const existingRows =
+          await findEvidenceRequests({
+            where: {
+              vendorId,
+              organizationId,
+              title: item,
+              reviewNote,
+            },
+            select: {
+              id: true,
+              status: true,
+            },
+          });
 
-        const existing: any[] = await prisma.$queryRawUnsafe(
-          `
-          select id
-          from "EvidenceRequest"
-          where "vendorId" = $1
-            and "organizationId" = $2
-            and title = $3
-            and coalesce("reviewNote", '''') = $4
-            and status::text in ('REQUESTED', 'FULFILLED')
-          limit 1
-          `,
-          vendorId,
-          organizationId,
-          item,
-          reviewNote,
+        const existing = existingRows.filter((candidate) =>
+          ["REQUESTED", "FULFILLED"].includes(
+            String(candidate.status),
+          ),
         );
 
         if (existing.length > 0) {
           continue;
         }
-
-        await prisma.$executeRawUnsafe(
-          `
-          insert into "EvidenceRequest" (
-            "vendorId",
-            "organizationId",
-            kind,
-            title,
-            notes,
-            "dueAt",
-            status,
-            "createdAt",
-            "updatedAt",
-            "reviewNote"
-          )
-          values (
-            $1,
-            $2,
-            'OTHER'::"EvidenceRequestKind",
-            $3,
-            $4,
-            $5,
-            'REQUESTED'::"EvidenceRequestStatus",
-            now(),
-            now(),
-            $6
-          )
-          `,
-          vendorId,
-          organizationId,
-          item,
-          `Generated from Truvern remediation plan: ${matchedPlan?.title ?? title}`,
-          dueAt,
-          reviewNote,
-        );
+        await createEvidenceRequest({
+          data: {
+            vendorId,
+            organizationId,
+            requestedBy: "TRUVERN_REVIEW",
+            kind: "OTHER",
+            label: item,
+            title: item,
+            notes:
+              `Generated from Truvern remediation plan: ${matchedPlan?.title ?? title}`,
+            dueAt,
+            status: "REQUESTED",
+            reviewNote,
+          },
+        });
       }
     }
   }

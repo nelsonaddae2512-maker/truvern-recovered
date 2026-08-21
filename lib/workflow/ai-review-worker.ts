@@ -1,26 +1,13 @@
-﻿import prisma from "@/lib/prisma";
 import { completeWorkflowTask } from "@/lib/workflow/workflow-task-engine";
+import {
+  insertAiReviewWorkerCompletionEvent,
+  readAiReviewWorkerTasks,
+  updateAiReviewWorkerTask,
+} from "@/lib/repositories/ai-review-worker-repository";
 
 export async function runAiReviewWorker() {
-  const tasks: any[] = await prisma.$queryRawUnsafe(`
-    select
-      wt.id,
-      wt."packageId",
-      wt."workflowId",
-      wt."reviewAssignmentId",
-      wt."vendorId",
-      wt."organizationId",
-      wt.title,
-      wt.payload,
-      rp.title as "packageTitle",
-      rp.payload as "packagePayload"
-    from "WorkflowTask" wt
-    left join "RemediationPackage" rp on rp.id = wt."packageId"
-    where wt.type = 'AI_PRE_REVIEW'
-      and wt.status in ('OPEN','IN_PROGRESS')
-    order by wt.priority desc, wt."createdAt" asc
-    limit 25
-  `);
+  const tasks: any[] =
+    await readAiReviewWorkerTasks();
 
   let completed = 0;
 
@@ -52,18 +39,7 @@ export async function runAiReviewWorker() {
       generatedAt: new Date().toISOString(),
     };
 
-    await prisma.$executeRawUnsafe(
-      `
-      update "WorkflowTask"
-      set
-        "assignedTo" = 'AI_WORKER',
-        "assignedReviewerName" = 'Truvern AI Review Worker',
-        status = 'IN_PROGRESS',
-        "startedAt" = coalesce("startedAt", now()),
-        payload = coalesce(payload, '{}'::jsonb) || $1::jsonb,
-        "updatedAt" = now()
-      where id = $2
-      `,
+    await updateAiReviewWorkerTask(
       JSON.stringify({ aiReview: result }),
       task.id,
     );
@@ -74,21 +50,7 @@ export async function runAiReviewWorker() {
       notes: JSON.stringify(result),
     });
 
-    await prisma.$executeRawUnsafe(
-      `
-      insert into "WorkflowEvent" (
-        "workflowId",
-        "organizationId",
-        "vendorId",
-        "reviewAssignmentId",
-        type,
-        actor,
-        summary,
-        payload,
-        "createdAt"
-      )
-      values ($1, $2, $3, $4, 'AI_PRE_REVIEW_COMPLETED', 'AI_WORKER', 'AI pre-review task completed.', $5::jsonb, now())
-      `,
+    await insertAiReviewWorkerCompletionEvent(
       task.workflowId,
       task.organizationId,
       task.vendorId,

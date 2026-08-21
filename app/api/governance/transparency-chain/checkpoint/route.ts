@@ -1,6 +1,6 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import { createTransparencyChainCheckpoint } from "@/lib/governance/chain-checkpoint";
+import { findGovernanceTransparencyLogs } from "@/lib/repositories/governance-transparency-log-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,16 +12,17 @@ function safeStr(v: unknown) {
 
 export async function GET() {
   try {
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        "entryHash",
-        timestamp,
-        id
-      from "GovernanceTransparencyLog"
-      order by timestamp asc, id asc
-      `,
-    );
+    const rows = await findGovernanceTransparencyLogs({
+      select: {
+        entryHash: true,
+        timestamp: true,
+        id: true,
+      },
+      orderBy: [
+        { timestamp: "asc" },
+        { id: "asc" },
+      ],
+    });
 
     const entryHashes = rows
       .map((row) => safeStr(row.entryHash))

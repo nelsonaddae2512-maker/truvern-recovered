@@ -1,9 +1,14 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 
-import prisma from "@/lib/prisma";
+import {
+  getGovernanceSigningKey,
+  readGovernancePublicKey,
+} from "@/lib/governance-signing-keys";
+
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
+import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
+import { findVendor } from "@/lib/repositories/vendor-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,37 +29,51 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "Invalid assignment id" }, { status: 400 });
     }
 
-    const rows: Array<{
-      assignmentId: number;
-      vendorId: number | null;
-      vendorName: string | null;
-      responseId: number | null;
-      responses: any;
-    }> = await prisma.$queryRawUnsafe(
-      `
-      select
-        ra.id as "assignmentId",
-        ra."vendorId" as "vendorId",
-        v.name as "vendorName",
-        rr.id as "responseId",
-        rr.responses as responses
-      from "ReviewAssignment" ra
-      left join "Vendor" v on v.id = ra."vendorId"
-      left join "ReviewResponse" rr on rr."reviewAssignmentId" = ra.id
-      where ra.id = $1
-      order by rr."updatedAt" desc nulls last
-      limit 1
-      `,
-      assignmentId,
-    );
+    const assignment = await findReviewAssignment({
+      where: {
+        id: assignmentId,
+      },
+      select: {
+        id: true,
+        vendorId: true,
+      },
+    });
 
-    const row = rows[0];
+    const latestResponse = assignment
+      ? await findLatestReviewResponse(assignmentId)
+      : null;
+
+    const vendor = assignment
+      ? await findVendor({
+          where: {
+            id: assignment.vendorId,
+          },
+          select: {
+            name: true,
+          },
+        })
+      : null;
+
+    const row = assignment
+      ? {
+          assignmentId: assignment.id,
+          vendorId: assignment.vendorId,
+          vendorName: vendor?.name ?? null,
+          responseId: latestResponse?.id ?? null,
+          responses: latestResponse?.responses ?? {},
+        }
+      : null;
 
     if (!row) {
       return NextResponse.json({ ok: false, error: "Governance release not found" }, { status: 404 });
     }
 
-    const responses = row.responses || {};
+    const responses =
+      row.responses &&
+      typeof row.responses === "object" &&
+      !Array.isArray(row.responses)
+        ? (row.responses as Record<string, any>)
+        : {};
     const governanceSeal = responses?.governanceSeal || {};
     const checksum = safeStr(governanceSeal.checksum);
     const cryptographicSignature = governanceSeal?.cryptographicSignature || {};
@@ -90,12 +109,57 @@ export async function GET(
       releaseState: responses?.releaseState || null,
       manifestVersion: "TRV-MANIFEST-1.0",
     });
+    const persistedKeyId =
+      safeStr(cryptographicSignature.keyId);
 
-    const publicKeyPath =
-      process.env.TRUVERN_SIGNING_PUBLIC_KEY_PATH ||
-      path.join(process.cwd(), "certs", "truvern-public.pem");
+    if (!persistedKeyId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          verified: false,
+          error: "Release is missing governance signing key identity",
+          release: {
+            assignmentId: row.assignmentId,
+            responseId: row.responseId,
+            vendorId: row.vendorId,
+            vendorName: row.vendorName,
+            checksum,
+            algorithm,
+            keyId: null,
+          },
+        },
+        { status: 400 },
+      );
+    }
 
-    const publicKey = fs.readFileSync(publicKeyPath, "utf8");
+    const resolvedKeyId =
+      persistedKeyId;
+
+    const signingKey =
+      getGovernanceSigningKey(resolvedKeyId);
+
+    if (!signingKey) {
+      return NextResponse.json(
+        {
+          ok: false,
+          verified: false,
+          error: "Unknown governance signing key",
+          release: {
+            assignmentId: row.assignmentId,
+            responseId: row.responseId,
+            vendorId: row.vendorId,
+            vendorName: row.vendorName,
+            checksum,
+            algorithm,
+            keyId: resolvedKeyId,
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    const publicKey =
+      readGovernancePublicKey(signingKey.keyId);
 
     const payloadHash = safeStr(cryptographicSignature.payloadHash);
 
@@ -129,7 +193,7 @@ export async function GET(
         algorithm,
         sealedAt: governanceSeal.sealedAt || null,
         signedAt: cryptographicSignature.signedAt || null,
-        keyId: cryptographicSignature.keyId || null,
+        keyId: resolvedKeyId,
       },
       attestation: {
         immutable: true,
@@ -147,6 +211,8 @@ export async function GET(
     );
   }
 }
+
+
 
 
 

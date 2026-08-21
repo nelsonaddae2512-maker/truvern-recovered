@@ -1,26 +1,13 @@
-﻿import prisma from "@/lib/prisma";
+import {
+  insertReleaseReadinessEvent,
+  readReleaseReadinessPackages,
+  readReleaseReadinessTaskCounts,
+  updateReleaseReadinessQueueItem,
+} from "@/lib/repositories/release-readiness-repository";
 
 export async function runReleaseReadinessEngine() {
-  const packages: any[] = await prisma.$queryRawUnsafe(`
-    select
-      rp.id as "packageId",
-      rp."reviewAssignmentId",
-      rp."vendorId",
-      rp."organizationId",
-      rp.status as "packageStatus",
-      rp.title as "packageTitle",
-      qi.id as "queueItemId",
-      qi."workflowId",
-      qi.queue,
-      qi.status as "queueStatus",
-      qi.payload
-    from "RemediationPackage" rp
-    left join "WorkflowQueueItem" qi
-      on qi.payload->>'remediationPackageId' = rp.id::text
-    where qi.status = 'OPEN'
-      and qi.queue = 'READY_FOR_RELEASE_CHECK'
-      and rp.status in ('APPROVED','COMPLETED')
-  `);
+  const packages: any[] =
+    await readReleaseReadinessPackages();
 
   let checked = 0;
   let ready = 0;
@@ -29,16 +16,7 @@ export async function runReleaseReadinessEngine() {
   for (const pkg of packages) {
     checked++;
 
-    const taskRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        count(*)::int as total,
-        count(*) filter (where status = 'COMPLETED')::int as completed,
-        count(*) filter (where status not in ('COMPLETED','CANCELLED'))::int as open
-      from "WorkflowTask"
-      where "packageId" = $1
-        and status <> 'CANCELLED'
-      `,
+    const taskRows: any[] = await readReleaseReadinessTaskCounts(
       pkg.packageId,
     );
 
@@ -53,14 +31,7 @@ export async function runReleaseReadinessEngine() {
 
     const readinessState = isReady ? "READY_FOR_RELEASE" : "RELEASE_BLOCKED";
 
-    await prisma.$executeRawUnsafe(
-      `
-      update "WorkflowQueueItem"
-      set
-        payload = coalesce(payload, '{}'::jsonb) || $1::jsonb,
-        "updatedAt" = now()
-      where id = $2
-      `,
+    await updateReleaseReadinessQueueItem(
       JSON.stringify({
         releaseReadiness: {
           checkedAt: new Date().toISOString(),
@@ -73,29 +44,15 @@ export async function runReleaseReadinessEngine() {
       pkg.queueItemId,
     );
 
-    await prisma.$executeRawUnsafe(
-      `
-      insert into "WorkflowEvent" (
-        "workflowId",
-        "organizationId",
-        "vendorId",
-        "reviewAssignmentId",
-        type,
-        actor,
-        summary,
-        payload,
-        "createdAt"
-      )
-      values ($1, $2, $3, $4, $5, 'RELEASE_READINESS_ENGINE', $6, $7::jsonb, now())
-      `,
+    await insertReleaseReadinessEvent(
       pkg.workflowId,
       pkg.organizationId,
       pkg.vendorId,
       pkg.reviewAssignmentId,
       readinessState,
       isReady
-        ? 'Package passed release readiness check.'
-        : 'Package blocked from release because workflow tasks remain open.',
+        ? "Package passed release readiness check."
+        : "Package blocked from release because workflow tasks remain open.",
       JSON.stringify({
         packageId: pkg.packageId,
         packageTitle: pkg.packageTitle,

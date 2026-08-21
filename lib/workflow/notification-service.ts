@@ -1,4 +1,4 @@
-﻿import prisma from "@/lib/prisma";
+import { recordWorkflowNotificationEvent } from "@/lib/repositories/workflow-notification-repository";
 
 export async function recordWorkflowNotification(input: {
   workflowId?: number | null;
@@ -13,34 +13,21 @@ export async function recordWorkflowNotification(input: {
 }) {
   // Lightweight notification stub for now:
   // record as WorkflowEvent with NOTIFICATION_* type.
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    insert into "WorkflowEvent" (
-      "workflowId",
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      type,
-      actor,
-      summary,
-      payload,
-      "createdAt"
-    )
-    values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, now())
-    returning id
-    `,
-    input.workflowId ?? null,
-    input.organizationId,
-    input.vendorId ?? null,
-    input.reviewAssignmentId ?? null,
-    `NOTIFICATION_${input.event}`,
-    input.recipientType,
-    input.summary,
-    JSON.stringify({
+  const notificationType = `NOTIFICATION_${input.event}`;
+
+  const rows = await recordWorkflowNotificationEvent({
+    workflowId: input.workflowId ?? null,
+    organizationId: input.organizationId,
+    vendorId: input.vendorId ?? null,
+    reviewAssignmentId: input.reviewAssignmentId ?? null,
+    type: notificationType,
+    actor: input.recipientType,
+    summary: input.summary,
+    payloadJson: JSON.stringify({
       ...(input.payload ?? {}),
       packageId: input.packageId ?? null,
     }),
-  );
+  });
 
   return rows[0] ?? null;
 }

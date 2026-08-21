@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "engineVersion": "ATLAS-10.1",
+  "maxTargets": 40,
+  "maxScenariosPerTarget": 16,
+  "mockPatterns": [
+    "@/lib/notifications/",
+    "@/lib/governance/notarization",
+    "@/lib/governance/transparency-ledger",
+    "@/lib/governance-signature"
+  ],
+  "exercisePatterns": [
+    "@/lib/prisma",
+    "@/lib/org-db",
+    "@/lib/evidence/",
+    "@/lib/governance/"
+  ],
+  "fixtureHints": {
+    "organization": [
+      "organizationId",
+      "requireDbOrganization",
+      "Organization"
+    ],
+    "vendor": [
+      "vendorId",
+      "Vendor"
+    ],
+    "reviewAssignment": [
+      "ReviewAssignment",
+      "assignmentId"
+    ],
+    "reviewResponse": [
+      "ReviewResponse",
+      "responseId"
+    ],
+    "creditLedger": [
+      "TruvernCreditLedgerEntry",
+      "reservedCredits",
+      "creditConsumption"
+    ],
+    "evidence": [
+      "EvidenceRequest",
+      "getReviewEvidence",
+      "evidenceSnapshot"
+    ],
+    "notification": [
+      "createOrgNotification"
+    ],
+    "releaseManifest": [
+      "GovernanceReleaseManifest"
+    ],
+    "transparencyLedger": [
+      "GovernanceTransparencyLog"
+    ],
+    "vendorGovernanceMemory": [
+      "VendorGovernanceMemory"
+    ]
+  }
+}

@@ -22,12 +22,14 @@ export default function VendorReviewPath({
         </h2>
 
         <p className="mt-3 text-sm leading-7 text-slate-300">
-          Select Truvern Review for a fully operated governance review, or run
-          the assessment internally with your own security and compliance team.
+          Choose Self-Managed Review when your team will own the work, Professional
+          Review when you want to launch the assessment first and route that same
+          review to Truvern later, or Truvern Review when Truvern should operate
+          the workflow end to end.
         </p>
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <article className="flex min-h-[390px] flex-col rounded-3xl border border-cyan-300/25 bg-cyan-400/[0.08] p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200">
@@ -41,7 +43,7 @@ export default function VendorReviewPath({
             <p className="mt-4 text-sm leading-7 text-slate-300">
               Truvern manages vendor outreach, questionnaire delivery, evidence
               review, findings, remediation coordination, and the final
-              governance release package.
+              governance release package for 1 Truvern credit.
             </p>
 
             <ul className="mt-5 list-disc space-y-2 pl-5 text-sm text-slate-200 marker:text-cyan-300">
@@ -60,6 +62,37 @@ export default function VendorReviewPath({
           </Link>
         </article>
 
+        <article className="flex min-h-[390px] flex-col rounded-3xl border border-violet-300/20 bg-violet-400/[0.06] p-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-violet-200">
+              Professional Review
+            </p>
+
+            <h3 className="mt-3 text-2xl font-black text-white">
+              Start the assessment. Bring Truvern in when needed.
+            </h3>
+
+            <p className="mt-4 text-sm leading-7 text-slate-300">
+              Your team launches the vendor questionnaire and keeps the existing
+              assessment workflow. Before professional review begins, route that
+              same review to Truvern Ops for expert completion.
+            </p>
+
+            <ul className="mt-5 list-disc space-y-2 pl-5 text-sm text-slate-200 marker:text-violet-300">
+              <li>Uses the same vendor assessment and review record</li>
+              <li>1 Truvern credit reserved when routed to Truvern</li>
+              <li>Reservation can be reversed before Truvern work starts</li>
+              <li>No duplicate questionnaire or second assessment</li>
+            </ul>
+          </div>
+
+          <a
+            href="#start-assessment"
+            className="mt-auto inline-flex w-fit rounded-full border border-violet-300/30 bg-violet-400/10 px-5 py-3 text-sm font-bold text-violet-50 transition hover:bg-violet-400/20"
+          >
+            Start Professional Review
+          </a>
+        </article>
         <article className="flex min-h-[390px] flex-col rounded-3xl border border-white/10 bg-white/[0.04] p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-300">
@@ -71,7 +104,7 @@ export default function VendorReviewPath({
             </h3>
 
             <p className="mt-4 text-sm leading-7 text-slate-300">
-              Your internal team manages the assessment while Truvern provides
+              Your internal team manages the assessment with no Truvern Review credit required while Truvern provides
               the governance workspace, evidence management, review tracking,
               and release infrastructure.
             </p>
@@ -95,3 +128,7 @@ export default function VendorReviewPath({
     </section>
   );
 }
+
+
+
+

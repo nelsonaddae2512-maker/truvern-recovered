@@ -1,8 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { requireVendorAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { Prisma } from "@prisma/client";
+import { updateTruvernAssessmentResponse } from "@/lib/repositories/truvern-assessment-response-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +37,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "responseId is required." }, { status: 400 });
     }
 
-    const response = await prisma.truvernAssessmentResponse.update({
+    const response = await updateTruvernAssessmentResponse({
       where: {
         id: responseId,
         assessmentId,
@@ -52,7 +54,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     });
 
-    await prisma.truvernFrameworkAssessment.update({
+    await updateTruvernFrameworkAssessment({
       where: { id: assessmentId },
       data: {
         status: "VENDOR_IN_PROGRESS",

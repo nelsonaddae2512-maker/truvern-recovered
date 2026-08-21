@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import prisma from "@/lib/prisma";
 import RunWorkflowSchedulerButton from "@/components/truvern/ops/run-workflow-scheduler-button.client";
 import RunWorkflowOrchestratorButton from "@/components/truvern/ops/run-workflow-orchestrator-button.client";
@@ -27,7 +27,7 @@ function queueClass(queue: string) {
 }
 
 export default async function TruvernOpsCommandCenterPage() {
-  const queueSummary = await prisma.$queryRawUnsafe<any[]>(`
+  const queueSummary = await prisma.$queryRaw<any[]>`
     select
       queue,
       status,
@@ -36,9 +36,9 @@ export default async function TruvernOpsCommandCenterPage() {
     from "WorkflowQueueItem"
     group by queue, status
     order by count desc, queue asc
-  `);
+  `;
 
-  const totals = await prisma.$queryRawUnsafe<any[]>(`
+  const totals = await prisma.$queryRaw<any[]>`
     select
       count(*)::int as "totalQueueItems",
       count(*) filter (where status = 'OPEN')::int as "openQueueItems",
@@ -46,9 +46,9 @@ export default async function TruvernOpsCommandCenterPage() {
       count(*) filter (where "assignedTo" is null and status = 'OPEN')::int as "unclaimedOpenItems",
       count(*) filter (where "dueAt" is not null and "dueAt" < now() and status = 'OPEN')::int as "slaBreaches"
     from "WorkflowQueueItem"
-  `);
+  `;
 
-  const taskMetrics = await prisma.$queryRawUnsafe<any[]>(`
+  const taskMetrics = await prisma.$queryRaw<any[]>`
     select
       count(*)::int as "totalTasks",
       count(*) filter (where status = 'OPEN')::int as "openTasks",
@@ -62,17 +62,17 @@ export default async function TruvernOpsCommandCenterPage() {
         1
       ) as "completionRate"
     from "WorkflowTask"
-  `);
+  `;
 
-  const packageMetrics = await prisma.$queryRawUnsafe<any[]>(`
+  const packageMetrics = await prisma.$queryRaw<any[]>`
     select
       count(*)::int as "totalPackages",
       count(*) filter (where status = 'APPROVED')::int as "approvedPackages",
       count(*) filter (where status = 'COMPLETED')::int as "completedPackages",
       count(*) filter (where status in ('SUBMITTED','IN_REVIEW','NEEDS_MORE','REQUESTED'))::int as "activePackages"
     from "RemediationPackage"
-  `);
-  const reviewerLoad = await prisma.$queryRawUnsafe<any[]>(`
+  `;
+  const reviewerLoad = await prisma.$queryRaw<any[]>`
     select
       coalesce(payload->>'assignedReviewerName', "assignedTo", 'Unassigned') as reviewer,
       count(*)::int as count,
@@ -83,16 +83,16 @@ export default async function TruvernOpsCommandCenterPage() {
     where status = 'OPEN'
     group by coalesce(payload->>'assignedReviewerName', "assignedTo", 'Unassigned')
     order by count desc
-  `);
+  `;
 
-  const aiMetrics = await prisma.$queryRawUnsafe<any[]>(`
+  const aiMetrics = await prisma.$queryRaw<any[]>`
     select
       count(*) filter (where type = 'AI_PRE_REVIEW')::int as "aiTasks",
       count(*) filter (where type = 'AI_PRE_REVIEW' and status = 'COMPLETED')::int as "completedAiTasks",
       count(*) filter (where "assignedTo" = 'AI_WORKER')::int as "aiOwned"
     from "WorkflowTask"
-  `);
-  const governanceReleaseMetrics = await prisma.$queryRawUnsafe<any[]>(`
+  `;
+  const governanceReleaseMetrics = await prisma.$queryRaw<any[]>`
     select
       count(*) filter (
         where queue = 'GOVERNANCE_RELEASE_READY'
@@ -102,8 +102,8 @@ export default async function TruvernOpsCommandCenterPage() {
         where queue = 'GOVERNANCE_RELEASE_READY'
       ) as "lastGovernanceGateAt"
     from "WorkflowQueueItem"
-  `);
-  const releaseReadinessMetrics = await prisma.$queryRawUnsafe<any[]>(`
+  `;
+  const releaseReadinessMetrics = await prisma.$queryRaw<any[]>`
     select
       count(*) filter (
         where qi.payload->'releaseReadiness'->>'state' = 'READY_FOR_RELEASE'
@@ -115,8 +115,8 @@ export default async function TruvernOpsCommandCenterPage() {
         where qi.payload ? 'releaseReadiness'
       ) as "lastReadinessCheckAt"
     from "WorkflowQueueItem" qi
-  `);
-  const pipelineMetrics = await prisma.$queryRawUnsafe<any[]>(`
+  `;
+  const pipelineMetrics = await prisma.$queryRaw<any[]>`
     select
       count(*) filter (where type = 'WORKFLOW_TASKS_GENERATED')::int as "taskGenerationEvents",
       count(*) filter (where type = 'AI_PRE_REVIEW_COMPLETED')::int as "aiCompletedEvents",
@@ -125,8 +125,8 @@ export default async function TruvernOpsCommandCenterPage() {
         where type in ('WORKFLOW_TASKS_GENERATED','AI_PRE_REVIEW_COMPLETED','WORKFLOW_ESCALATED','QUEUE_ITEM_CLAIMED')
       ) as "lastPipelineEventAt"
     from "WorkflowEvent"
-  `);
-  const recentEvents = await prisma.$queryRawUnsafe<any[]>(`
+  `;
+  const recentEvents = await prisma.$queryRaw<any[]>`
     select
       we.type,
       we.summary,
@@ -139,7 +139,7 @@ export default async function TruvernOpsCommandCenterPage() {
     left join "Organization" o on o.id = we."organizationId"
     order by we."createdAt" desc
     limit 20
-  `);
+  `;
 
   const t = totals[0] ?? {};
   const tm = {

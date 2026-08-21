@@ -1,8 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
 import CreditCheckoutButton from "./credit-checkout-button";
+import {
+  readBillingCreditBalance,
+  readBillingCreditLedgerActivity,
+} from "@/lib/repositories/billing-credits-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,11 +49,11 @@ const capabilities = [
 ];
 
 const lifecycle = [
-  "Request expert review",
-  "Credits are reserved",
-  "Truvern performs governance review",
-  "Governance is finalized",
-  "Credits are consumed",
+  "Self-Managed Review uses no Truvern Review credit",
+  "Professional Review reserves 1 credit when the existing review is routed to Truvern",
+  "Truvern Review reserves 1 credit for end-to-end Truvern operation",
+  "Eligible pending reservations can be reversed before Truvern work begins",
+  "Reserved credits are consumed when Truvern governance work is finalized",
 ];
 
 function safeInt(value: unknown) {
@@ -82,29 +85,8 @@ async function getCreditBalance(organizationId?: number | null) {
     };
   }
 
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      availableCredits: number;
-      reservedCredits: number;
-      consumedCredits: number;
-      effectiveCredits: number;
-    }>
-  >(
-    `
-    select
-      coalesce(sum("availableDelta"), 0)::int as "availableCredits",
-      coalesce(sum("reservedDelta"), 0)::int as "reservedCredits",
-      coalesce(sum("consumedDelta"), 0)::int as "consumedCredits",
-      (
-        coalesce(sum("availableDelta"), 0)
-        + coalesce(sum("reservedDelta"), 0)
-        - coalesce(sum("consumedDelta"), 0)
-      )::int as "effectiveCredits"
-    from "TruvernCreditLedgerEntry"
-    where "organizationId" = $1
-    `,
-    organizationId,
-  );
+  const rows =
+    await readBillingCreditBalance(organizationId);
 
   return {
     availableCredits: safeInt(rows?.[0]?.availableCredits),
@@ -121,39 +103,7 @@ async function getLedgerActivity(
     return [];
   }
 
-  return prisma.$queryRawUnsafe<
-    Array<{
-      id: number;
-      entryType: string | null;
-      fundingSource: string | null;
-      note: string | null;
-      availableDelta: number | null;
-      reservedDelta: number | null;
-      consumedDelta: number | null;
-      createdAt: string | Date | null;
-      status: string | null;
-      metadataJson: any;
-    }>
-  >(
-    `
-    select
-      id,
-      "entryType"::text as "entryType",
-      "fundingSource"::text as "fundingSource",
-      note,
-      "availableDelta",
-      "reservedDelta",
-      "consumedDelta",
-      status::text as status,
-      "metadataJson",
-      "createdAt"
-    from "TruvernCreditLedgerEntry"
-    where "organizationId" = $1
-    order by "createdAt" desc, id desc
-    limit 12
-    `,
-    organizationId,
-  );
+  return readBillingCreditLedgerActivity(organizationId);
 }
 
 function deltaClass(value: number) {
@@ -704,6 +654,7 @@ export default async function BillingCreditsPage({
     </main>
   );
 }
+
 
 
 

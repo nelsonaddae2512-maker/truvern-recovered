@@ -1,6 +1,6 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import prisma from "@/lib/prisma";
+import { readSignedManifestVerification } from "@/lib/repositories/signed-manifest-verification-repository";
 import {
   createGovernanceSignature,
   verifyGovernanceSignature,
@@ -38,28 +38,7 @@ export default async function SignedManifestVerificationPage({
     return notFound();
   }
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      gm.id,
-      gm.checksum,
-      gm."createdAt",
-      ra.id as "assignmentId",
-      ra.status::text as status,
-      v.name as "vendorName",
-      v.slug as "vendorSlug"
-    from "GovernanceReleaseManifest" gm
-    join "ReviewAssignment" ra
-      on ra.id = gm."reviewAssignmentId"
-    join "ReviewRequest" rr
-      on rr.id = ra."reviewRequestId"
-    join "Vendor" v
-      on v.id = rr."vendorId"
-    where gm.id = $1
-    limit 1
-    `,
-    manifestId,
-  );
+  const rows = await readSignedManifestVerification(manifestId);
 
   const row = rows[0];
 

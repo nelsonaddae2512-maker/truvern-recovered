@@ -1,6 +1,9 @@
-﻿import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import { requireDbOrganization } from "@/lib/org-db";
+import {
+  readCustomAssessmentCatalogTemplates,
+  readSystemAssessmentCatalogTemplates,
+} from "@/lib/repositories/assessment-catalog-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,57 +50,11 @@ export default async function AssessmentCatalogPage() {
 
   const organizationId = org.id;
 
-  const systemTemplates = await prisma.$queryRawUnsafe<TemplateRow[]>(
-    `
-    select
-      t.id,
-      t.name,
-      t.description,
-      t.standard,
-      t.category,
-      t.version,
-      t."accessTier"::text as "accessTier",
-      t."catalogKey",
-      t."isFeatured",
-      coalesce(count(distinct s.id), 0)::int as "sectionCount",
-      coalesce(count(distinct q.id), 0)::int as "questionCount"
-    from "AssessmentTemplate" t
-    left join "AssessmentSection" s on s."templateId" = t.id
-    left join "AssessmentQuestion" q on q."templateId" = t.id
-    where t."isActive" = true
-      and t.source = 'SYSTEM'::"TemplateSource"
-    group by t.id
-    order by t."isFeatured" desc, t."updatedAt" desc, t.id desc
-    limit 24
-    `,
-  );
+  const systemTemplates: TemplateRow[] =
+    await readSystemAssessmentCatalogTemplates();
 
-  const customTemplates = await prisma.$queryRawUnsafe<TemplateRow[]>(
-    `
-    select
-      t.id,
-      t.name,
-      t.description,
-      t.standard,
-      t.category,
-      t.version,
-      null::text as "accessTier",
-      null::text as "catalogKey",
-      false as "isFeatured",
-      coalesce(count(distinct s.id), 0)::int as "sectionCount",
-      coalesce(count(distinct q.id), 0)::int as "questionCount"
-    from "AssessmentTemplate" t
-    left join "AssessmentSection" s on s."templateId" = t.id
-    left join "AssessmentQuestion" q on q."templateId" = t.id
-    where t."isActive" = true
-      and t.source = 'CUSTOM'::"TemplateSource"
-      and t."organizationId" = $1
-    group by t.id
-    order by t."updatedAt" desc, t.id desc
-    limit 25
-    `,
-    organizationId,
-  );
+  const customTemplates: TemplateRow[] =
+    await readCustomAssessmentCatalogTemplates(organizationId);
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-12 text-white">
@@ -109,14 +66,15 @@ export default async function AssessmentCatalogPage() {
             </div>
 
             <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
-              Prefer Truvern to run the assessment for you?
+              Choose how much of the review Truvern should operate.
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-              Send vendors directly to Truvern. Our operations team distributes
-              the questionnaire, collects evidence, reviews responses, generates
-              findings, manages remediation, and delivers a governance-ready
-              release package for 1 Truvern credit.
+              Choose Self-Managed Review for internal ownership with no Truvern Review
+              credit, Professional Review to launch the assessment yourself and
+              route that same review to Truvern later for 1 credit, or Truvern
+              Review for end-to-end questionnaire, evidence, findings, remediation,
+              and release execution for 1 credit.
             </p>
           </div>
 
@@ -139,9 +97,10 @@ export default async function AssessmentCatalogPage() {
           </h1>
 
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-            Use Truvern system catalog assessments or organization-created
-            templates to launch vendor questionnaires, collect evidence, and
-            prepare review-ready submissions for the Governance Ops.
+            Use Truvern system catalog assessments or organization-created templates
+            across all three commercial routes: keep the review Self-Managed,
+            route the existing assessment to Truvern as a Professional Review,
+            or engage Truvern from the start with Truvern Review.
           </p>
         </div>
       </section>
@@ -282,6 +241,9 @@ export default async function AssessmentCatalogPage() {
     </main>
   );
 }
+
+
+
 
 
 

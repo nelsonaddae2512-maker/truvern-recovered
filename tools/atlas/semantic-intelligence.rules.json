@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "engineVersion": "ATLAS-10",
+  "includeRoots": [
+    "app",
+    "components",
+    "lib",
+    "prisma"
+  ],
+  "extensions": [
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".prisma"
+  ],
+  "excludeDirectories": [
+    "node_modules",
+    ".next",
+    ".git",
+    "dist",
+    "build",
+    "coverage",
+    "tools/atlas/output",
+    "public"
+  ],
+  "featureKeywords": {
+    "vendor-governance": [
+      "vendor",
+      "third-party",
+      "third party",
+      "supplier"
+    ],
+    "assessment": [
+      "assessment",
+      "questionnaire",
+      "question",
+      "response"
+    ],
+    "evidence": [
+      "evidence",
+      "attachment",
+      "upload",
+      "artifact"
+    ],
+    "review": [
+      "review",
+      "assignment",
+      "analyst",
+      "reviewer"
+    ],
+    "findings": [
+      "finding",
+      "remediation",
+      "severity",
+      "recommendation"
+    ],
+    "governance-release": [
+      "release",
+      "packet",
+      "snapshot",
+      "seal",
+      "attestation"
+    ],
+    "vendor-portal": [
+      "vendor portal",
+      "portal token",
+      "public token",
+      "respondent"
+    ],
+    "credits-billing": [
+      "credit",
+      "stripe",
+      "billing",
+      "checkout",
+      "payment"
+    ],
+    "identity-access": [
+      "clerk",
+      "auth",
+      "session",
+      "membership",
+      "role"
+    ],
+    "operations": [
+      "truvern ops",
+      "ops",
+      "operator",
+      "admin"
+    ],
+    "notifications": [
+      "notification",
+      "unread",
+      "email"
+    ],
+    "reporting": [
+      "report",
+      "executive summary",
+      "board-ready",
+      "export",
+      "pdf"
+    ]
+  },
+  "highImpactSignals": [
+    "prisma.",
+    "$queryRaw",
+    "$executeRaw",
+    "NextResponse",
+    "route.ts",
+    "generate",
+    "release",
+    "approve",
+    "consume",
+    "reserve",
+    "token"
+  ],
+  "testPriorityWeights": {
+    "apiRoute": 5,
+    "databaseAccess": 5,
+    "authentication": 4,
+    "stateTransition": 4,
+    "billing": 5,
+    "release": 5,
+    "token": 4,
+    "findingGeneration": 5,
+    "largeFile": 2,
+    "highFanIn": 3,
+    "highFanOut": 3
+  }
+}

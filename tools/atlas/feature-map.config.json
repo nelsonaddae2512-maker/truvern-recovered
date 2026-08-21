@@ -1,0 +1,71 @@
+{
+  "features": [
+    {
+      "id": "vendor-management",
+      "name": "Vendor Management",
+      "keywords": ["vendor", "vendors", "third-party", "third party", "supplier"]
+    },
+    {
+      "id": "assessments",
+      "name": "Assessments",
+      "keywords": ["assessment", "questionnaire", "template", "framework"]
+    },
+    {
+      "id": "truvern-review",
+      "name": "Truvern Review",
+      "keywords": ["truvern review", "managed review", "review assignment", "review-desk", "review desk", "reviewer"]
+    },
+    {
+      "id": "findings-remediation",
+      "name": "Findings & Remediation",
+      "keywords": ["finding", "findings", "remediation", "recommendation", "attestation"]
+    },
+    {
+      "id": "evidence",
+      "name": "Evidence Management",
+      "keywords": ["evidence", "attachment", "artifact", "document request"]
+    },
+    {
+      "id": "governance-release",
+      "name": "Governance Release",
+      "keywords": ["governance", "release", "board packet", "snapshot", "seal", "verification", "attestation"]
+    },
+    {
+      "id": "risk-intelligence",
+      "name": "Risk Intelligence",
+      "keywords": ["risk", "score", "intelligence", "risk tier", "governance health"]
+    },
+    {
+      "id": "operations",
+      "name": "Truvern Operations",
+      "keywords": ["ops", "operations", "command center", "network", "review queue"]
+    },
+    {
+      "id": "credits-billing",
+      "name": "Credits & Billing",
+      "keywords": ["credit", "billing", "stripe", "payment", "funding", "purchase"]
+    },
+    {
+      "id": "identity-access",
+      "name": "Identity & Access",
+      "keywords": ["auth", "clerk", "identity", "membership", "role", "permission", "organization"]
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications",
+      "keywords": ["notification", "email", "message", "alert"]
+    },
+    {
+      "id": "vendor-portal",
+      "name": "Vendor Portal",
+      "keywords": ["vendor portal", "portal token", "portal link", "submission portal"]
+    },
+    {
+      "id": "marketing-commercial",
+      "name": "Marketing & Commercial",
+      "keywords": ["pricing", "features", "contact", "demo", "managed-reviews", "trust-network", "marketing"]
+    }
+  ],
+  "minimumScore": 2,
+  "maximumAssignmentsPerAsset": 3
+}

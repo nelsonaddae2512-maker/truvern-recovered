@@ -1,6 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
+import { findVendor } from "@/lib/repositories/vendor-repository";
+import { insertEvidenceRequest } from "@/lib/repositories/evidence-request-write-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     if (!Number.isFinite(organizationId) || organizationId <= 0) {
-      const vendor = await prisma.vendor.findUnique({
+      const vendor = await findVendor({
         where: { id: vendorId },
         select: { organizationId: true },
       });
@@ -66,41 +67,14 @@ export async function POST(req: Request) {
       }
     }
 
-    const rows = await prisma.$queryRawUnsafe<Array<{ id: number }>>(
-      `
-      insert into "EvidenceRequest" (
-        "vendorId",
-        "organizationId",
-        "requestedBy",
-        kind,
-        label,
-        title,
-        "dueAt",
-        status,
-        "createdAt",
-        "updatedAt"
-      )
-      values (
-        $1,
-        $2,
-        $3,
-        $4::"EvidenceRequestKind",
-        $5,
-        $5,
-        $6,
-        'REQUESTED'::"EvidenceRequestStatus",
-        now(),
-        now()
-      )
-      returning id
-      `,
+    const rows = await insertEvidenceRequest({
       vendorId,
       organizationId,
-      userId,
+      requestedBy: userId,
       kind,
       title,
       dueAt,
-    );
+    });
 
     const id = rows?.[0]?.id ?? null;
 

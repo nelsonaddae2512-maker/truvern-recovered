@@ -1,5 +1,5 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { findGovernanceTransparencyLogs } from "@/lib/repositories/governance-transparency-log-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,24 +11,25 @@ function safeStr(v: unknown) {
 
 export async function GET() {
   try {
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        id,
-        "entryId",
-        "assignmentId",
-        "responseId",
-        checksum,
-        "ledgerHash",
-        "receiptId",
-        timestamp,
-        "previousEntryHash",
-        "entryHash",
-        "createdAt"
-      from "GovernanceTransparencyLog"
-      order by timestamp asc, id asc
-      `,
-    );
+    const rows = await findGovernanceTransparencyLogs({
+      select: {
+        id: true,
+        entryId: true,
+        assignmentId: true,
+        responseId: true,
+        checksum: true,
+        ledgerHash: true,
+        receiptId: true,
+        timestamp: true,
+        previousEntryHash: true,
+        entryHash: true,
+        createdAt: true,
+      },
+      orderBy: [
+        { timestamp: "asc" },
+        { id: "asc" },
+      ],
+    });
 
     const issues: Array<{
       index: number;

@@ -1,5 +1,5 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { findGovernanceTransparencyCheckpoints } from "@/lib/repositories/governance-transparency-checkpoint-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,14 +11,13 @@ function safeStr(v: unknown) {
 
 export async function GET() {
   try {
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select *
-      from "GovernanceTransparencyCheckpoint"
-      order by "generatedAt" desc, id desc
-      limit 50
-      `,
-    );
+    const rows = await findGovernanceTransparencyCheckpoints({
+      orderBy: [
+        { generatedAt: "desc" },
+        { id: "desc" },
+      ],
+      take: 50,
+    });
 
     return NextResponse.json(
       {

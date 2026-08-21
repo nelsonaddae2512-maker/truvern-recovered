@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { useEffect, useState } from "react";
 
 import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
@@ -8,6 +10,7 @@ import NotificationBell from "@/components/layout/notification-bell.client";
 const workspaceLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/vendors", label: "Vendors" },
+  { href: "/communications", label: "Communications" },
   { href: "/truvern-reviews", label: "Truvern Reviews" },
   { href: "/governance-ops", label: "Governance Ops" },
   { href: "/assessments", label: "Assessments" },
@@ -27,6 +30,25 @@ function isActive(pathname: string, href: string) {
 }
 
 export default function AppShellNav() {
+  const [currentPlan, setCurrentPlan] =
+    useState<"FREE" | "PRO" | "ENTERPRISE">("FREE");
+
+  useEffect(() => {
+    fetch("/api/billing/current-plan", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((body) => {
+        const plan = String(body?.plan || "FREE").toUpperCase();
+
+        if (
+          plan === "FREE" ||
+          plan === "PRO" ||
+          plan === "ENTERPRISE"
+        ) {
+          setCurrentPlan(plan);
+        }
+      })
+      .catch(() => setCurrentPlan("FREE"));
+  }, []);
   const pathname = usePathname();
   const { user } = useUser();
 
@@ -38,6 +60,7 @@ export default function AppShellNav() {
   const isWorkspace =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/vendors") ||
+    pathname.startsWith("/communications") ||
     pathname.startsWith("/governance-ops") || pathname.startsWith("/review-desk") || pathname.startsWith("/truvern-reviews") ||
     pathname.startsWith("/governance-ops") || pathname.startsWith("/review-desk") ||
     pathname.startsWith("/assessments") ||
@@ -45,6 +68,12 @@ export default function AppShellNav() {
     pathname.startsWith("/truvern/ops");
 
   const links = isWorkspace ? workspaceLinks : publicLinks;
+  const visibleLinks = links.filter(
+    (link) =>
+      link.href !== "/communications" ||
+      currentPlan === "PRO" ||
+      currentPlan === "ENTERPRISE",
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#020617]/90 backdrop-blur">
@@ -64,7 +93,7 @@ export default function AppShellNav() {
           </Link>
 
           <nav className="hidden items-center gap-6 md:flex">
-            {links.map((link) => {
+            {visibleLinks.map((link) => {
               const active = isActive(pathname, link.href);
 
               return (
@@ -133,6 +162,7 @@ export default function AppShellNav() {
     </header>
   );
 }
+
 
 
 

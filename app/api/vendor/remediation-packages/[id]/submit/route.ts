@@ -1,5 +1,8 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import {
+  submitLinkedEvidenceRequest,
+  submitRemediationPackage,
+} from "@/lib/repositories/remediation-package-submit-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,15 +21,8 @@ export async function POST(_req: Request, props: Props) {
       return NextResponse.json({ ok: false, error: "Package id required." }, { status: 400 });
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      update "RemediationPackage"
-      set status = 'SUBMITTED', "updatedAt" = now()
-      where id = $1
-      returning id, "evidenceRequestId"
-      `,
-      packageId,
-    );
+    const rows =
+      await submitRemediationPackage(packageId);
 
     const row = rows?.[0];
 
@@ -35,12 +31,7 @@ export async function POST(_req: Request, props: Props) {
     }
 
     if (row.evidenceRequestId) {
-      await prisma.$executeRawUnsafe(
-        `
-        update "EvidenceRequest"
-        set status = 'SUBMITTED'::"EvidenceRequestStatus", "updatedAt" = now()
-        where id = $1
-        `,
+      await submitLinkedEvidenceRequest(
         Number(row.evidenceRequestId),
       );
     }

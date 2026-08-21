@@ -1,200 +1,511 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 
-import prisma from "@/lib/prisma";
+import {
+  readGovernancePublicKey,
+} from "@/lib/governance-signing-keys";
+import {
+  verifyGovernanceSignature,
+} from "@/lib/governance-signature";
+import {
+  readGovernanceDailyAnchorByDate,
+} from "@/lib/repositories/governance-daily-anchor-repository";
+import {
+  findGovernanceTransparencyLogs,
+  findFirstGovernanceTransparencyLog,
+} from "@/lib/repositories/governance-transparency-log-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function safeStr(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === "string"
+    ? value.trim()
+    : "";
 }
 
 function sha256(value: string) {
-  return crypto.createHash("sha256").update(value).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(value)
+    .digest("hex");
 }
 
-function buildMerkleProof(leaves: string[], targetIndex: number) {
-  let level = leaves.map((leaf) => sha256(leaf));
-  let index = targetIndex;
-  const proof: Array<{ position: "left" | "right"; hash: string }> = [];
+function buildMerkleProof(
+  leaves: string[],
+  targetIndex: number,
+) {
+  let level =
+    leaves.map((leaf) =>
+      sha256(leaf),
+    );
+
+  let index =
+    targetIndex;
+
+  const proof: Array<{
+    position: "left" | "right";
+    hash: string;
+  }> = [];
 
   while (level.length > 1) {
     const next: string[] = [];
 
-    for (let i = 0; i < level.length; i += 2) {
-      const left = level[i];
-      const right = level[i + 1] || left;
+    for (
+      let i = 0;
+      i < level.length;
+      i += 2
+    ) {
+      const left =
+        level[i];
 
-      if (i === index || i + 1 === index) {
-        const isLeft = index === i;
+      const right =
+        level[i + 1] ||
+        left;
+
+      if (
+        i === index ||
+        i + 1 === index
+      ) {
+        const isLeft =
+          index === i;
 
         proof.push({
-          position: isLeft ? "right" : "left",
-          hash: isLeft ? right : left,
+          position:
+            isLeft
+              ? "right"
+              : "left",
+          hash:
+            isLeft
+              ? right
+              : left,
         });
 
-        index = Math.floor(i / 2);
+        index =
+          Math.floor(i / 2);
       }
 
-      next.push(sha256(`${left}${right}`));
+      next.push(
+        sha256(
+          `${left}${right}`,
+        ),
+      );
     }
 
-    level = next;
+    level =
+      next;
   }
 
   return {
-    root: level[0] || null,
+    root:
+      level[0] ||
+      null,
     proof,
   };
 }
 
-function verifyProof(leaf: string, proof: Array<{ position: "left" | "right"; hash: string }>) {
-  let computed = sha256(leaf);
+function verifyProof(
+  leaf: string,
+  proof: Array<{
+    position: "left" | "right";
+    hash: string;
+  }>,
+) {
+  let computed =
+    sha256(leaf);
 
   for (const step of proof) {
     computed =
       step.position === "left"
-        ? sha256(`${step.hash}${computed}`)
-        : sha256(`${computed}${step.hash}`);
+        ? sha256(
+            `${step.hash}${computed}`,
+          )
+        : sha256(
+            `${computed}${step.hash}`,
+          );
   }
 
   return computed;
 }
 
+function parseCanonicalPayload(
+  canonicalPayload: string,
+) {
+  const parsed =
+    JSON.parse(
+      canonicalPayload,
+    ) as unknown;
+
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    Array.isArray(parsed)
+  ) {
+    throw new Error(
+      "Persisted daily anchor canonical payload is invalid.",
+    );
+  }
+
+  return parsed as Record<
+    string,
+    unknown
+  >;
+}
+
 export async function GET(
   _req: NextRequest,
-  context: { params: Promise<{ receiptId: string }> | { receiptId: string } },
+  context: {
+    params:
+      | Promise<{
+          receiptId: string;
+        }>
+      | {
+          receiptId: string;
+        };
+  },
 ) {
   try {
-    const resolved = await context.params;
-    const receiptId = safeStr(resolved?.receiptId);
+    const resolved =
+      await context.params;
+
+    const receiptId =
+      safeStr(
+        resolved?.receiptId,
+      );
 
     if (!receiptId) {
       return NextResponse.json(
-        { ok: false, error: "Missing receipt id" },
-        { status: 400 },
+        {
+          ok: false,
+          error:
+            "Missing receipt id",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
-    const targetRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        id,
-        "receiptId",
-        "assignmentId",
-        "responseId",
-        checksum,
-        "entryHash",
-        "previousEntryHash",
-        timestamp
-      from "GovernanceTransparencyLog"
-      where "receiptId" = $1
-      limit 1
-      `,
-      receiptId,
-    );
-
-    const target = targetRows[0];
+    const target =
+      await findFirstGovernanceTransparencyLog({
+        where: {
+          receiptId,
+        },
+        select: {
+          id: true,
+          receiptId: true,
+          assignmentId: true,
+          responseId: true,
+          checksum: true,
+          entryHash: true,
+          previousEntryHash: true,
+          timestamp: true,
+        },
+      });
 
     if (!target) {
       return NextResponse.json(
-        { ok: false, error: "Receipt not found", receiptId },
-        { status: 404 },
+        {
+          ok: false,
+          error:
+            "Receipt not found",
+          receiptId,
+        },
+        {
+          status: 404,
+        },
       );
     }
 
-    const date = new Date(target.timestamp).toISOString().slice(0, 10);
+    const date =
+      new Date(
+        target.timestamp,
+      )
+        .toISOString()
+        .slice(0, 10);
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        id,
-        "receiptId",
-        "assignmentId",
-        "responseId",
-        checksum,
-        "entryHash",
-        "previousEntryHash",
-        timestamp
-      from "GovernanceTransparencyLog"
-      where date(timestamp) = $1::date
-      order by id asc
-      `,
-      date,
-    );
+    const dayStart =
+      new Date(
+        `${date}T00:00:00.000Z`,
+      );
 
-    const leaves = rows.map((row) =>
-      JSON.stringify({
-        id: row.id,
-        receiptId: row.receiptId,
-        assignmentId: row.assignmentId,
-        responseId: row.responseId,
-        checksum: row.checksum,
-        entryHash: row.entryHash,
-        previousEntryHash: row.previousEntryHash,
-        timestamp: row.timestamp,
-      }),
-    );
+    const dayEnd =
+      new Date(
+        dayStart.getTime() +
+          24 * 60 * 60 * 1000,
+      );
 
-    const targetIndex = rows.findIndex((row) => row.receiptId === receiptId);
+    /*
+     * Historical anchor identity is selected by the receipt's
+     * UTC date—not by whichever signing key happens to be active
+     * when the proof is requested.
+     */
+    const persistedAnchor =
+      await readGovernanceDailyAnchorByDate(
+        dayStart,
+      );
+
+    if (!persistedAnchor) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Persisted daily governance anchor not found for receipt date.",
+          receiptId,
+          date,
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const rows =
+      await findGovernanceTransparencyLogs({
+        where: {
+          timestamp: {
+            gte:
+              dayStart,
+            lt:
+              dayEnd,
+          },
+        },
+        select: {
+          id: true,
+          receiptId: true,
+          assignmentId: true,
+          responseId: true,
+          checksum: true,
+          entryHash: true,
+          previousEntryHash: true,
+          timestamp: true,
+        },
+        orderBy: {
+          id:
+            "asc",
+        },
+      });
+
+    const leaves =
+      rows.map((row) =>
+        JSON.stringify({
+          id:
+            row.id,
+          receiptId:
+            row.receiptId,
+          assignmentId:
+            row.assignmentId,
+          responseId:
+            row.responseId,
+          checksum:
+            row.checksum,
+          entryHash:
+            row.entryHash,
+          previousEntryHash:
+            row.previousEntryHash,
+          timestamp:
+            row.timestamp,
+        }),
+      );
+
+    const targetIndex =
+      rows.findIndex(
+        (row) =>
+          row.receiptId ===
+          receiptId,
+      );
 
     if (targetIndex < 0) {
       return NextResponse.json(
-        { ok: false, error: "Receipt not found in daily anchor set", receiptId },
-        { status: 404 },
+        {
+          ok: false,
+          error:
+            "Receipt not found in daily anchor set",
+          receiptId,
+        },
+        {
+          status: 404,
+        },
       );
     }
 
-    const { root, proof } = buildMerkleProof(leaves, targetIndex);
-    const recomputedRoot = verifyProof(leaves[targetIndex], proof);
-    const inclusionVerified = !!root && root === recomputedRoot;
+    const {
+      root,
+      proof,
+    } =
+      buildMerkleProof(
+        leaves,
+        targetIndex,
+      );
 
-    const anchorPayload = {
-      anchorType: "TRUVERN_DAILY_GOVERNANCE_MERKLE_ROOT",
-      date,
-      entryCount: rows.length,
-      merkleRoot: root,
-      version: "TRV-MERKLE-ANCHOR-1.0",
-    };
+    const recomputedRoot =
+      verifyProof(
+        leaves[targetIndex],
+        proof,
+      );
 
-    const publicKeyPath =
-      process.env.TRUVERN_SIGNING_PUBLIC_KEY_PATH ||
-      path.join(process.cwd(), "certs", "truvern-public.pem");
+    const inclusionVerified =
+      !!root &&
+      root ===
+        recomputedRoot;
 
-    const publicKey = fs.readFileSync(publicKeyPath, "utf8");
+    /*
+     * The live reconstruction must match the immutable anchor
+     * that was actually signed for this historical date.
+     */
+    const anchorRootMatches =
+      !!root &&
+      persistedAnchor.merkleRoot ===
+        root;
+
+    const anchorEntryCountMatches =
+      persistedAnchor.entryCount ===
+      rows.length;
+
+    const canonicalPayload =
+      parseCanonicalPayload(
+        persistedAnchor.canonicalPayload,
+      );
+
+    /*
+     * Verify the stored payload hash independently before checking
+     * the RSA signature.
+     */
+    const rebuiltPayloadHash =
+      sha256(
+        persistedAnchor.canonicalPayload,
+      );
+
+    const payloadHashMatches =
+      rebuiltPayloadHash ===
+      persistedAnchor.payloadHash;
+
+    /*
+     * Critical C5 behavior:
+     *
+     * Verify using the key ID that was persisted when the anchor
+     * was created. Never fall back to today's active key.
+     */
+    const anchorSignatureVerified =
+      verifyGovernanceSignature(
+        canonicalPayload,
+        persistedAnchor.signature,
+        persistedAnchor.publicKeyId,
+      );
+
+    const publicKey =
+      readGovernancePublicKey(
+        persistedAnchor.publicKeyId,
+      );
+
+    const publicKeyFingerprint =
+      sha256(
+        publicKey,
+      );
+
+    const anchorVerified =
+      inclusionVerified &&
+      anchorRootMatches &&
+      anchorEntryCountMatches &&
+      payloadHashMatches &&
+      anchorSignatureVerified;
 
     return NextResponse.json({
       ok: true,
       receiptId,
       date,
+
       inclusionVerified,
-      merkleRoot: root,
+
+      /*
+       * Keep the existing top-level Merkle root field for
+       * backward compatibility with the verification UI.
+       */
+      merkleRoot:
+        root,
+
       target: {
-        index: targetIndex,
-        leafHash: sha256(leaves[targetIndex]),
-        assignmentId: target.assignmentId,
-        responseId: target.responseId,
-        entryHash: target.entryHash,
-        checksum: target.checksum,
+        index:
+          targetIndex,
+        leafHash:
+          sha256(
+            leaves[
+              targetIndex
+            ],
+          ),
+        assignmentId:
+          target.assignmentId,
+        responseId:
+          target.responseId,
+        entryHash:
+          target.entryHash,
+        checksum:
+          target.checksum,
       },
+
       proof,
+
       anchor: {
-        ...anchorPayload,
-        publicKeyFingerprint: sha256(publicKey),
+        anchorType:
+          persistedAnchor.anchorType,
+        date,
+        entryCount:
+          persistedAnchor.entryCount,
+        merkleRoot:
+          persistedAnchor.merkleRoot,
+        version:
+          persistedAnchor.version,
+        generatedAt:
+          persistedAnchor.generatedAt.toISOString(),
+        signedAt:
+          persistedAnchor.signedAt.toISOString(),
+
+        keyId:
+          persistedAnchor.publicKeyId,
+
+        signatureAlgorithm:
+          persistedAnchor.signatureAlgorithm,
+
+        signature:
+          persistedAnchor.signature,
+
+        payloadHash:
+          persistedAnchor.payloadHash,
+
+        publicKeyFingerprint,
+
+        verification: {
+          verified:
+            anchorVerified,
+
+          inclusionVerified,
+
+          merkleRootMatches:
+            anchorRootMatches,
+
+          entryCountMatches:
+            anchorEntryCountMatches,
+
+          payloadHashMatches,
+
+          signatureVerified:
+            anchorSignatureVerified,
+        },
       },
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         ok: false,
-        error: safeStr(error?.message) || "Failed to generate inclusion proof.",
+        error:
+          safeStr(
+            error?.message,
+          ) ||
+          "Failed to generate inclusion proof.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
-
-

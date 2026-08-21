@@ -1,7 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
-import prisma from "@/lib/prisma";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { findTruvernFramework, updateTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await requireReviewerAccess();
     const { id } = await context.params;
 
-    const framework = await prisma.truvernFramework.findUnique({
+    const framework = await findTruvernFramework({
       where: parseFrameworkWhere(id),
       include: {
         controls: {
@@ -154,7 +154,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       data.metadata = body.metadata;
     }
 
-    const framework = await prisma.truvernFramework.update({
+    const framework = await updateTruvernFramework({
       where: parseFrameworkWhere(id),
       data,
     });

@@ -1,4 +1,4 @@
-﻿// app/review-desk/page.tsx
+// app/review-desk/page.tsx
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
@@ -17,6 +17,8 @@ import { requireDbOrganization } from "@/lib/org-db";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import FrameworkAssessmentCard from "@/components/review-desk/framework-assessment-card";
 import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
+import { readPostedReviewCreditLedger } from "@/lib/repositories/governance-ops-assignment-insights-repository";
+import { readGovernanceOpsPortfolioMemory, readGovernanceOpsVendorAnalysts, readGovernanceOpsVendorCreditBalance } from "@/lib/repositories/governance-ops-dashboard-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -748,35 +750,9 @@ export default async function ReviewDeskPage({ searchParams }: Props) {
         .filter(Boolean),
     ),
   );
-const creditLedgerRows =
+  const creditLedgerRows =
     assignmentId && assignmentId > 0
-      ? await prisma.$queryRawUnsafe<
-          Array<{
-            entryType: string;
-            availableDelta: number;
-            reservedDelta: number;
-            consumedDelta: number;
-            quantity: number;
-            note: string | null;
-            createdAt: Date | string | null;
-          }>
-        >(
-          `
-          select
-            "entryType"::text as "entryType",
-            "availableDelta",
-            "reservedDelta",
-            "consumedDelta",
-            quantity,
-            note,
-            "createdAt"
-          from "TruvernCreditLedgerEntry"
-          where "reviewAssignmentId" = $1
-            and status::text = 'POSTED'
-          order by "createdAt" asc, id asc
-          `,
-          assignmentId,
-        )
+      ? await readPostedReviewCreditLedger(assignmentId)
       : [];
   const reviewerNameMap = new Map<string, string>();
 
@@ -977,48 +953,8 @@ const unsealedCount = matchingAssignments.filter((row) => {
 }).length;
 
 
-const portfolioGovernanceRows = await prisma.$queryRawUnsafe<
-  Array<{
-    vendorId: number;
-    vendorName: string | null;
-    latestScore: number | null;
-    previousScore: number | null;
-    remediationCount: number | null;
-    missingEvidenceCount: number | null;
-    breachDisclosureDetected: boolean | null;
-    federalInvestigationDetected: boolean | null;
-  }>
->(
-  `
-  with ranked as (
-    select
-      vgm.*,
-      v.name as "vendorName",
-      row_number() over (partition by vgm."vendorId" order by vgm."createdAt" desc) as rn
-    from "VendorGovernanceMemory" vgm
-    join "Vendor" v on v.id = vgm."vendorId"
-    where v."organizationId" = $1
-  )
-  select
-    latest."vendorId",
-    latest."vendorName",
-    latest."governanceScore" as "latestScore",
-    previous."governanceScore" as "previousScore",
-    latest."remediationCount",
-    latest."missingEvidenceCount",
-    latest."breachDisclosureDetected",
-    latest."federalInvestigationDetected"
-  from ranked latest
-  left join ranked previous
-    on previous."vendorId" = latest."vendorId"
-   and previous.rn = 2
-  where latest.rn = 1
-  order by latest."createdAt" desc
-  limit 50
-  `,
-  organizationId,
-);
-
+  const portfolioGovernanceRows =
+    await readGovernanceOpsPortfolioMemory(organizationId);
 const portfolioAverageScore =
   portfolioGovernanceRows.length > 0
     ? Math.round(
@@ -1126,33 +1062,8 @@ const queueTabs = [
     ? await countRaw`select count(*)::text as count from "EvidenceRequest" where "vendorId" = ${vendorId} and upper(coalesce(status::text, '')) in ('APPROVED','RESOLVED')`
     : 0;
   const orgCreditRows = vendorId
-    ? await prisma.$queryRawUnsafe<
-        Array<{
-          availableCredits: number;
-          reservedCredits: number;
-          consumedCredits: number;
-          effectiveCredits: number;
-        }>
-      >(
-        `
-        select
-          coalesce(sum(l."availableDelta"), 0)::int as "availableCredits",
-          coalesce(sum(l."reservedDelta"), 0)::int as "reservedCredits",
-          coalesce(sum(l."consumedDelta"), 0)::int as "consumedCredits",
-          (
-            coalesce(sum(l."availableDelta"), 0) -
-            coalesce(sum(l."reservedDelta"), 0)
-          )::int as "effectiveCredits"
-        from "Vendor" v
-        left join "TruvernCreditLedgerEntry" l
-          on l."organizationId" = v."organizationId"
-          and l.status::text = 'POSTED'
-        where v.id::text = $1::text
-        `,
-        vendorId,
-      )
+    ? await readGovernanceOpsVendorCreditBalance(vendorId)
     : [];
-
   const orgCreditBalance = orgCreditRows[0] ?? {
     availableCredits: 0,
     reservedCredits: 0,
@@ -1160,32 +1071,8 @@ const queueTabs = [
     effectiveCredits: 0,
   };
   const analystRows = vendorId
-    ? await prisma.$queryRawUnsafe<
-        Array<{
-          userId: string | null;
-          name: string | null;
-          email: string | null;
-          role: string | null;
-        }>
-      >(
-        `
-        select
-          u.id::text as "userId",
-          coalesce(u.name, u.email, 'Internal analyst')::text as name,
-          u.email::text as email,
-          m.role::text as role
-        from "Vendor" v
-        join "OrgMembership" m on m."organizationId"::text = v."organizationId"::text
-        join "User" u on u.id::text = m."userId"::text
-        where v.id::text = $1::text
-          and m.role::text in ('OWNER', 'ADMIN', 'ANALYST')
-          and u.id is not null
-        order by coalesce(u.name, u.email) asc
-        `,
-        String(vendorId),
-      )
+    ? await readGovernanceOpsVendorAnalysts(vendorId)
     : [];
-
   const analystOptions = analystRows
     .filter((row) => row.userId)
     .map((row) => ({
@@ -2242,7 +2129,6 @@ generatedDraft: {
     </main>
   );
 }
-
 
 
 

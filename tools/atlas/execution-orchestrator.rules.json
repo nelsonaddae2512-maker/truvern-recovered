@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "engineVersion": "ATLAS-09",
+  "workflow": {
+    "states": [
+      "PROPOSED",
+      "IN_REVIEW",
+      "APPROVED",
+      "IMPLEMENTED",
+      "VALIDATING",
+      "VALIDATED",
+      "FAILED",
+      "ROLLED_BACK"
+    ],
+    "allowedTransitions": {
+      "PROPOSED": [
+        "IN_REVIEW"
+      ],
+      "IN_REVIEW": [
+        "APPROVED",
+        "PROPOSED"
+      ],
+      "APPROVED": [
+        "IMPLEMENTED",
+        "IN_REVIEW"
+      ],
+      "IMPLEMENTED": [
+        "VALIDATING",
+        "ROLLED_BACK"
+      ],
+      "VALIDATING": [
+        "VALIDATED",
+        "FAILED"
+      ],
+      "FAILED": [
+        "IMPLEMENTED",
+        "ROLLED_BACK"
+      ],
+      "VALIDATED": [],
+      "ROLLED_BACK": []
+    }
+  },
+  "validation": {
+    "commands": [
+      "npx tsc --noEmit",
+      "pnpm atlas:graph",
+      "node tools/atlas/repository-governance.js report",
+      "node tools/atlas/refactoring-planner.js report",
+      "node tools/atlas/portfolio-optimizer.js report",
+      "node tools/atlas/patch-generator.js report"
+    ],
+    "timeoutSeconds": 180
+  },
+  "safety": {
+    "requireHumanApproval": true,
+    "requireImplementationConfirmation": true,
+    "neverModifyApplicationCode": true,
+    "requireCheckpointReference": true
+  }
+}

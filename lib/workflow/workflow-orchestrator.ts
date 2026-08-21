@@ -1,6 +1,10 @@
-﻿import prisma from "@/lib/prisma";
 import { generateWorkflowTasksForPackage } from "@/lib/workflow/workflow-task-engine";
 import { runAiReviewWorker } from "@/lib/workflow/ai-review-worker";
+import {
+  insertWorkflowOrchestratorEscalationEvent,
+  readWorkflowOrchestratorQueueItems,
+  updateWorkflowOrchestratorQueueItem,
+} from "@/lib/repositories/workflow-orchestrator-repository";
 
 type OrchestratorResult = {
   checked: number;
@@ -24,27 +28,8 @@ function priorityBoost(queue: string, slaState: string, assignedTo: string | nul
 }
 
 export async function runWorkflowOrchestrator(): Promise<OrchestratorResult> {
-  const rows: any[] = await prisma.$queryRawUnsafe(`
-    select
-      qi.id,
-      qi."workflowId",
-      qi."organizationId",
-      qi."vendorId",
-      qi."reviewAssignmentId",
-      qi.queue,
-      qi.status,
-      qi.priority,
-      qi."assignedTo",
-      qi."dueAt",
-      qi.payload,
-      rp.id as "packageId",
-      rp.status as "packageStatus",
-      rp.severity
-    from "WorkflowQueueItem" qi
-    left join "RemediationPackage" rp
-      on qi.payload->>'remediationPackageId' = rp.id::text
-    where qi.status = 'OPEN'
-  `);
+  const rows: any[] =
+    await readWorkflowOrchestratorQueueItems();
 
   let assigned = 0;
   let escalated = 0;
@@ -79,15 +64,7 @@ export async function runWorkflowOrchestrator(): Promise<OrchestratorResult> {
       readyForRelease++;
     }
 
-    await prisma.$executeRawUnsafe(
-      `
-      update "WorkflowQueueItem"
-      set
-        priority = $1,
-        payload = coalesce(payload, '{}'::jsonb) || $2::jsonb,
-        "updatedAt" = now()
-      where id = $3
-      `,
+    await updateWorkflowOrchestratorQueueItem(
       nextPriority,
       JSON.stringify({
         orchestrator: {
@@ -101,21 +78,7 @@ export async function runWorkflowOrchestrator(): Promise<OrchestratorResult> {
     );
 
     if (orchestratorState === "ESCALATED") {
-      await prisma.$executeRawUnsafe(
-        `
-        insert into "WorkflowEvent" (
-          "workflowId",
-          "organizationId",
-          "vendorId",
-          "reviewAssignmentId",
-          type,
-          actor,
-          summary,
-          payload,
-          "createdAt"
-        )
-        values ($1, $2, $3, $4, 'WORKFLOW_ESCALATED', 'WORKFLOW_ORCHESTRATOR', 'Workflow item escalated by orchestrator.', $5::jsonb, now())
-        `,
+      await insertWorkflowOrchestratorEscalationEvent(
         item.workflowId,
         item.organizationId,
         item.vendorId,

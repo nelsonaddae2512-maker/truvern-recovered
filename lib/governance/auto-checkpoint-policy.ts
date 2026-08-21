@@ -1,5 +1,8 @@
-﻿import prisma from "@/lib/prisma";
 import { persistTransparencyChainCheckpoint } from "@/lib/governance/persist-chain-checkpoint";
+import {
+  readLatestTransparencyCheckpoint,
+  readTransparencyLedgerCount,
+} from "@/lib/repositories/auto-checkpoint-policy-repository";
 
 function safeInt(v: unknown) {
   const n = Number(v);
@@ -13,19 +16,11 @@ export async function maybePersistTransparencyCheckpoint(input?: {
   const force = !!input?.force;
   const entryThreshold = input?.entryThreshold || 25;
 
-  const ledgerRows: any[] = await prisma.$queryRawUnsafe(`
-    select count(*)::int as count
-    from "GovernanceTransparencyLog"
-  `);
+  const ledgerRows: any[] =
+    await readTransparencyLedgerCount();
 
-  const checkpointRows: any[] = await prisma.$queryRawUnsafe(`
-    select
-      "entryCount",
-      "generatedAt"
-    from "GovernanceTransparencyCheckpoint"
-    order by "generatedAt" desc, id desc
-    limit 1
-  `);
+  const checkpointRows: any[] =
+    await readLatestTransparencyCheckpoint();
 
   const ledgerCount = safeInt(ledgerRows?.[0]?.count);
   const latestCheckpointEntryCount =

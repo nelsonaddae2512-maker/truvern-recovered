@@ -1,4 +1,7 @@
-﻿import prisma from "@/lib/prisma";
+import {
+  insertWorkflowQueueItem,
+  updateWorkflowQueueItemForPackage,
+} from "@/lib/repositories/workflow-queue-repository";
 import {
   QueueStatus,
   WorkflowStage,
@@ -22,63 +25,33 @@ export async function upsertWorkflowQueueItem(input: {
   const status = input.queue === WorkflowStage.Complete ? QueueStatus.Closed : QueueStatus.Open;
 
   if (packageId) {
-    const updated: any[] = await prisma.$queryRawUnsafe(
-      `
-      update "WorkflowQueueItem"
-      set
-        queue = $1,
-        status = $2,
-        priority = $3,
-        "workflowId" = $4,
-        "dueAt" = $5,
-        payload = coalesce(payload, '{}'::jsonb) || $6::jsonb,
-        "updatedAt" = now()
-      where payload->>'remediationPackageId' = $7
-      returning id
-      `,
-      input.queue,
+    const updated: any[] = await updateWorkflowQueueItemForPackage({
+      queue: input.queue,
       status,
       priority,
-      input.workflowId,
-      input.dueAt ?? null,
-      JSON.stringify(input.payload ?? {}),
-      String(packageId),
-    );
+      workflowId: input.workflowId,
+      dueAt: input.dueAt ?? null,
+      payloadJson: JSON.stringify(input.payload ?? {}),
+      packageId,
+    });
 
     if (updated.length > 0) return updated[0];
   }
 
-  const inserted: any[] = await prisma.$queryRawUnsafe(
-    `
-    insert into "WorkflowQueueItem" (
-      "workflowId",
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      queue,
-      status,
-      priority,
-      "dueAt",
-      payload,
-      "createdAt",
-      "updatedAt"
-    )
-    values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, now(), now())
-    returning id
-    `,
-    input.workflowId,
-    input.organizationId,
-    input.vendorId ?? null,
-    input.reviewAssignmentId ?? null,
-    input.queue,
+  const inserted: any[] = await insertWorkflowQueueItem({
+    workflowId: input.workflowId,
+    organizationId: input.organizationId,
+    vendorId: input.vendorId ?? null,
+    reviewAssignmentId: input.reviewAssignmentId ?? null,
+    queue: input.queue,
     status,
     priority,
-    input.dueAt ?? null,
-    JSON.stringify({
+    dueAt: input.dueAt ?? null,
+    payloadJson: JSON.stringify({
       ...(input.payload ?? {}),
       remediationPackageId: packageId,
     }),
-  );
+  });
 
   return inserted[0] ?? null;
 }

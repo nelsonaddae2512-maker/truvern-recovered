@@ -1,7 +1,8 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
+import { findGovernanceTransparencyLogs } from "@/lib/repositories/governance-transparency-log-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,26 +65,28 @@ const params = await ctx.params;
       );
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        id,
-        "entryId",
-        "assignmentId",
-        "responseId",
-        checksum,
-        "ledgerHash",
-        "receiptId",
-        timestamp,
-        "previousEntryHash",
-        "entryHash",
-        "createdAt"
-      from "GovernanceTransparencyLog"
-      where "assignmentId" = $1
-      order by timestamp desc, id desc
-      `,
-      assignmentId,
-    );
+    const rows = await findGovernanceTransparencyLogs({
+      where: {
+        assignmentId,
+      },
+      select: {
+        id: true,
+        entryId: true,
+        assignmentId: true,
+        responseId: true,
+        checksum: true,
+        ledgerHash: true,
+        receiptId: true,
+        timestamp: true,
+        previousEntryHash: true,
+        entryHash: true,
+        createdAt: true,
+      },
+      orderBy: [
+        { timestamp: "desc" },
+        { id: "desc" },
+      ],
+    });
 
     return NextResponse.json(
       {

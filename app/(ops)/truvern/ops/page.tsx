@@ -1,6 +1,13 @@
-﻿import Link from "next/link";
-import prisma from "@/lib/prisma";
+import Link from "next/link";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
+import {
+  readOpsActiveOverrides,
+  readOpsCreditSummary,
+  readOpsLowBalanceOrganizations,
+  readOpsOrganizationCount,
+  readOpsReviewSummary,
+  readOpsVendorCount,
+} from "@/lib/repositories/truvern-ops-dashboard-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,84 +27,17 @@ function safeInt(v: unknown) {
 export default async function TruvernOpsPage() {
   await requireTruvernOperator();
 
-  const orgRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select count(*)::int as "count"
-    from "Organization"
-  `);
+  const orgRows: AnyRow[] = await readOpsOrganizationCount();
 
-  const vendorRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select count(*)::int as "count"
-    from "Vendor"
-  `);
+  const vendorRows: AnyRow[] = await readOpsVendorCount();
 
-  const reviewRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select
-      count(distinct ra.id) filter (
-        where upper(coalesce(latest.responses->>'assignmentType', '')) = 'TRUVERN'
-          and upper(coalesce(latest.responses->>'releaseState', '')) not in (
-            'RELEASED',
-            'CONFIRMED'
-          )
-      )::int as "activeReviews",
+  const reviewRows: AnyRow[] = await readOpsReviewSummary();
 
-      count(distinct ra.id) filter (
-        where upper(coalesce(latest.responses->>'assignmentType', '')) = 'TRUVERN'
-          and upper(coalesce(latest.responses->>'intent', '')) = 'COMPLETE'
-          and upper(coalesce(latest.responses->>'releaseState', '')) not in (
-            'RELEASED',
-            'CONFIRMED'
-          )
-      )::int as "releaseReadyReviews"
+  const creditRows: AnyRow[] = await readOpsCreditSummary();
 
-    from "ReviewAssignment" ra
+  const overrideRows: AnyRow[] = await readOpsActiveOverrides();
 
-    left join lateral (
-      select responses
-      from "ReviewResponse"
-      where "reviewAssignmentId" = ra.id
-      order by "updatedAt" desc
-      limit 1
-    ) latest on true
-  `);
-
-  const creditRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select
-      coalesce(sum("availableDelta"), 0)::int as "availableCredits",
-      coalesce(sum("reservedDelta"), 0)::int as "reservedCredits",
-      coalesce(sum("consumedDelta"), 0)::int as "consumedCredits"
-    from "TruvernCreditLedgerEntry"
-  `);
-
-  const overrideRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select
-      opo.*,
-      o.name as "organizationName"
-    from "OrganizationPlanOverride" opo
-    left join "Organization" o on o.id = opo."organizationId"
-    where opo."revokedAt" is null
-      and opo."startsAt" <= now()
-      and (opo."expiresAt" is null or opo."expiresAt" > now())
-    order by opo."createdAt" desc, opo.id desc
-    limit 8
-  `);
-
-  const lowBalanceRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select
-      o.id,
-      o.name,
-      coalesce(c."availableCredits", 0)::int as "availableCredits"
-    from "Organization" o
-    left join (
-      select
-        "organizationId",
-        coalesce(sum("availableDelta"), 0)::int as "availableCredits"
-      from "TruvernCreditLedgerEntry"
-      group by "organizationId"
-    ) c on c."organizationId" = o.id
-    where coalesce(c."availableCredits", 0) <= 5
-    order by coalesce(c."availableCredits", 0) asc, o."createdAt" desc
-    limit 6
-  `);
+  const lowBalanceRows: AnyRow[] = await readOpsLowBalanceOrganizations();
 
   const totalOrganizations = safeInt(orgRows?.[0]?.count);
   const totalVendors = safeInt(vendorRows?.[0]?.count);

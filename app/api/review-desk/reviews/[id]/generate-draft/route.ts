@@ -1,9 +1,20 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import type { Prisma } from "@prisma/client";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
 import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { createReviewResponse, findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
+import {
+  findReviewAssignment,
+  updateReviewAssignment,
+} from "@/lib/repositories/review-assignment-repository";
+import { findVendor } from "@/lib/repositories/vendor-repository";
+import { findReviewRequest } from "@/lib/repositories/review-request-repository";
+import { findFirstAssessmentRun } from "@/lib/repositories/assessment-run-repository";
+import { findFirstAssessment } from "@/lib/repositories/assessment-repository";
+import { findAssessmentAnswers } from "@/lib/repositories/assessment-answer-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -143,11 +154,11 @@ const formattedCompletedAt = completedAt
     ``,
     `INITIAL GOVERNANCE OBSERVATIONS`,
     ``,
-    `€¢ Vendor profile and submitted assessment indicate an operational posture consistent with the declared business category and criticality level.`,
+      `- Vendor profile and submitted assessment indicate an operational posture consistent with the declared business category and criticality level.`,
     ``,
-    `€¢ No immediate critical blockers were identified during automated draft analysis.`,
+      `- No immediate critical blockers were identified during automated draft analysis.`,
     ``,
-    `€¢ Additional operator review, evidence validation, and governance verification may still be required prior to formal release.`,
+      `- Additional operator review, evidence validation, and governance verification may still be required prior to formal release.`,
     ``,
     `RECOMMENDED GOVERNANCE OUTCOME`,
     ``,
@@ -176,21 +187,34 @@ async function ensureReviewResponseForAssignment({
   organizationId: number | null;
   vendorId: number | null;
 }) {
-  const existing: any[] = await prisma.$queryRawUnsafe(
-    `
-    select id, responses
-    from "ReviewResponse"
-    where "reviewAssignmentId" = $1
-    order by "updatedAt" desc, id desc
-    limit 1
-    `,
-    reviewAssignmentId,
-  );
+  const existing = await findLatestReviewResponse(reviewAssignmentId);
 
-  if (existing[0]) return existing[0];
+  if (existing) {
+    return existing;
+  }
 
-  const created: any[] = await prisma.$queryRawUnsafe(
-    `
+  const nowIso = new Date().toISOString();
+
+  const initialResponses = {
+    intent: "reviewer_intelligence",
+    releaseState: "DRAFT",
+    assessmentGeneratedAt: nowIso,
+    reviewFinalizedAt: nowIso,
+    truvernReviewerIntelligence: {
+      riskLevel: "Not recorded",
+      decision: "Not recorded",
+      findings: [],
+      executiveSummary: "Not recorded.",
+      finalAssessment: "Not recorded.",
+    },
+  };
+
+  type BaselineReviewResponseRow = {
+    id: number;
+    responses: Prisma.JsonValue;
+  };
+
+  const created = await prisma.$queryRaw<BaselineReviewResponseRow[]>`
     insert into "ReviewResponse" (
       "reviewAssignmentId",
       "organizationId",
@@ -200,35 +224,18 @@ async function ensureReviewResponseForAssignment({
       "updatedAt"
     )
     values (
-      $1,
-      $2,
-      $3,
-      jsonb_build_object(
-        'intent', 'reviewer_intelligence',
-        'releaseState', 'DRAFT',
-        'assessmentGeneratedAt', now(),
-        'reviewFinalizedAt', now(),
-        'truvernReviewerIntelligence', jsonb_build_object(
-          'riskLevel', 'Not recorded',
-          'decision', 'Not recorded',
-          'findings', '[]'::jsonb,
-          'executiveSummary', 'Not recorded.',
-          'finalAssessment', 'Not recorded.'
-        )
-      ),
+      ${reviewAssignmentId},
+      ${organizationId},
+      ${vendorId},
+      ${JSON.stringify(initialResponses)}::jsonb,
       now(),
       now()
     )
     returning id, responses
-    `,
-    reviewAssignmentId,
-    organizationId,
-    vendorId,
-  );
+  `;
 
   return created[0];
 }
-
 function answerTextValue(answer: any): string {
   if (answer?.valueJson === false) return "false";
   if (answer?.valueJson === true) return "true";
@@ -610,18 +617,12 @@ try {
         error: "Invalid assignment id.",
       });
     }
-
-    const assignmentRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select *
-      from "ReviewAssignment"
-      where id = $1
-      limit 1
-      `,
-      assignmentId,
-    );
-
-    const assignment = assignmentRows?.[0];
+    const assignment =
+      await findReviewAssignment({
+        where: {
+          id: assignmentId,
+        },
+      });
 
     if (!assignment) {
       return json(404, {
@@ -651,7 +652,7 @@ try {
       });
     }
     const assignmentType = upper(
-  assignment.assignmentType || assignment.type || assignment.note,
+  assignment.assignmentType || assignment.note,
 );
 
 const isTruvernReview = assignmentType.includes("TRUVERN");
@@ -675,18 +676,12 @@ if (!reviewRequestId) {
     error: "Review assignment is missing a review request.",
   });
 }
-
-const requestRows: any[] = await prisma.$queryRawUnsafe(
-  `
-  select *
-  from "ReviewRequest"
-  where id = $1
-  limit 1
-  `,
-  reviewRequestId,
-);
-
-const request = requestRows?.[0];
+    const request =
+      await findReviewRequest({
+        where: {
+          id: reviewRequestId,
+        },
+      });
 
 if (!request) {
   return json(404, {
@@ -703,26 +698,22 @@ if (!vendorId) {
     error: "Review request is missing a vendor.",
   });
 }
-
-    const vendorRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-  id,
-  name,
-  category,
-  tier::text as tier,
-  criticality::text as criticality,
-  "riskScore",
-  status,
-  "organizationId"
-from "Vendor"
-      where id = $1
-      limit 1
-      `,
-      vendorId,
-    );
-
-    const vendor = vendorRows?.[0];
+    const vendor =
+      await findVendor({
+        where: {
+          id: vendorId,
+        },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          tier: true,
+          criticality: true,
+          riskScore: true,
+          status: true,
+          organizationId: true,
+        },
+      });
 
     if (!vendor) {
       return json(404, {
@@ -730,24 +721,28 @@ from "Vendor"
         error: "Vendor not found.",
       });
     }
+    const assessmentRun =
+      await findFirstAssessmentRun({
+        where: {
+          vendorId,
+        },
+        orderBy: [
+          {
+            completedAt: {
+              sort: "desc",
+              nulls: "last",
+            },
+          },
+          {
+            updatedAt: "desc",
+          },
+          {
+            id: "desc",
+          },
+        ],
+      });
 
-    const assessmentRunRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select *
-      from "AssessmentRun"
-      where "vendorId" = $1
-      order by
-        "completedAt" desc nulls last,
-        "updatedAt" desc,
-        id desc
-      limit 1
-      `,
-      vendorId,
-    );
-
-    const assessmentRun = assessmentRunRows?.[0] ?? null;
-
-    const submittedAssessment = await prisma.assessment.findFirst({
+    const submittedAssessment = await findFirstAssessment({
       where: {
         vendorId,
         status: {
@@ -770,47 +765,54 @@ from "Vendor"
       },
     });
 
-    const assessmentAnswerRowsForFindings: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        aa.id,
-        aa."assessmentId",
-        aa."questionId",
-        aa.value,
-        aa."valueJson",
-        aa."riskImpact",
-        q.text as "questionText",
-        q.description as "questionDescription",
-        q.category as "questionCategory"
-      from "AssessmentAnswer" aa
-      join "Assessment" a on a.id = aa."assessmentId"
-      left join "AssessmentQuestion" q on q.id = aa."questionId"
-      where a."vendorId" = $1
-        and a."organizationId" = $2
-        and upper(a.status::text) in ('SUBMITTED','REVIEW_READY')
-      order by
-        a."submittedAt" desc nulls last,
-        a.id desc,
-        aa.id asc
-      limit 250
-      `,
-      vendor.id,
-      vendor.organizationId,
-    ).then((rows) =>
-      (rows as any[]).map((row) => ({
-        id: row.id,
-        assessmentId: row.assessmentId,
-        questionId: row.questionId,
-        value: row.value,
-        valueJson: row.valueJson,
-        riskImpact: row.riskImpact,
-        question: {
-          text: row.questionText,
-          description: row.questionDescription,
-          category: row.questionCategory,
+    const assessmentAnswerRowsForFindings =
+      await findAssessmentAnswers({
+        where: {
+          assessment: {
+            is: {
+              vendorId: vendor.id,
+              organizationId: vendor.organizationId,
+              status: {
+                in: ["SUBMITTED", "REVIEW_READY"],
+              },
+            },
+          },
         },
-      })),
-    );
+        select: {
+          id: true,
+          assessmentId: true,
+          questionId: true,
+          value: true,
+          valueJson: true,
+          riskImpact: true,
+          question: {
+            select: {
+              text: true,
+              description: true,
+              category: true,
+            },
+          },
+        },
+        orderBy: [
+          {
+            assessment: {
+              submittedAt: {
+                sort: "desc",
+                nulls: "last",
+              },
+            },
+          },
+          {
+            assessment: {
+              id: "desc",
+            },
+          },
+          {
+            id: "asc",
+          },
+        ],
+        take: 250,
+      });
 
     const submittedAnswerCount =
       assessmentAnswerRowsForFindings.length ||
@@ -835,23 +837,13 @@ from "Vendor"
           return `- ${prompt}: ${value}`;
         })
         .join("\n") || "No submitted questionnaire answers were found.";
-
-    const existingRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select *
-      from "ReviewResponse"
-      where "reviewAssignmentId" = $1
-      order by "updatedAt" desc
-      limit 1
-      `,
-      assignmentId,
-    );
-
-    const existing = existingRows?.[0] ?? null;
+    const existing = await findLatestReviewResponse(assignmentId);
 
     const existingResponses =
-      existing?.responses && typeof existing.responses === "object"
-        ? existing.responses
+      existing?.responses &&
+      typeof existing.responses === "object" &&
+      !Array.isArray(existing.responses)
+        ? (existing.responses as Record<string, unknown>)
         : {};
 
     const existingReleaseState = upper(existingResponses.releaseState);
@@ -1030,65 +1022,49 @@ findings: responseDrivenFindingsV2.findingsText,
       },
       generatedDraft,
     };
+    const storedGeneratedResponsesJson =
+      JSON.parse(
+        JSON.stringify(storedGeneratedResponses),
+      ) as Prisma.InputJsonValue;
 
     if (existing?.id) {
-      const updatedRows: any[] = await prisma.$queryRawUnsafe(
-        `
-        update "ReviewResponse"
-        set
-          responses = $1::jsonb,
-          "draftSavedAt" = now(),
-          "updatedAt" = now()
-        where id = $2
-        returning id
-        `,
-        JSON.stringify(storedGeneratedResponses),
-        existing.id,
-      );
-
-      responseId = updatedRows?.[0]?.id ?? existing.id;
+      const updatedResponse =
+        await updateReviewResponse({
+          id: existing.id,
+          data: {
+            responses: storedGeneratedResponsesJson,
+            draftSavedAt: new Date(),
+            updatedAt: new Date(),
+          },
+          select: {
+            id: true,
+          },
+        });
+      responseId = updatedResponse.id;
     } else {
-      const insertedRows: any[] = await prisma.$queryRawUnsafe(
-        `
-        insert into "ReviewResponse" (
-          "organizationId",
-          "reviewRequestId",
-          "reviewAssignmentId",
-          responses,
-          "draftSavedAt",
-          "createdAt",
-          "updatedAt"
-        )
-        values (
-  $1,
-  $2,
-  $3,
-  $4::jsonb,
-  now(),
-  now(),
-  now()
-)
-        returning id
-        `,
-        vendor.organizationId,
-reviewRequestId,
-assignmentId,
-JSON.stringify(storedGeneratedResponses),
-      );
-
-      responseId = insertedRows?.[0]?.id ?? null;
+      const insertedResponse =
+        await createReviewResponse({
+          data: {
+            organizationId: vendor.organizationId,
+            reviewRequestId,
+            reviewAssignmentId: assignmentId,
+            responses: storedGeneratedResponsesJson,
+            draftSavedAt: new Date(),
+          },
+          select: {
+            id: true,
+          },
+        });
+      responseId = insertedResponse.id;
     }
-
-    await prisma.$executeRawUnsafe(
-      `
-      update "ReviewAssignment"
-      set
-        status = 'IN_PROGRESS',
-        "updatedAt" = now()
-      where id = $1
-      `,
-      assignmentId,
-    );
+    await updateReviewAssignment({
+      where: {
+        id: assignmentId,
+      },
+      data: {
+        status: "IN_PROGRESS",
+      },
+    });
 
     return json(200, {
       ok: true,

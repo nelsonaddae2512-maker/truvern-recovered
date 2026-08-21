@@ -1,7 +1,12 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { countTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { updateTruvernAssessmentFinding } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { findFirstTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
+import { updateTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +43,7 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const existing = await prisma.truvernRemediationRequest.findFirst({
+    const existing = await findFirstTruvernRemediationRequest({
       where: {
         id: remediationId,
         finding: { assessmentId },
@@ -59,23 +64,23 @@ export async function POST(request: Request, context: RouteContext) {
       decision === "accept" ? "REMEDIATED" : decision === "waive" ? "ACCEPTED_RISK" : "REMEDIATION_REQUESTED";
 
     const result = await prisma.$transaction(async (tx) => {
-      const remediation = await tx.truvernRemediationRequest.update({
+      const remediation = await updateTruvernRemediationRequest({
         where: { id: remediationId },
         data: {
           status: remediationStatus,
           reviewerDecision,
           resolvedAt: decision === "reject" ? null : new Date(),
         },
-      });
+      }, tx);
 
-      const finding = await tx.truvernAssessmentFinding.update({
+      const finding = await updateTruvernAssessmentFinding({
         where: { id: existing.findingId },
         data: {
           status: findingStatus,
         },
-      });
+      }, tx);
 
-      const unresolvedRequired = await tx.truvernAssessmentFinding.count({
+      const unresolvedRequired = await countTruvernAssessmentFindings({
         where: {
           assessmentId,
           OR: [
@@ -89,15 +94,15 @@ export async function POST(request: Request, context: RouteContext) {
             },
           ],
         },
-      });
+      }, tx);
 
-      await tx.truvernFrameworkAssessment.update({
+      await updateTruvernFrameworkAssessment({
         where: { id: assessmentId },
         data: {
           status: unresolvedRequired === 0 ? "READY_FOR_RELEASE" : "IN_REVIEW",
           readyForReleaseAt: unresolvedRequired === 0 ? new Date() : null,
         },
-      });
+      }, tx);
 
       return { remediation, finding, unresolvedRequired };
     });

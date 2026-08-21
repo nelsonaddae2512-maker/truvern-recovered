@@ -1,7 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
-import prisma from "@/lib/prisma";
+import { readFrameworkAssessmentAuditEvents } from "@/lib/repositories/framework-assessment-audit-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,36 +28,8 @@ export async function GET(_request: Request, context: RouteContext) {
     await requireReviewerAccess();
     await requireFrameworkAssessmentAccess(assessmentId);
 
-    const events = await prisma.$queryRawUnsafe<
-      Array<{
-        id: number;
-        actorUserId: string | null;
-        entityType: string;
-        entityId: string;
-        action: string;
-        message: string | null;
-        metadata: unknown;
-        createdAt: Date;
-      }>
-    >(
-      `
-      select
-        id,
-        "actorUserId",
-        "entityType",
-        "entityId",
-        action,
-        message,
-        metadata,
-        "createdAt"
-      from "AuditLog"
-      where "entityType" = 'TruvernFrameworkAssessment'
-        and "entityId" = $1
-      order by "createdAt" desc, id desc
-      limit 50
-      `,
-      String(assessmentId),
-    );
+    const events =
+      await readFrameworkAssessmentAuditEvents(assessmentId);
 
     return NextResponse.json({
       ok: true,

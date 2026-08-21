@@ -153,17 +153,20 @@ model Organization {
   updatedAt     DateTime                   @updatedAt
 
   // Relationships
-  memberships         OrgMembership[]
-  users               User[]               @relation("OrgUsers")
-  vendors             Vendor[]
-  assessments         Assessment[]
-  evidence            Evidence[]
-  issues              Issue[]
-  assessmentTemplates AssessmentTemplate[]
-  trustProfiles       TrustProfile[]
-  subscriptions       Subscription[]
-  usageEvents         UsageEvent[]
-  invites             InviteToken[]
+  memberships                OrgMembership[]
+  users                      User[]                      @relation("OrgUsers")
+  vendors                    Vendor[]
+  assessments                Assessment[]
+  evidence                   Evidence[]
+  issues                     Issue[]
+  assessmentTemplates        AssessmentTemplate[]
+  trustProfiles              TrustProfile[]
+  subscriptions              Subscription[]
+  usageEvents                UsageEvent[]
+  invites                    InviteToken[]
+  communicationMailboxes     CommunicationMailbox[]
+  communicationConversations CommunicationConversation[]
+  communicationMessages      CommunicationMessage[]
 
   assessmentRuns AssessmentRun[] @relation("OrgAssessmentRuns")
 
@@ -178,10 +181,11 @@ model Organization {
 }
 
 model ReviewAssignment {
-  id              Int    @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   organizationId  Int
   vendorId        Int
   reviewRequestId Int?
+  reviewRequest   ReviewRequest? @relation(fields: [reviewRequestId], references: [id])
   assignmentType  String
   status          String
 
@@ -191,6 +195,9 @@ model ReviewAssignment {
   assignedTo           String?
 
   note        String?
+  riskLevel   String?
+  decision    String?
+  findings    String?
   createdBy   String?
   startedAt   DateTime?
   claimedAt   DateTime?
@@ -324,6 +331,7 @@ model Vendor {
   assessmentRuns AssessmentRun[] @relation("VendorAssessmentRuns")
 
   evidenceRequests EvidenceRequest[]
+  reviewRequests   ReviewRequest[]
 
   activityEvents ActivityEvent[]
 
@@ -1298,17 +1306,19 @@ model VendorGovernanceMemory {
 }
 
 model ReviewRequest {
-  id             Int       @id @default(autoincrement())
-  organizationId Int?
-  vendorId       Int?
-  kind           String?
-  title          String?
-  status         String?   @default("REQUESTED")
-  dueAt          DateTime? @db.Timestamp(6)
-  createdAt      DateTime  @default(now()) @db.Timestamp(6)
-  updatedAt      DateTime  @default(now()) @db.Timestamp(6)
-  assessmentId   Int?
-  note           String?
+  id                Int                @id @default(autoincrement())
+  organizationId    Int?
+  vendorId          Int?
+  vendor            Vendor?            @relation(fields: [vendorId], references: [id])
+  kind              String?
+  title             String?
+  status            String?            @default("REQUESTED")
+  dueAt             DateTime?          @db.Timestamp(6)
+  createdAt         DateTime           @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime           @default(now()) @db.Timestamp(6)
+  assessmentId      Int?
+  note              String?
+  reviewAssignments ReviewAssignment[]
 }
 
 model ReviewResponse {
@@ -1607,4 +1617,164 @@ model GovernanceTransparencyCheckpoint {
   publishedAt        DateTime? @db.Timestamp(6)
 
   @@index([generatedAt(sort: Desc)])
+}
+
+model CommunicationMailbox {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+
+  name        String
+  address     String
+  description String?
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization          Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversations         CommunicationConversation[]
+  communicationMessages CommunicationMessage[]
+
+  @@unique([organizationId, address])
+  @@index([organizationId])
+  @@index([isActive])
+}
+
+model CommunicationConversation {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  mailboxId      Int
+
+  vendorId           Int?
+  assessmentId       Int?
+  assessmentRunId    Int?
+  reviewRequestId    Int?
+  reviewAssignmentId Int?
+
+  subject          String
+  status           String  @default("OPEN")
+  priority         String  @default("NORMAL")
+  channel          String  @default("EMAIL")
+  externalThreadId String?
+
+  lastMessageAt DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mailbox               CommunicationMailbox   @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  communicationMessages CommunicationMessage[]
+
+  @@index([organizationId])
+  @@index([mailboxId])
+  @@index([organizationId, status])
+  @@index([vendorId])
+  @@index([assessmentId])
+  @@index([assessmentRunId])
+  @@index([reviewRequestId])
+  @@index([reviewAssignmentId])
+  @@index([lastMessageAt])
+  @@index([externalThreadId])
+}
+
+model CommunicationMessage {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  mailboxId      Int
+  conversationId Int
+
+  direction String
+  channel   String @default("EMAIL")
+  status    String @default("QUEUED")
+
+  subject  String?
+  bodyText String?
+  bodyHtml String?
+
+  fromAddress String
+  fromName    String?
+
+  replyToAddress     String?
+  provider           String?
+  providerMessageId  String?
+  internetMessageId  String?
+  inReplyToMessageId String?
+
+  errorCode    String?
+  errorMessage String?
+
+  queuedAt    DateTime?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  receivedAt  DateTime?
+  failedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mailbox      CommunicationMailbox      @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  conversation CommunicationConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  recipients   CommunicationRecipient[]
+
+  @@index([organizationId])
+  @@index([mailboxId])
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+  @@index([organizationId, status])
+  @@index([direction])
+  @@index([providerMessageId])
+  @@index([internetMessageId])
+  @@index([sentAt])
+  @@index([receivedAt])
+}
+
+model CommunicationRecipient {
+  id             Int @id @default(autoincrement())
+  organizationId Int
+  messageId      Int
+
+  kind        String
+  address     String
+  displayName String?
+
+  createdAt DateTime @default(now())
+
+  message CommunicationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, kind, address])
+  @@index([organizationId])
+  @@index([messageId])
+  @@index([organizationId, kind])
+  @@index([address])
+}
+
+model GovernanceDailyAnchor {
+  id Int @id @default(autoincrement())
+
+  anchorDate DateTime @unique @db.Date
+
+  anchorType String @default("TRUVERN_DAILY_GOVERNANCE_MERKLE_ROOT")
+  version    String @default("TRV-MERKLE-ANCHOR-1.0")
+
+  entryCount Int
+  merkleRoot String
+
+  canonicalPayload String
+  payloadHash      String
+
+  signature          String
+  signatureAlgorithm String
+  publicKeyId        String
+  signedAt           DateTime @db.Timestamp(6)
+
+  generatedAt DateTime @db.Timestamp(6)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([generatedAt(sort: Desc)])
+  @@index([publicKeyId])
+  @@index([merkleRoot])
 }

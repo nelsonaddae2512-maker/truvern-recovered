@@ -1,7 +1,7 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { verifySignedGovernanceManifest } from "@/lib/governance/manifest";
-import prisma from "@/lib/prisma";
 import ReceiptQr from "@/components/governance/receipt-qr.client";
+import { readReceiptVerificationEntry } from "@/lib/repositories/receipt-verification-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,28 +59,7 @@ async function getInclusionProof(receiptId: string) {
 
 async function getReceipt(receiptId: string) {
   try {
-    const rows: AnyRow[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        id,
-        "entryId",
-        "assignmentId",
-        "responseId",
-        checksum,
-        "ledgerHash",
-        "receiptId",
-        timestamp,
-        "previousEntryHash",
-        "entryHash",
-        "createdAt"
-      from "GovernanceTransparencyLog"
-      where "receiptId" = $1
-      limit 1
-      `,
-      receiptId,
-    );
-
-    const entry = rows?.[0] || null;
+    const entry = await readReceiptVerificationEntry(receiptId);
 
     return {
       ok: !!entry,

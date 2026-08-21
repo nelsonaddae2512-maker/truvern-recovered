@@ -1,6 +1,6 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import prisma from "@/lib/prisma";
+import { readPublicReleaseVerification } from "@/lib/repositories/public-release-verification-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,30 +29,7 @@ export default async function PublicReleaseVerificationPage({
     return notFound();
   }
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      gm.id as "manifestId",
-      gm.checksum,
-      gm."createdAt" as "manifestCreatedAt",
-      ra.id as "assignmentId",
-      ra.status::text as "assignmentStatus",
-      v.id as "vendorId",
-      v.name as "vendorName",
-      v.slug as "vendorSlug",
-      v.category as "vendorCategory"
-    from "GovernanceReleaseManifest" gm
-    join "ReviewAssignment" ra
-      on ra.id = gm."reviewAssignmentId"
-    join "ReviewRequest" rr
-      on rr.id = ra."reviewRequestId"
-    join "Vendor" v
-      on v.id = rr."vendorId"
-    where gm.id = $1
-    limit 1
-    `,
-    id,
-  );
+  const rows = await readPublicReleaseVerification(id);
 
   const record = rows[0];
 

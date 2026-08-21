@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { findTruvernFrameworkAssessments } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const revalidate = 0;
 export async function GET() {
   try {
     await requireReviewerAccess();
-    const assessments = await prisma.truvernFrameworkAssessment.findMany({
+    const assessments = await findTruvernFrameworkAssessments({
       orderBy: [{ updatedAt: "desc" }],
       take: 50,
       include: {

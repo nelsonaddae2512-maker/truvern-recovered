@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import prisma from "@/lib/prisma";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
 import { governanceLabel } from "@/lib/governance/labels";
 import PrintPacketButton from "@/components/review-desk/print-packet-button.client";
 
 
+import {
+  findGovernancePacketRow,
+  findPacketEvidenceForVendor,
+} from "@/lib/repositories/packet-governance-repository";
 function governanceDisplayText(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -79,26 +82,10 @@ export default async function GovernancePacketPage({ params }: Props) {
 
   if (!assignmentId) return notFound();
 
-  const rows: any[] = await prisma.$queryRawUnsafe(`
-    select
-      ra.id as "assignmentId",
-      ra.status as "assignmentStatus",
-      ra."updatedAt" as "assignmentUpdatedAt",
-      rr.responses,
-      rr."updatedAt" as "outcomeUpdatedAt",
-      v.id as "vendorId",
-      v.name as "vendorName",
-      v.category as "vendorCategory"
-    from "ReviewAssignment" ra
-    left join "ReviewResponse" rr on rr."reviewAssignmentId" = ra.id
-    left join "ReviewRequest" req on req.id = ra."reviewRequestId"
-    left join "Vendor" v on v.id = req."vendorId"
-    where ra.id = $1
-    order by rr."updatedAt" desc nulls last
-    limit 1
-  `, assignmentId);
-
-  const row = rows?.[0];
+  const row =
+    await findGovernancePacketRow(
+      assignmentId,
+    );
   if (!row) return notFound();
 
   const responses =
@@ -261,23 +248,12 @@ const checksum = renderedChecksum;
 const sealVerified =
   !!persistedChecksum &&
   checksum === renderedChecksum;
-
-    const evidenceRows: any[] = await prisma.$queryRawUnsafe(
-    `
-      select
-        e.id,
-        'Evidence artifact' as name,
-        e."createdAt",
-        'RECEIVED' as status,
-        null::text as "fileKey",
-        er.title as "requestTitle"
-      from "Evidence" e
-      left join "EvidenceRequest" er on er.id = e."evidenceRequestId"
-      where e."vendorId" = $1
-      order by e."createdAt" asc
-    `,
-    row.vendorId,
-  );
+  const evidenceRows =
+    row.vendorId != null
+      ? await findPacketEvidenceForVendor(
+          row.vendorId,
+        )
+      : [];
   const lastEvidenceAt =
   evidenceRows.length > 0
     ? evidenceRows
@@ -413,7 +389,7 @@ function relativeTime(value?: string | number | Date | null) {
           <h2 className="text-lg font-bold">Conditions & follow-ups</h2>
           <ul className="mt-4 space-y-2 text-slate-700">
             {conditions.length ? conditions.map((item: string, idx: number) => (
-              <li key={`${item}-${idx}`}>• {item}</li>
+              <li key={`${item}-${idx}`}>â€¢ {item}</li>
             )) : <li>Not recorded</li>}
           </ul>
         </section>

@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { findEvidenceRequest, updateEvidenceRequest } from "@/lib/repositories/evidence-request-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,24 +45,25 @@ export async function POST(
       });
     }
 
-    const rows: Array<{ id: number }> = await prisma.$queryRawUnsafe(
-      `
-      update "EvidenceRequest"
-      set
-        status = 'APPROVED',
-        "updatedAt" = now()
-      where id = $1
-      returning id
-      `,
-      id,
-    );
+    const existing = await findEvidenceRequest({
+      where: { id },
+      select: { id: true },
+    });
 
-    if (!rows[0]?.id) {
+    if (!existing) {
       return json(404, {
         ok: false,
         error: "Remediation request not found.",
       });
     }
+
+    await updateEvidenceRequest({
+      where: { id },
+      data: {
+        status: "APPROVED",
+      },
+    });
+
 
     return json(200, {
       ok: true,

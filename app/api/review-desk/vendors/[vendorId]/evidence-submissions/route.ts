@@ -1,6 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
+import { findEvidenceRequests } from "@/lib/repositories/evidence-request-repository";
+import { findEvidence } from "@/lib/repositories/evidence-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,28 +32,74 @@ export async function GET(_req: Request, context: RouteContext) {
       );
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        er.id as "requestId",
-        er.title as "requestTitle",
-        er.status::text as "requestStatus",
-        er."fulfilledEvidenceId",
-        er."fulfilledAt",
-        er."reviewNote",
-        e.id as "evidenceId",
-        e.title as "evidenceTitle",
-        e.notes as "evidenceNotes",
-        e.url as "evidenceUrl",
-        e."createdAt" as "evidenceUploadedAt"
-      from "EvidenceRequest" er
-      left join "Evidence" e
-        on e.id = er."fulfilledEvidenceId"
-      where er."vendorId" = $1
-      order by er."updatedAt" desc, er.id desc
-      `,
-      vendorId,
+    const requests = await findEvidenceRequests({
+      where: {
+        vendorId,
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        fulfilledEvidenceId: true,
+        fulfilledAt: true,
+        reviewNote: true,
+        updatedAt: true,
+      },
+      orderBy: [
+        { updatedAt: "desc" },
+        { id: "desc" },
+      ],
+    });
+
+    const fulfilledEvidenceIds = Array.from(
+      new Set(
+        requests
+          .map((request) => request.fulfilledEvidenceId)
+          .filter((id): id is number => typeof id === "number"),
+      ),
     );
+
+    const fulfilledEvidence =
+      fulfilledEvidenceIds.length > 0
+        ? await findEvidence({
+            where: {
+              id: {
+                in: fulfilledEvidenceIds,
+              },
+            },
+            select: {
+              id: true,
+              title: true,
+              notes: true,
+              url: true,
+              createdAt: true,
+            },
+          })
+        : [];
+
+    const evidenceById = new Map(
+      fulfilledEvidence.map((evidence) => [evidence.id, evidence]),
+    );
+
+    const rows = requests.map((request) => {
+      const evidence = request.fulfilledEvidenceId
+        ? evidenceById.get(request.fulfilledEvidenceId) ?? null
+        : null;
+
+      return {
+        requestId: request.id,
+        requestTitle: request.title,
+        requestStatus: String(request.status),
+        fulfilledEvidenceId: request.fulfilledEvidenceId,
+        fulfilledAt: request.fulfilledAt,
+        reviewNote: request.reviewNote,
+        evidenceId: evidence?.id ?? null,
+        evidenceTitle: evidence?.title ?? null,
+        evidenceNotes: evidence?.notes ?? null,
+        evidenceUrl: evidence?.url ?? null,
+        evidenceUploadedAt: evidence?.createdAt ?? null,
+      };
+    });
 
     return NextResponse.json({
       ok: true,

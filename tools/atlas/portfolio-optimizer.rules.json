@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "optimizerVersion": "ATLAS-07A",
+  "limits": {
+    "maximumPlans": 12,
+    "maximumPhases": 4,
+    "maximumPlansPerPhase": 6
+  },
+  "overlap": {
+    "sharedFileWeight": 0.7,
+    "sameOwnershipAreaWeight": 0.15,
+    "sameCategoryWeight": 0.15,
+    "mergeThreshold": 0.3
+  },
+  "effort": {
+    "sharedFileSavingsMinutes": 12,
+    "maximumSavingsRatio": 0.4,
+    "coordinationOverheadMinutesPerPhase": 45
+  },
+  "phasing": {
+    "foundationRules": [
+      "DEPENDENCY-CYCLE",
+      "CLIENT-TO-PRISMA",
+      "CLIENT-TO-SERVER-ONLY"
+    ],
+    "boundaryCategories": [
+      "BOUNDARIES",
+      "ARCHITECTURE_DRIFT"
+    ],
+    "hotspotCategories": [
+      "HOTSPOTS"
+    ],
+    "qualityCategories": [
+      "QUALITY",
+      "DUPLICATION"
+    ]
+  }
+}

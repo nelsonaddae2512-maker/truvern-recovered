@@ -1,8 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { createEvidenceDownloadUrl } from "@/lib/storage/evidence-storage";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await requireReviewerAccess();
     await requireFrameworkAssessmentAccess(assessmentId);
 
-    const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+    const assessment = await findTruvernFrameworkAssessment({
       where: { id: assessmentId },
       include: {
         responses: {

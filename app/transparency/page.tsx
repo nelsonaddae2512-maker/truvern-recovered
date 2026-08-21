@@ -1,6 +1,9 @@
-﻿// app/transparency/page.tsx
+// app/transparency/page.tsx
 import Link from "next/link";
-import prisma from "@/lib/prisma";
+import {
+  readTransparencyCheckpointHashes,
+  readTransparencyEntries,
+} from "@/lib/repositories/transparency-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,19 +16,11 @@ function safeStr(v: unknown) {
 }
 
 export default async function TransparencyPage() {
-  const entries: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select *
-    from "GovernanceTransparencyLog"
-    order by timestamp desc, id desc
-    limit 100
-  `);
+  const entries: AnyRow[] =
+    await readTransparencyEntries();
 
-  const checkpointRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select
-      "entryHash"
-    from "GovernanceTransparencyLog"
-    order by timestamp asc, id asc
-  `);
+  const checkpointRows: AnyRow[] =
+    await readTransparencyCheckpointHashes();
 
   const entryHashes = checkpointRows
     .map((row) => safeStr(row.entryHash))

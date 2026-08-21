@@ -1,10 +1,14 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
 import { requireVendorAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { createEvidenceUploadUrl } from "@/lib/storage/evidence-storage";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { findFirstTruvernAssessmentResponse, updateTruvernAssessmentResponse } from "@/lib/repositories/truvern-assessment-response-repository";
+import { findFirstTruvernRemediationRequest, updateTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
+import { findFirstTruvernAssessmentAttestation, updateTruvernAssessmentAttestation } from "@/lib/repositories/truvern-assessment-attestation-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,7 +58,7 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+    const assessment = await findTruvernFrameworkAssessment({
       where: { id: assessmentId },
       select: { id: true },
     });
@@ -64,7 +68,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (responseId) {
-      const response = await prisma.truvernAssessmentResponse.findFirst({
+      const response = await findFirstTruvernAssessmentResponse({
         where: { id: responseId, assessmentId },
         select: { id: true, evidence: true },
       });
@@ -94,7 +98,7 @@ export async function POST(request: Request, context: RouteContext) {
         ],
       };
 
-      await prisma.truvernAssessmentResponse.update({
+      await updateTruvernAssessmentResponse({
         where: { id: responseId },
         data: {
           evidence: evidence as Prisma.InputJsonValue,
@@ -122,7 +126,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (remediationId) {
-      const remediation = await prisma.truvernRemediationRequest.findFirst({
+      const remediation = await findFirstTruvernRemediationRequest({
         where: { id: remediationId, finding: { assessmentId } },
         select: { id: true, metadata: true },
       });
@@ -142,7 +146,7 @@ export async function POST(request: Request, context: RouteContext) {
       const metadata = remediation.metadata && typeof remediation.metadata === "object" ? remediation.metadata as any : {};
       const files = evidenceArray(metadata.evidence);
 
-      await prisma.truvernRemediationRequest.update({
+      await updateTruvernRemediationRequest({
         where: { id: remediationId },
         data: {
           metadata: {
@@ -182,7 +186,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ ok: true, upload });
     }
 
-    const attestation = await prisma.truvernAssessmentAttestation.findFirst({
+    const attestation = await findFirstTruvernAssessmentAttestation({
       where: { id: attestationId!, assessmentId },
       select: { id: true, evidence: true },
     });
@@ -212,7 +216,7 @@ export async function POST(request: Request, context: RouteContext) {
       ],
     };
 
-    await prisma.truvernAssessmentAttestation.update({
+    await updateTruvernAssessmentAttestation({
       where: { id: attestationId! },
       data: {
         evidence: evidence as Prisma.InputJsonValue,

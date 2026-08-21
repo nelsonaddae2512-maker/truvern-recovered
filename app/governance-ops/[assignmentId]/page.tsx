@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import ReviewAssignmentWorkspace from "@/components/review-desk/review-assignment-workspace.client";
 import ManagedReviewAssessmentLauncher from "@/components/managed-reviews/managed-review-assessment-launcher.client";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { readPostedReviewCreditLedger, readVendorGovernanceMemory } from "@/lib/repositories/governance-ops-assignment-insights-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -181,72 +182,14 @@ export default async function ReviewEngagementPage({ params }: Props) {
     })) ?? [];
 
 
-  const governanceMemoryRows = await prisma.$queryRawUnsafe<
-    Array<{
-      governanceScore: number | null;
-      governanceDecision: string | null;
-      residualRisk: string | null;
-      criticalFailures: number | null;
-      partialControls: number | null;
-      missingEvidenceCount: number | null;
-      remediationCount: number | null;
-      breachDisclosureDetected: boolean | null;
-      federalInvestigationDetected: boolean | null;
-      governanceNarrative: string | null;
-      createdAt: string | Date | null;
-    }>
-  >(
-    `
-    select
-      "governanceScore",
-      "governanceDecision",
-      "residualRisk",
-      "criticalFailures",
-      "partialControls",
-      "missingEvidenceCount",
-      "remediationCount",
-      "breachDisclosureDetected",
-      "federalInvestigationDetected",
-      "governanceNarrative",
-      "createdAt"
-    from "VendorGovernanceMemory"
-    where "vendorId" = $1
-    order by "createdAt" desc
-    limit 12
-    `,
-    vendorId,
-  );
+  const governanceMemoryRows = await readVendorGovernanceMemory(vendorId);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const latestVendorUrl = latestManagedAssessment?.id
     ? `${appUrl}/vendor-assessments/${latestManagedAssessment.id}`
     : null;
 
-  const creditLedgerRows = await prisma.$queryRawUnsafe<
-    Array<{
-      entryType: string;
-      availableDelta: number;
-      reservedDelta: number;
-      consumedDelta: number;
-      quantity: number;
-      note: string | null;
-      createdAt: Date | string | null;
-    }>
-  >(
-    `
-    select
-      "entryType"::text as "entryType",
-      "availableDelta",
-      "reservedDelta",
-      "consumedDelta",
-      quantity,
-      note,
-      "createdAt"
-    from "TruvernCreditLedgerEntry"
-    where "reviewAssignmentId" = $1
-      and status = 'POSTED'::text
-    order by "createdAt" asc, id asc
-    `,
+  const creditLedgerRows = await readPostedReviewCreditLedger(
     assignmentId,
   );
 
@@ -269,7 +212,7 @@ export default async function ReviewEngagementPage({ params }: Props) {
       <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
         <div className="mx-auto max-w-4xl">
           <Link href={`/vendors/${vendor.id}`} className="text-sm text-cyan-200">
-            ← Back to vendor
+            â† Back to vendor
           </Link>
 
           <section className="mt-8 rounded-[2rem] border border-cyan-400/20 bg-cyan-500/10 p-10 shadow-2xl shadow-cyan-950/40">
@@ -318,7 +261,7 @@ export default async function ReviewEngagementPage({ params }: Props) {
     <main className="min-h-screen bg-[#020617] px-6 py-10 text-white">
       <div className="mx-auto max-w-7xl">
         <Link href="/review-desk" className="text-sm text-cyan-200">
-          ← Back to Governance Ops
+          â† Back to Governance Ops
         </Link>
 
         <section className="mt-8 rounded-[2rem] border border-cyan-400/20 bg-cyan-500/10 p-8 shadow-2xl shadow-cyan-950/40">

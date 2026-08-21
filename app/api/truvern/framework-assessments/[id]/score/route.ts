@@ -1,9 +1,11 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
 import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { scoreAssessment, type TruvernScoringInput } from "@/lib/governance/scoring-engine";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +46,7 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "Invalid assessment id." }, { status: 400 });
     }
 
-    const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+    const assessment = await findTruvernFrameworkAssessment({
       where: { id },
       include: {
         responses: {
@@ -65,7 +67,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     const score = scoreAssessment(normalizeResponses(assessment.responses));
 
-    const updated = await prisma.truvernFrameworkAssessment.update({
+    const updated = await updateTruvernFrameworkAssessment({
       where: { id },
       data: {
         score: score.score,

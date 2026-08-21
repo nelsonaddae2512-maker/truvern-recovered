@@ -181,6 +181,101 @@ export default function BillingPlansPage() {
         ))}
       </section>
 
+      <section className="mt-8 rounded-3xl border border-violet-300/20 bg-violet-400/[0.05] p-6">
+        <div className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-200">
+            Review paths
+          </p>
+
+          <h2 className="mt-3 text-2xl font-semibold text-white">
+            Choose your review path
+          </h2>
+
+          <p className="mt-3 text-sm leading-7 text-slate-300">
+            Workspace plans control the platform capabilities available to your
+            organization. Truvern-operated review work is purchased separately
+            with Truvern credits unless your organization has a Truvern Unlimited
+            or specifically contracted enterprise arrangement.
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <article className="rounded-2xl border border-white/10 bg-slate-950/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+              Self-Managed Review
+            </p>
+
+            <h3 className="mt-3 text-lg font-semibold text-white">
+              Your team owns the review
+            </h3>
+
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Launch the vendor assessment, review the response, manage findings,
+              and complete governance internally using the Truvern workspace.
+            </p>
+
+            <div className="mt-5 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-100">
+              0 Truvern Review credits
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-violet-300/25 bg-violet-400/[0.08] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-200">
+              Professional Review
+            </p>
+
+            <h3 className="mt-3 text-lg font-semibold text-white">
+              Start internally, route to Truvern when needed
+            </h3>
+
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Your team launches the assessment first. When expert help is
+              needed, route that same existing review to Truvern Ops without
+              creating another questionnaire or duplicate assignment.
+            </p>
+
+            <div className="mt-5 rounded-xl border border-violet-300/20 bg-violet-300/10 px-4 py-3 text-sm font-semibold text-violet-100">
+              1 credit when routed to Truvern
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-cyan-300/25 bg-cyan-400/[0.08] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">
+              Truvern Review
+            </p>
+
+            <h3 className="mt-3 text-lg font-semibold text-white">
+              End-to-end Truvern operation
+            </h3>
+
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Truvern manages questionnaire delivery, vendor follow-up, evidence
+              review, findings, remediation coordination, and governance release
+              support from the start.
+            </p>
+
+            <div className="mt-5 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100">
+              1 Truvern credit
+            </div>
+          </article>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/billing/credits"
+            className="rounded-2xl bg-violet-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-violet-200"
+          >
+            View Truvern Credits
+          </Link>
+
+          <Link
+            href="/truvern-reviews"
+            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/[0.08]"
+          >
+            Explore Truvern Review
+          </Link>
+        </div>
+      </section>
       <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
         <h2 className="text-xl font-semibold text-white">
           How Truvern pricing works
@@ -222,3 +317,4 @@ export default function BillingPlansPage() {
     </main>
   );
 }
+

@@ -1,8 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { createOrgNotification } from "@/lib/notifications/create-notification";
 import { normalizeOrganizationPlanTier } from "@/lib/billing/organization-plan";
+import { findOrganization } from "@/lib/repositories/organization-repository";
+import { createOrganizationPlanOverride, updateOrganizationPlanOverrides } from "@/lib/repositories/organization-plan-override-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +85,7 @@ export async function POST(request: Request, context: Params) {
   const expiresAt = parseDate(body.expiresAt);
   const revokeExisting = body.revokeExisting !== "false";
 
-  const organization = await prisma.organization.findUnique({
+  const organization = await findOrganization({
     where: { id: organizationId },
     select: { id: true, name: true },
   });
@@ -97,7 +99,7 @@ export async function POST(request: Request, context: Params) {
 
   await prisma.$transaction(async (tx) => {
     if (revokeExisting) {
-      await tx.organizationPlanOverride.updateMany({
+      await updateOrganizationPlanOverrides({
         where: {
           organizationId,
           revokedAt: null,
@@ -105,10 +107,10 @@ export async function POST(request: Request, context: Params) {
         data: {
           revokedAt: new Date(),
         },
-      });
+      }, tx);
     }
 
-    await tx.organizationPlanOverride.create({
+    await createOrganizationPlanOverride({
       data: {
         organizationId,
         planTier,
@@ -117,7 +119,7 @@ export async function POST(request: Request, context: Params) {
         startsAt,
         expiresAt,
       },
-    });
+    }, tx);
   });
 
     await createOrgNotification({
@@ -158,7 +160,7 @@ export async function DELETE(request: Request, context: Params) {
     );
   }
 
-  const updated = await prisma.organizationPlanOverride.updateMany({
+  const updated = await updateOrganizationPlanOverrides({
     where: {
       organizationId,
       revokedAt: null,

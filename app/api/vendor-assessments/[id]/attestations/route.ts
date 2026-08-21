@@ -1,8 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireVendorAssessmentAccess } from "@/lib/auth/truvern-governance";
+import { findFirstTruvernAssessmentAttestation, updateTruvernAssessmentAttestation } from "@/lib/repositories/truvern-assessment-attestation-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +37,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "attestationId is required." }, { status: 400 });
     }
 
-    const existing = await prisma.truvernAssessmentAttestation.findFirst({
+    const existing = await findFirstTruvernAssessmentAttestation({
       where: {
         id: attestationId,
         assessmentId,
@@ -54,7 +56,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           ? Prisma.JsonNull
           : (body.evidence as Prisma.InputJsonValue);
 
-    const attestation = await prisma.truvernAssessmentAttestation.update({
+    const attestation = await updateTruvernAssessmentAttestation({
       where: { id: attestationId },
       data: {
         status: "SUBMITTED",
@@ -68,7 +70,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     });
 
-    await prisma.truvernFrameworkAssessment.update({
+    await updateTruvernFrameworkAssessment({
       where: { id: assessmentId },
       data: {
         status: "IN_REVIEW",

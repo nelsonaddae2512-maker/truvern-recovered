@@ -1,5 +1,6 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { readVendorTrustReleases } from "@/lib/repositories/vendor-trust-profile-repository";
 
 function safeStr(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -65,38 +66,7 @@ export default async function VendorTrustProfilePage({
     );
   }
 
-  const releaseRows = await prisma.$queryRawUnsafe<any[]>(
-    `
-    select
-      ra.id as "assignmentId",
-      rr.id as "responseId",
-      rr.responses->>'decision' as decision,
-      rr.responses->>'riskLevel' as "riskLevel",
-      rr.responses->>'confirmedAt' as "confirmedAt",
-      rr.responses->'governanceSeal'->>'checksum' as checksum,
-      coalesce(
-        rr.responses->'governanceSeal'->>'receiptId',
-        gtl."receiptId"
-      ) as "receiptId",
-      gtl.id as "entryId",
-      gtl.id as "entryId",
-      gtl."entryHash" as "entryHash",
-      rr."updatedAt" as "updatedAt"
-    from "ReviewAssignment" ra
-    join "ReviewResponse" rr
-      on rr."reviewAssignmentId" = ra.id
-    left join "GovernanceTransparencyLog" gtl
-      on gtl."assignmentId" = ra.id
-    where ra."vendorId" = $1
-      and upper(coalesce(rr.responses->>'releaseState', '')) in (
-  'CONFIRMED',
-  'RELEASED'
-)
-    order by ra.id desc
-    limit 20
-    `,
-    vendor.id,
-  );
+  const releaseRows = await readVendorTrustReleases(vendor.id);
 
   const releases = releaseRows.map((row) => {
     const decision = safeUpper(row.decision) || "UNKNOWN";

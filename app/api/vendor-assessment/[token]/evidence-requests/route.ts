@@ -1,5 +1,6 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { findFirstAssessment } from "@/lib/repositories/assessment-repository";
+import { readVendorEvidenceRequests } from "@/lib/repositories/vendor-evidence-request-read-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(_req: Request, context: RouteContext) {
       );
     }
 
-    const assessment = await prisma.assessment.findFirst({
+    const assessment = await findFirstAssessment({
       where: {
         token,
       },
@@ -48,39 +49,10 @@ export async function GET(_req: Request, context: RouteContext) {
       );
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        er.id,
-        er."vendorId",
-        er."organizationId",
-        er.kind::text as kind,
-        er.status::text as status,
-        er.title,
-        er.notes,
-        er."reviewNote",
-        er."dueAt",
-        er."fulfilledEvidenceId",
-        er."fulfilledAt",
-        er."createdAt",
-        er."updatedAt"
-      from "EvidenceRequest" er
-      where er."vendorId" = $1
-        and er."organizationId" = $2
-      order by
-        case er.status::text
-          when 'REQUESTED' then 1
-          when 'FULFILLED' then 2
-          when 'APPROVED' then 3
-          when 'REJECTED' then 4
-          else 5
-        end,
-        er."dueAt" asc nulls last,
-        er.id desc
-      `,
-      assessment.vendorId,
-      assessment.organizationId,
-    );
+    const rows = await readVendorEvidenceRequests({
+      vendorId: assessment.vendorId,
+      organizationId: assessment.organizationId,
+    });
 
     return NextResponse.json({
       ok: true,

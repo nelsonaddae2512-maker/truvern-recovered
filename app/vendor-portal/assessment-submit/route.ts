@@ -1,172 +1,133 @@
 ﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { createOrgNotification } from "@/lib/notifications/create-notification";
+import {
+  createOrgNotification,
+} from "@/lib/notifications/create-notification";
+import {
+  submitAssessment,
+} from "@/lib/services/assessment-submit-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function isAnswered(answer: any) {
-  const value = answer?.valueJson ?? answer?.value;
-
-  if (value === null || value === undefined) return false;
-  if (typeof value === "string") return value.trim().length > 0;
-
-  return true;
-}
-
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
+    const body =
+      await req.json().catch(() => null);
 
-    const assessmentId = Number(body?.assessmentId);
-    const vendorId = Number(body?.vendorId);
-    const token = String(body?.token || "").trim();
+    const assessmentId =
+      Number(body?.assessmentId);
 
-    if (!Number.isFinite(assessmentId) || !Number.isFinite(vendorId) || !token) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid payload." },
-        { status: 400 },
-      );
-    }
+    const vendorId =
+      Number(body?.vendorId);
 
-    const assessment = await prisma.assessment.findFirst({
-      where: {
-        id: assessmentId,
+    const token =
+      String(body?.token ?? "").trim();
+
+    const result =
+      await submitAssessment({
+        assessmentId,
         vendorId,
         token,
-      },
-      include: {
-        answers: true,
-        template: {
-          include: {
-            sections: {
-              include: {
-                questions: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!assessment) {
-      return NextResponse.json(
-        { ok: false, error: "Assessment not found." },
-        { status: 404 },
-      );
-    }
-
-    if (assessment.isVendorSubmitted || assessment.status === "SUBMITTED" || assessment.status === "REVIEW_READY") {
-          await createOrgNotification({
-      organizationId: assessment.organizationId,
-      type: "VENDOR_SUBMITTED",
-      severity: "INFO",
-      title: `Vendor review submitted - Vendor #${assessment.vendorId || "unknown"}`,
-      message: "A vendor completed and submitted an assessment for governance review.",
-      href: "/review-desk",
-      metadataJson: {
-        assessmentId: assessment.id,
-        vendorId: assessment.vendorId,
-        source: "vendor_portal",
-      },
-    });
-return NextResponse.json({
-        ok: true,
-        alreadySubmitted: true,
-        status: assessment.status,
       });
-    }
 
-    const answerMap = new Map<number, any>();
-
-    for (const answer of assessment.answers || []) {
-      answerMap.set(Number(answer.questionId), answer);
-    }
-
-    const requiredQuestions =
-      assessment.template?.sections.flatMap((section) =>
-        section.questions.filter((question) => question.required),
-      ) || [];
-
-    const missingRequired = requiredQuestions.filter((question) => {
-      return !isAnswered(answerMap.get(question.id));
-    });
-
-    if (missingRequired.length > 0) {
+    if (!result.ok) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Required questions are missing.",
-          missingQuestionIds: missingRequired.map((question) => question.id),
-          missingCount: missingRequired.length,
+          error: result.error,
+          ...(result.missingQuestionIds
+            ? {
+                missingQuestionIds:
+                  result.missingQuestionIds,
+                missingCount:
+                  result.missingCount,
+              }
+            : {}),
         },
-        { status: 400 },
+        {
+          status: result.status,
+        },
       );
     }
 
-    const totalQuestions =
-      assessment.template?.sections.reduce(
-        (sum, section) => sum + section.questions.length,
-        0,
-      ) || 0;
+    /*
+     * Notifications and scoring are route-level
+     * side effects. They run only for the first
+     * successful submission, not for idempotent retries.
+     */
+    if (!result.alreadySubmitted) {
+      try {
+        await createOrgNotification({
+          organizationId:
+            result.assessment.organizationId,
+          type: "VENDOR_SUBMITTED",
+          severity: "INFO",
+          title:
+            `Vendor review submitted - Vendor #${result.assessment.vendorId}`,
+          message:
+            "A vendor completed and submitted an assessment for governance review.",
+          href: "/review-desk",
+          metadataJson: {
+            assessmentId:
+              result.assessment.id,
+            vendorId:
+              result.assessment.vendorId,
+            source: "vendor_portal",
+          },
+        });
+      } catch (error) {
+        console.error(
+          "Failed to create vendor submission notification",
+          error,
+        );
+      }
 
-    const answeredCount =
-      totalQuestions > 0
-        ? (assessment.answers || []).filter(isAnswered).length
-        : 0;
-
-    const completionPercent =
-      totalQuestions > 0
-        ? Math.min(100, Math.round((answeredCount / totalQuestions) * 100))
-        : 100;
-
-    const updated = await prisma.assessment.update({
-      where: {
-        id: assessment.id,
-      },
-      data: {
-        status: "SUBMITTED",
-        isVendorSubmitted: true,
-        submittedAt: new Date(),
-        reviewReadyAt: new Date(),
-        completionPercent,
-      } as any,
-      select: {
-        id: true,
-        status: true,
-        submittedAt: true,
-        completionPercent: true,
-      },
-    });
-
-    try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/truvern/framework-assessments/${assessment.id}/score`,
-        {
-          method: "POST",
-        }
-      );
-    } catch (error) {
-      console.error("Failed to score assessment", error);
+      try {
+        await fetch(
+          `${
+            process.env.NEXT_PUBLIC_APP_URL ??
+            "http://localhost:3000"
+          }/api/truvern/framework-assessments/${
+            result.assessment.id
+          }/score`,
+          {
+            method: "POST",
+          },
+        );
+      } catch (error) {
+        console.error(
+          "Failed to score assessment",
+          error,
+        );
+      }
     }
 
     return NextResponse.json({
       ok: true,
-      assessment: updated,
+      ...(result.alreadySubmitted
+        ? {
+            alreadySubmitted: true,
+          }
+        : {}),
+      assessment: result.assessment,
+      synchronizedRunCount:
+        result.synchronizedRunCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to submit assessment.";
+
     return NextResponse.json(
-      { ok: false, error: error?.message || "Failed to submit assessment." },
-      { status: 500 },
+      {
+        ok: false,
+        error: message,
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
-
-
-
-
-
-
-
-

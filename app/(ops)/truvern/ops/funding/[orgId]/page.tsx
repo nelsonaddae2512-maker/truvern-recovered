@@ -1,6 +1,11 @@
-﻿import prisma from "@/lib/prisma";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
 import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
+import {
+  readFundingCreditBalance,
+  readFundingLedgerEntries,
+  readFundingOrganization,
+  readFundingPlanOverride,
+} from "@/lib/repositories/truvern-ops-funding-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,15 +47,7 @@ export default async function TruvernOpsFundingOrgPage({
     );
   }
 
-  const orgRows: AnyRow[] = await prisma.$queryRawUnsafe(
-    `
-    select *
-    from "Organization"
-    where id = $1
-    limit 1
-    `,
-    organizationId,
-  );
+  const orgRows: AnyRow[] = await readFundingOrganization(organizationId);
 
   const org = orgRows?.[0];
 
@@ -65,42 +62,13 @@ export default async function TruvernOpsFundingOrgPage({
   const effectivePlanTier =
     await resolveOrganizationPlanTier(organizationId);
 
-  const overrideRows: AnyRow[] = await prisma.$queryRawUnsafe(
-    `
-    select *
-    from "OrganizationPlanOverride"
-    where "organizationId" = $1
-      and "revokedAt" is null
-    order by "createdAt" desc, id desc
-    limit 1
-    `,
-    organizationId,
-  );
+  const overrideRows: AnyRow[] = await readFundingPlanOverride(organizationId);
 
   const activeOverride = overrideRows?.[0] || null;
 
-  const ledgerRows: AnyRow[] = await prisma.$queryRawUnsafe(
-    `
-    select *
-    from "TruvernCreditLedgerEntry"
-    where "organizationId" = $1
-    order by "createdAt" desc, id desc
-    limit 100
-    `,
-    organizationId,
-  );
+  const ledgerRows: AnyRow[] = await readFundingLedgerEntries(organizationId);
 
-  const balanceRows: AnyRow[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      coalesce(sum("availableDelta"), 0)::int as "availableCredits",
-      coalesce(sum("reservedDelta"), 0)::int as "reservedCredits",
-      coalesce(sum("consumedDelta"), 0)::int as "consumedCredits"
-    from "TruvernCreditLedgerEntry"
-    where "organizationId" = $1
-    `,
-    organizationId,
-  );
+  const balanceRows: AnyRow[] = await readFundingCreditBalance(organizationId);
 
   const availableCredits = safeInt(
     balanceRows?.[0]?.availableCredits,

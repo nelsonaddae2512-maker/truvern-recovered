@@ -1,8 +1,11 @@
-﻿import { randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { AssessmentStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
+import { findFirstAssessment, updateAssessment } from "@/lib/repositories/assessment-repository";
+import { updateManyAssessmentRuns } from "@/lib/repositories/assessment-run-repository";
+import { cancelLatestReviewResponsesForVendor } from "@/lib/repositories/portal-controls-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +47,7 @@ export async function POST(request: Request, { params }: Props) {
     const body = await request.json().catch(() => ({}));
     const action = String(body?.action || "").trim();
 
-    const assessment = await prisma.assessment.findFirst({
+    const assessment = await findFirstAssessment({
       where: {
         id: assessmentId,
         vendor: {
@@ -66,7 +69,7 @@ export async function POST(request: Request, { params }: Props) {
     }
 
     if (action === "revoke") {
-      const updated = await prisma.assessment.update({
+      const updated = await updateAssessment({
         where: { id: assessment.id },
         data: {
           token: null,
@@ -83,7 +86,7 @@ export async function POST(request: Request, { params }: Props) {
 
     if (action === "cancel") {
       const updated = await prisma.$transaction(async (tx) => {
-        const nextAssessment = await tx.assessment.update({
+        const nextAssessment = await updateAssessment({
           where: { id: assessment.id },
           data: {
             token: null,
@@ -95,9 +98,9 @@ export async function POST(request: Request, { params }: Props) {
             token: true,
             vendorId: true,
           },
-        });
+        }, tx);
 
-        await tx.assessmentRun.updateMany({
+        await updateManyAssessmentRuns({
           where: {
             vendorId: nextAssessment.vendorId,
             status: {
@@ -113,32 +116,9 @@ export async function POST(request: Request, { params }: Props) {
           data: {
             status: AssessmentStatus.ARCHIVED,
           },
-        });        await tx.$executeRawUnsafe(
-          `
-          update "ReviewResponse" rr
-          set responses =
-            coalesce(rr.responses, '{}'::jsonb)
-            || jsonb_build_object(
-              'releaseState', 'CANCELLED',
-              'cancelledAt', now()::text,
-              'cancellationReason', 'Assessment cancelled from vendor portal lifecycle controls.'
-            )
-          where rr.id in (
-            select latest.id
-            from "ReviewAssignment" ra
-            join lateral (
-              select r.id
-              from "ReviewResponse" r
-              where r."reviewAssignmentId" = ra.id
-              order by r."updatedAt" desc, r.id desc
-              limit 1
-            ) latest on true
-            left join "ReviewRequest" req on req.id = ra."reviewRequestId"
-            where coalesce(req."vendorId", ra."vendorId") = $1
-              and ra.status::text in ('PENDING', 'IN_PROGRESS', 'SUBMITTED')
-          )
-          `,
+        }, tx);        await cancelLatestReviewResponsesForVendor(
           nextAssessment.vendorId,
+          tx,
         );
 return nextAssessment;
       });
@@ -147,7 +127,7 @@ return nextAssessment;
     }
 
     if (action === "regenerate") {
-      const updated = await prisma.assessment.update({
+      const updated = await updateAssessment({
         where: { id: assessment.id },
         data: {
           token: newToken(),

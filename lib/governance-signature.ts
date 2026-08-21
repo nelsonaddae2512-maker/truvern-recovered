@@ -1,14 +1,23 @@
 ﻿import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 
-export function signGovernancePayload(payload: unknown) {
-  const privateKeyPath =
-    process.env.TRUVERN_SIGNING_PRIVATE_KEY_PATH ||
-    path.join(process.cwd(), "certs", "truvern-private.pem");
+import {
+  getActiveGovernanceSigningKey,
+  getGovernanceSigningKey,
+  readGovernancePrivateKey,
+  readGovernancePublicKey,
+} from "@/lib/governance-signing-keys";
 
-  const privateKey = fs.readFileSync(privateKeyPath, "utf8");
-  const canonicalPayload = JSON.stringify(payload);
+export function signGovernancePayload(
+  payload: unknown,
+) {
+  const key =
+    getActiveGovernanceSigningKey();
+
+  const privateKey =
+    readGovernancePrivateKey(key.keyId);
+
+  const canonicalPayload =
+    JSON.stringify(payload);
 
   const signature = crypto.sign(
     "sha256",
@@ -17,10 +26,10 @@ export function signGovernancePayload(payload: unknown) {
   );
 
   return {
-    algorithm: "RSA-SHA256",
+    algorithm: key.algorithm,
     signature: signature.toString("base64"),
     signedAt: new Date().toISOString(),
-    keyId: "truvern-governance-rsa-4096-v1",
+    keyId: key.keyId,
     payloadHash: crypto
       .createHash("sha256")
       .update(canonicalPayload)
@@ -28,13 +37,27 @@ export function signGovernancePayload(payload: unknown) {
   };
 }
 
-export function verifyGovernanceSignature(payload: unknown, signatureBase64: string) {
-  const publicKeyPath =
-    process.env.TRUVERN_SIGNING_PUBLIC_KEY_PATH ||
-    path.join(process.cwd(), "certs", "truvern-public.pem");
+export function verifyGovernanceSignature(
+  payload: unknown,
+  signatureBase64: string,
+  keyId?: string,
+) {
+  const resolvedKeyId =
+    keyId ||
+    getActiveGovernanceSigningKey().keyId;
 
-  const publicKey = fs.readFileSync(publicKeyPath, "utf8");
-  const canonicalPayload = JSON.stringify(payload);
+  const key =
+    getGovernanceSigningKey(resolvedKeyId);
+
+  if (!key) {
+    return false;
+  }
+
+  const publicKey =
+    readGovernancePublicKey(key.keyId);
+
+  const canonicalPayload =
+    JSON.stringify(payload);
 
   return crypto.verify(
     "sha256",
@@ -43,4 +66,3 @@ export function verifyGovernanceSignature(payload: unknown, signatureBase64: str
     Buffer.from(signatureBase64, "base64"),
   );
 }
-

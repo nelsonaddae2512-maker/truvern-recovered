@@ -1,8 +1,14 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
 import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { findTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { updateTruvernAssessmentFinding } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { findFirstTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
+import { createTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +32,7 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "Invalid assessment id." }, { status: 400 });
     }
 
-    const findings = await prisma.truvernAssessmentFinding.findMany({
+    const findings = await findTruvernAssessmentFindings({
       where: {
         assessmentId: id,
         remediationRequired: true,
@@ -41,21 +47,21 @@ export async function POST(_request: Request, context: RouteContext) {
       const created = [];
 
       for (const finding of findings) {
-        const existing = await tx.truvernRemediationRequest.findFirst({
+        const existing = await findFirstTruvernRemediationRequest({
           where: {
             findingId: finding.id,
             status: {
               in: ["REQUESTED", "IN_PROGRESS", "SUBMITTED"],
             },
           },
-        });
+        }, tx);
 
         if (existing) {
           created.push(existing);
           continue;
         }
 
-        const request = await tx.truvernRemediationRequest.create({
+        const request = await createTruvernRemediationRequest({
           data: {
             findingId: finding.id,
             status: "REQUESTED",
@@ -69,28 +75,28 @@ export async function POST(_request: Request, context: RouteContext) {
               assessmentId: id,
             },
           },
-        });
+        }, tx);
 
-        await tx.truvernAssessmentFinding.update({
+        await updateTruvernAssessmentFinding({
           where: { id: finding.id },
           data: { status: "REMEDIATION_REQUESTED" },
-        });
+        }, tx);
 
         created.push(request);
       }
 
-      await tx.truvernFrameworkAssessment.update({
+      await updateTruvernFrameworkAssessment({
         where: { id },
         data: {
           status: created.length > 0 ? "REMEDIATION_REQUESTED" : "READY_FOR_RELEASE",
           readyForReleaseAt: created.length > 0 ? null : new Date(),
         },
-      });
+      }, tx);
 
       return created;
     });
 
-    const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+    const assessment = await findTruvernFrameworkAssessment({
       where: { id },
       select: { organizationId: true },
     });

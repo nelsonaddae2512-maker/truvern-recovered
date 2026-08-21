@@ -1,8 +1,15 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import type { Prisma } from "@prisma/client";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { createReviewResponse, findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
+import {
+  findReviewAssignment,
+  updateReviewAssignment,
+} from "@/lib/repositories/review-assignment-repository";
+import { findReviewRequest } from "@/lib/repositories/review-request-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -108,26 +115,31 @@ try {
     const riskLevel = normalizeRisk(body?.riskLevel);
     const assignmentType =
       upper(body?.assignmentType) === "TRUVERN" ? "TRUVERN" : "INTERNAL";
-
-    const assignmentRows: any[] = await prisma.$queryRawUnsafe(
-      `select * from "ReviewAssignment" where id = $1 limit 1`,
-      assignmentId,
-    );
-
-    const assignment = assignmentRows?.[0];
+    const assignment =
+      await findReviewAssignment({
+        where: {
+          id: assignmentId,
+        },
+      });
 
     if (!assignment) {
       return json(404, { ok: false, error: "Assignment not found." });
     }
 
-    const requestId = assignment.reviewRequestId ?? assignment.requestId;
+    const requestId = assignment.reviewRequestId;
 
-    const requestRows: any[] = await prisma.$queryRawUnsafe(
-      `select * from "ReviewRequest" where id = $1 limit 1`,
-      requestId,
-    );
-
-    const reviewRequest = requestRows?.[0];
+    if (!requestId) {
+      return json(409, {
+        ok: false,
+        error: "Review assignment is missing a review request.",
+      });
+    }
+    const reviewRequest =
+      await findReviewRequest({
+        where: {
+          id: requestId,
+        },
+      });
 
     if (!reviewRequest) {
       return json(404, { ok: false, error: "Review request not found." });
@@ -144,26 +156,14 @@ try {
       intent === "SAVE_DRAFT" ? "IN_PROGRESS" : "SUBMITTED";
 
     const nowIso = new Date().toISOString();
-
-
-    const existingRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select *
-      from "ReviewResponse"
-      where "reviewAssignmentId" = $1
-      order by "updatedAt" desc
-      limit 1
-      `,
-      assignmentId,
-    );
-
-    const existing = existingRows?.[0];
+    const existing =
+      await findLatestReviewResponse(assignmentId);
     const existingResponses =
-  existing?.responses &&
-  typeof existing.responses === "object"
-    ? existing.responses
-    : {};
-
+      existing?.responses &&
+      typeof existing.responses === "object" &&
+      !Array.isArray(existing.responses)
+        ? (existing.responses as Record<string, any>)
+        : {};
     const incomingStructuredAssessment =
       body?.structuredAssessment &&
       typeof body.structuredAssessment === "object"
@@ -255,83 +255,73 @@ if (
         : "Released Truvern outcomes are awaiting customer confirmation and cannot be edited.",
   });
 }
+    const responsesJson =
+      JSON.parse(
+        JSON.stringify(responses),
+      ) as Prisma.InputJsonValue;
+
     let responseId: number | null = null;
 
     if (existing?.id) {
-      const updatedRows: any[] = await prisma.$queryRawUnsafe(
-        `
-        update "ReviewResponse"
-        set
-          responses = $1::jsonb,
-          "draftSavedAt" = case
-            when $2 = 'SAVE_DRAFT' then now()
-            else "draftSavedAt"
-          end,
-          "submittedAt" = case
-            when $2 in ('COMPLETE', 'RELEASE') then now()
-            else "submittedAt"
-          end,
-          "updatedAt" = now()
-        where id = $3
-        returning id
-        `,
-        JSON.stringify(responses),
-        intent,
-        existing.id,
-      );
-
-      responseId = updatedRows?.[0]?.id ?? existing.id;
+      const updatedResponse =
+        await updateReviewResponse({
+          id: existing.id,
+          data: {
+            responses: responsesJson,
+            draftSavedAt:
+              intent === "SAVE_DRAFT"
+                ? new Date()
+                : existing.draftSavedAt,
+            submittedAt:
+              intent === "COMPLETE" || intent === "RELEASE"
+                ? new Date()
+                : existing.submittedAt,
+            updatedAt: new Date(),
+          },
+          select: {
+            id: true,
+          },
+        });
+      responseId = updatedResponse.id;
     } else {
-      const insertedRows: any[] = await prisma.$queryRawUnsafe(
-        `
-        insert into "ReviewResponse" (
-          "organizationId",
-          "reviewRequestId",
-          "reviewAssignmentId",
-          responses,
-          "draftSavedAt",
-          "submittedAt",
-          "createdAt",
-          "updatedAt"
-        )
-        values (
-          $1,
-          $2,
-          $3,
-          $4::jsonb,
-          case when $5 = 'SAVE_DRAFT' then now() else null end,
-          case when $5 in ('COMPLETE', 'RELEASE') then now() else null end,
-          now(),
-          now()
-        )
-        returning id
-        `,
-        reviewRequest.organizationId,
-        reviewRequest.id,
-        assignmentId,
-        JSON.stringify(responses),
-        intent,
-      );
-
-      responseId = insertedRows?.[0]?.id ?? null;
+      const insertedResponse =
+        await createReviewResponse({
+          data: {
+            organizationId: reviewRequest.organizationId,
+            reviewRequestId: reviewRequest.id,
+            reviewAssignmentId: assignmentId,
+            responses: responsesJson,
+            draftSavedAt:
+              intent === "SAVE_DRAFT"
+                ? new Date()
+                : null,
+            submittedAt:
+              intent === "COMPLETE" || intent === "RELEASE"
+                ? new Date()
+                : null,
+          },
+          select: {
+            id: true,
+          },
+        });
+      responseId = insertedResponse.id;
     }
+    const assignmentNow = new Date();
 
-    await prisma.$executeRawUnsafe(
-      `
-      update "ReviewAssignment"
-      set
-        status = $2::text,
-        "startedAt" = coalesce("startedAt", now()),
-        "submittedAt" = case
-          when $2 = 'SUBMITTED' then now()
-          else "submittedAt"
-        end,
-        "updatedAt" = now()
-      where id = $1
-      `,
-      assignmentId,
-      assignmentStatus,
-    );
+    await updateReviewAssignment({
+      where: {
+        id: assignmentId,
+      },
+      data: {
+        status: assignmentStatus,
+        startedAt:
+          assignment.startedAt ?? assignmentNow,
+        submittedAt:
+          assignmentStatus === "SUBMITTED"
+            ? assignmentNow
+            : assignment.submittedAt,
+      },
+    });
 
     return json(200, {
       ok: true,

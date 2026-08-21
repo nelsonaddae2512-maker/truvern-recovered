@@ -1,8 +1,12 @@
-﻿import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { findTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
+import { createTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { requireTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { createTruvernAssessmentResponses } from "@/lib/repositories/truvern-assessment-response-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +69,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const framework = await prisma.truvernFramework.findUnique({
+    const framework = await findTruvernFramework({
       where: frameworkLookup,
       include: {
         controls: {
@@ -88,7 +92,7 @@ export async function POST(request: Request) {
       `${framework.name}${vendorId ? ` vendor review #${vendorId}` : " assessment"}`;
 
     const assessment = await prisma.$transaction(async (tx) => {
-      const created = await tx.truvernFrameworkAssessment.create({
+      const created = await createTruvernFrameworkAssessment({
         data: {
           frameworkId: framework.id,
           organizationId,
@@ -112,12 +116,12 @@ export async function POST(request: Request) {
             managedReviewDueDays: reviewAssignmentId ? 14 : null,
           },
         },
-      });
+      }, tx);
 
       const questions = framework.controls.flatMap((control) => control.questions);
 
       if (questions.length > 0) {
-        await tx.truvernAssessmentResponse.createMany({
+        await createTruvernAssessmentResponses({
           data: questions.map((question) => ({
             assessmentId: created.id,
             questionId: question.id,
@@ -130,10 +134,10 @@ export async function POST(request: Request) {
             },
           })),
           skipDuplicates: true,
-        });
+        }, tx);
       }
 
-      return tx.truvernFrameworkAssessment.findUniqueOrThrow({
+      return requireTruvernFrameworkAssessment({
         where: { id: created.id },
         include: {
           framework: {
@@ -162,7 +166,7 @@ export async function POST(request: Request) {
             orderBy: [{ questionId: "asc" }],
           },
         },
-      });
+      }, tx);
     });
 
     return NextResponse.json(

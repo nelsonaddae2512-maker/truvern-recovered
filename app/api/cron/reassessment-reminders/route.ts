@@ -1,6 +1,7 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import { createOrgNotification } from "@/lib/notifications/create-notification";
+import { findFirstNotification } from "@/lib/repositories/notification-repository";
+import { findVendors } from "@/lib/repositories/vendor-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
   const now = new Date();
   const horizon = addDays(now, 30);
 
-  const vendors = await prisma.vendor.findMany({
+  const vendors = await findVendors({
     where: {
       nextReviewDueAt: {
         lte: horizon,
@@ -95,7 +96,7 @@ export async function GET(req: Request) {
     const label = reminderLabel(days);
     const eventKey = `${type}:${vendor.id}:${startOfDay(vendor.nextReviewDueAt).toISOString()}`;
 
-    const existing = await prisma.notification.findFirst({
+    const existing = await findFirstNotification({
       where: {
         organizationId: vendor.organizationId,
         type,

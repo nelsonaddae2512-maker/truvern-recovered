@@ -1,7 +1,9 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
+import { updateReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,27 +68,17 @@ export async function POST(req: Request, ctx: RouteContext) {
   if (!assignmentId) {
     return json(400, { ok: false, error: "Invalid assignment id." });
   }
-
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    select *
-    from "ReviewResponse"
-    where "reviewAssignmentId" = $1
-    order by "updatedAt" desc
-    limit 1
-    `,
-    assignmentId,
-  );
-
-  const response = rows?.[0];
+  const response = await findLatestReviewResponse(assignmentId);
 
   if (!response) {
     return json(404, { ok: false, error: "Review response not found." });
   }
 
   const existing =
-    response.responses && typeof response.responses === "object"
-      ? response.responses
+    response.responses &&
+    typeof response.responses === "object" &&
+    !Array.isArray(response.responses)
+      ? (response.responses as Record<string, any>)
       : {};
 
   const previousReleaseState = safeStr(existing.releaseState) || "UNKNOWN";
@@ -118,29 +110,29 @@ export async function POST(req: Request, ctx: RouteContext) {
       overrideEvent,
     ],
   };
+  await prisma.$transaction(async (tx) => {
+    await updateReviewResponse(
+      {
+        id: response.id,
+        data: {
+          responses: nextResponses,
+        },
+      },
+      tx,
+    );
 
-  await prisma.$executeRawUnsafe(
-    `
-    update "ReviewResponse"
-    set
-      responses = $1::jsonb,
-      "updatedAt" = now()
-    where id = $2
-    `,
-    JSON.stringify(nextResponses),
-    response.id,
-  );
-
-  await prisma.$executeRawUnsafe(
-    `
-    update "ReviewAssignment"
-    set
-      status = 'IN_PROGRESS'::text,
-      "updatedAt" = now()
-    where id = $1
-    `,
-    assignmentId,
-  );
+    await updateReviewAssignment(
+      {
+        where: {
+          id: assignmentId,
+        },
+        data: {
+          status: "IN_PROGRESS",
+        },
+      },
+      tx,
+    );
+  });
 
   return json(200, {
     ok: true,

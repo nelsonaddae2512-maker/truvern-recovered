@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import SendToTruvernManagedReview from "@/components/vendors/send-to-truvern-managed-review.client";
@@ -28,8 +28,38 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
       organizationId: true,
     },
   });
-
   if (!vendor) notFound();
+
+  const truvernReviewTemplates =
+    await prisma.assessmentTemplate.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          {
+            organizationId: vendor.organizationId,
+          },
+          {
+            isSystem: true,
+          },
+          {
+            source: "SYSTEM",
+          },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        standard: true,
+        category: true,
+        version: true,
+        source: true,
+        isSystem: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
   // MANAGED_REVIEW_CREDIT_BALANCE
   const creditRows = await prisma.$queryRaw<Array<{
     availableCredits: number;
@@ -136,6 +166,7 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
 
             <SendToTruvernManagedReview
               vendorId={vendor.id}
+              templates={truvernReviewTemplates}
               availableCredits={managedReviewCreditBalance.availableCredits}
               reservedCredits={managedReviewCreditBalance.reservedCredits}
               consumedCredits={managedReviewCreditBalance.consumedCredits}

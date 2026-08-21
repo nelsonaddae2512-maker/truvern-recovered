@@ -1,6 +1,6 @@
-﻿import Link from "next/link";
-import prisma from "@/lib/prisma";
+import Link from "next/link";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
+import { readGovernanceHealthRows } from "@/lib/repositories/governance-health-repository";
 import {
   getGovernanceHealthMeta,
   getGovernanceHealthState,
@@ -47,39 +47,7 @@ export default async function GovernanceHealthPage({ searchParams }: { searchPar
     resolvedSearchParams?.filter,
   );
 
-  const rows = await prisma.$queryRawUnsafe<Row[]>(`
-    select
-      ra.id as "assignmentId",
-      v.name as "vendorName",
-      ra."updatedAt",
-      gm.id as "manifestId"
-
-    from "ReviewAssignment" ra
-
-    left join "ReviewRequest" rr
-      on rr.id = ra."reviewRequestId"
-
-    left join "Vendor" v
-      on v.id = rr."vendorId"
-
-    left join lateral (
-      select id, responses
-      from "ReviewResponse"
-      where "reviewAssignmentId" = ra.id
-      order by "updatedAt" desc
-      limit 1
-    ) latest on true
-
-    left join "GovernanceReleaseManifest" gm
-      on gm."reviewResponseId" = latest.id
-
-    where
-      upper(coalesce(latest.responses->>'releaseState', '')) = 'CONFIRMED'
-
-    order by ra."updatedAt" asc
-
-    limit 100
-  `);
+  const rows = await readGovernanceHealthRows();
 
   const filteredRows = rows.filter((row) => {
     const state = getGovernanceHealthState(row.updatedAt);

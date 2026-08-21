@@ -2,6 +2,11 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
+import {
+  insertPlanOverrideLedgerEntry,
+  readOrganizationForPlanOverride,
+  updateOrganizationPlanTier,
+} from "@/lib/repositories/ops-plan-override-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,17 +54,8 @@ export async function POST(req: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRawUnsafe<
-        Array<{ id: number; name: string; planTier: string }>
-      >(
-        `
-        select id, name, "planTier"::text as "planTier"
-        from "Organization"
-        where id = $1
-        limit 1
-        `,
-        organizationId,
-      );
+      const rows =
+        await readOrganizationForPlanOverride(tx, organizationId);
 
       const org = rows[0];
 
@@ -82,69 +78,19 @@ export async function POST(req: Request) {
         };
       }
 
-      await tx.$executeRawUnsafe(
-        `
-        update "Organization"
-        set
-          "planTier" = $2::"PlanTier",
-          "billingUpdatedAt" = now(),
-          "updatedAt" = now()
-        where id = $1
-        `,
-        org.id,
+      await updateOrganizationPlanTier(tx, {
+        organizationId: org.id,
         nextTier,
-      );
+      });
 
       const eventKey = `ops:plan-override:${org.id}:${Date.now()}`;
 
-      await tx.$executeRawUnsafe(
-        `
-        insert into "TruvernCreditLedgerEntry" (
-          "organizationId",
-          "assessmentRunId",
-          "reviewAssignmentId",
-          "actorUserId",
-          "eventKey",
-          "entryType",
-          "fundingSource",
-          status,
-          "availableDelta",
-          "reservedDelta",
-          "consumedDelta",
-          quantity,
-          currency,
-          "unitPriceCents",
-          "amountCents",
-          note,
-          "metadataJson",
-          "createdAt"
-        )
-        values (
-          $1,
-          null,
-          null,
-          $2,
-          $3,
-          'ADJUSTMENT'::"TruvernCreditEntryType",
-          'MANUAL'::"TruvernCreditFundingSource",
-          'POSTED'::text,
-          0,
-          0,
-          0,
-          0,
-          null,
-          null,
-          null,
-          $4,
-          $5::jsonb,
-          now()
-        )
-        `,
-        org.id,
-        userId,
+      await insertPlanOverrideLedgerEntry(tx, {
+        organizationId: org.id,
+        actorUserId: userId,
         eventKey,
-        `Plan override: ${org.planTier} → ${nextTier}. ${reason}`,
-        JSON.stringify({
+        note: `Plan override: ${org.planTier} → ${nextTier}. ${reason}`,
+        metadataJson: JSON.stringify({
           source: "truvern_ops_plan_override",
           organizationId: org.id,
           organizationName: org.name,
@@ -152,7 +98,7 @@ export async function POST(req: Request) {
           nextPlanTier: nextTier,
           reason,
         }),
-      );
+      });
 
       return {
         status: 200,

@@ -1,10 +1,10 @@
-﻿import prisma from "@/lib/prisma";
 import { runWorkflowScheduler } from "@/lib/workflow/workflow-scheduler";
 import { runWorkflowOrchestrator } from "@/lib/workflow/workflow-orchestrator";
 import { runAiReviewWorker } from "@/lib/workflow/ai-review-worker";
 import { runReleaseReadinessEngine } from "@/lib/workflow/release-readiness-engine";
 import { runGovernanceReleaseGateEngine } from "@/lib/workflow/governance-release-gate-engine";
 
+import { createWorkflowEvent } from "@/lib/repositories/workflow-event-repository";
 type StageResult = {
   stage: string;
   ok: boolean;
@@ -59,44 +59,29 @@ export async function runTruvernWorkflowExecution() {
     new Date(stages[stages.length - 1]?.finishedAt || new Date()).getTime() -
     new Date(executionStartedAt).getTime();
 
-  await prisma.$executeRawUnsafe(
-    `
-    insert into "WorkflowEvent" (
-      "workflowId",
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      type,
-      actor,
-      summary,
-      payload,
-      "createdAt"
-    )
-    values (
-      null,
-      1,
-      null,
-      null,
-      $1,
-      'TRUVERN_WORKFLOW_EXECUTION_ENGINE',
-      $2,
-      $3::jsonb,
-      now()
-    )
-    `,
-    ok ? "TRUVERN_WORKFLOW_EXECUTION_COMPLETED" : "TRUVERN_WORKFLOW_EXECUTION_FAILED",
-    ok
-      ? "Truvern workflow execution completed."
-      : `Truvern workflow execution failed: ${failedStages.join(", ")}`,
-    JSON.stringify({
-      ok,
-      executionStartedAt,
-      executionFinishedAt: new Date().toISOString(),
-      durationMs,
-      stages,
-      failedStages,
-    }),
-  );
+  await createWorkflowEvent({
+    data: {
+      workflowId: null,
+      organizationId: 1,
+      vendorId: null,
+      reviewAssignmentId: null,
+      type: ok
+        ? "TRUVERN_WORKFLOW_EXECUTION_COMPLETED"
+        : "TRUVERN_WORKFLOW_EXECUTION_FAILED",
+      actor: "TRUVERN_WORKFLOW_EXECUTION_ENGINE",
+      summary: ok
+        ? "Truvern workflow execution completed."
+        : `Truvern workflow execution failed: ${failedStages.join(", ")}`,
+      payload: {
+        ok,
+        executionStartedAt,
+        executionFinishedAt: new Date().toISOString(),
+        durationMs,
+        stages,
+        failedStages,
+      },
+    },
+  });
 
   return {
     ok,

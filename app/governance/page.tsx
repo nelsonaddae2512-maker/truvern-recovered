@@ -1,7 +1,16 @@
-﻿import GovernanceDashboard from "@/components/governance/governance-dashboard.client";
+import GovernanceDashboard from "@/components/governance/governance-dashboard.client";
 import prisma from "@/lib/prisma";
 import { getCurrentOrgPlanTier, canAccessTier } from "@/lib/billing/plan-access";
 import { getGovernanceActor } from "@/lib/auth/truvern-governance";
+import {
+  readGovernanceAiQueue,
+  readGovernanceQueueSummary,
+  readGovernanceReleaseReady,
+  readGovernanceTaskSummary,
+  readGovernanceWorkflowQueue,
+  readGovernanceWorkload,
+  readRecentGovernanceReviews,
+} from "@/lib/repositories/governance-dashboard-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,100 +78,20 @@ export default async function GovernancePage() {
     );
   }
 
-  const queueSummary = await prisma.$queryRawUnsafe<any[]>(`
-    select
-      count(*) filter (where status = 'OPEN')::int as "openWork",
-      count(*) filter (where queue = 'VENDOR_WAITING_RESPONSE' and status = 'OPEN')::int as "waitingVendor",
-      count(*) filter (where queue = 'EVIDENCE_WAITING_REVIEW' and status = 'OPEN')::int as "waitingAnalyst",
-      count(*) filter (where queue in ('READY_FOR_RELEASE_CHECK','GOVERNANCE_RELEASE_READY') and status = 'OPEN')::int as "readyApproval",
-      count(*) filter (where "dueAt" is not null and "dueAt" < now() and status = 'OPEN')::int as "critical"
-    from "WorkflowQueueItem"
-  `);
+  const queueSummary = await readGovernanceQueueSummary();
 
-  const taskSummary = await prisma.$queryRawUnsafe<any[]>(`
-    select
-      count(*) filter (where status = 'OPEN')::int as "openTasks",
-      count(*) filter (where status = 'IN_PROGRESS')::int as "inProgressTasks",
-      count(*) filter (where status = 'COMPLETED')::int as "completedTasks"
-    from "WorkflowTask"
-  `);
+  const taskSummary = await readGovernanceTaskSummary();
 
-  const recentReviews = await prisma.$queryRawUnsafe<any[]>(`
-    select
-      ra.id,
-      v.name as "vendorName",
-      ra.status,
-      ra."updatedAt"
-    from "ReviewAssignment" ra
-    left join "Vendor" v on v.id = ra."vendorId"
-    order by ra."updatedAt" desc nulls last, ra.id desc
-    limit 6
-  `);
+  const recentReviews = await readRecentGovernanceReviews();
 
-  const workload = await prisma.$queryRawUnsafe<any[]>(`
-    select
-      coalesce("assignedReviewerName", "assignedTo", 'Unassigned') as name,
-      count(*)::int as active,
-      count(*) filter (where "slaDueAt" is not null and "slaDueAt" < now())::int as overdue
-    from "WorkflowTask"
-    where status in ('OPEN','IN_PROGRESS')
-    group by coalesce("assignedReviewerName", "assignedTo", 'Unassigned')
-    order by active desc
-    limit 6
-  `);
-  const workflowQueue = await prisma.$queryRawUnsafe<any[]>(`
-    select
-      id,
-      queue,
-      status,
-      priority,
-      "reviewAssignmentId",
-      "updatedAt",
-      payload
-    from "WorkflowQueueItem"
-    where status = 'OPEN'
-    order by priority desc, "updatedAt" desc
-    limit 8
-  `);
+  const workload = await readGovernanceWorkload();
+  const workflowQueue = await readGovernanceWorkflowQueue();
 
-  const aiQueue = await prisma.$queryRawUnsafe<any[]>(`
-    select
-      id,
-      title,
-      status,
-      priority,
-      "assignedTo",
-      "reviewAssignmentId",
-      "updatedAt"
-    from "WorkflowTask"
-    where type = 'AI_PRE_REVIEW'
-    order by
-      case when status = 'OPEN' then 0 when status = 'IN_PROGRESS' then 1 else 2 end,
-      priority desc,
-      "updatedAt" desc
-    limit 6
-  `);
+  const aiQueue = await readGovernanceAiQueue();
 
-  const releaseReady = await prisma.$queryRawUnsafe<any[]>(`
-    select
-      qi.id,
-      qi.queue,
-      qi.status,
-      qi.priority,
-      qi."reviewAssignmentId",
-      qi.payload,
-      v.name as "vendorName",
-      o.name as "organizationName"
-    from "WorkflowQueueItem" qi
-    left join "Vendor" v on v.id = qi."vendorId"
-    left join "Organization" o on o.id = qi."organizationId"
-    where qi.status = 'OPEN'
-      and qi.queue in ('READY_FOR_RELEASE_CHECK','GOVERNANCE_RELEASE_READY')
-    order by qi.priority desc, qi."updatedAt" desc
-    limit 8
-  `);
+  const releaseReady = await readGovernanceReleaseReady();
 
-  const recentEvents = await prisma.$queryRawUnsafe<any[]>(`
+  const recentEvents = await prisma.$queryRaw<any[]>`
     select
       id,
       type,
@@ -173,7 +102,7 @@ export default async function GovernancePage() {
     from "WorkflowEvent"
     order by "createdAt" desc
     limit 10
-  `);
+  `;
 
   const q = queueSummary[0] ?? {};
   const t = taskSummary[0] ?? {};
@@ -280,7 +209,7 @@ export default async function GovernancePage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-400">
-                      {pretty(item.status)} · Assignment #{item.reviewAssignmentId ?? "N/A"}
+                      {pretty(item.status)} Â· Assignment #{item.reviewAssignmentId ?? "N/A"}
                     </p>
                   </a>
                 ))
@@ -319,7 +248,7 @@ export default async function GovernancePage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-400">
-                      {task.assignedTo || "Unassigned"} · Priority {task.priority ?? 0}
+                      {task.assignedTo || "Unassigned"} Â· Priority {task.priority ?? 0}
                     </p>
                   </a>
                 ))
@@ -358,7 +287,7 @@ export default async function GovernancePage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-400">
-                      {item.organizationName || "Organization"} · Assignment #{item.reviewAssignmentId ?? "N/A"}
+                      {item.organizationName || "Organization"} Â· Assignment #{item.reviewAssignmentId ?? "N/A"}
                     </p>
                   </a>
                 ))

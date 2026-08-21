@@ -1,10 +1,12 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import ReviewAssignmentWorkspace from "@/components/review-desk/review-assignment-workspace.client";
 import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
 import ManagedReviewAssessmentLauncher from "@/components/managed-reviews/managed-review-assessment-launcher.client";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { readOrganizationReviewAnalysts } from "@/lib/repositories/review-assignment-analyst-repository";
+import { readPostedReviewCreditLedger, readVendorGovernanceMemory } from "@/lib/repositories/governance-ops-assignment-insights-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,21 +102,7 @@ export default async function ReviewEngagementPage({ params }: Props) {
   );
 
   const reviewAnalysts = vendor.organizationId
-    ? await prisma.$queryRawUnsafe<
-        Array<{ userId: string; name: string; email: string | null }>
-      >(
-        `
-        select
-          u.id::text as "userId",
-          coalesce(u.name, u.email)::text as name,
-          u.email::text as email
-        from "OrgMembership" m
-        join "User" u on u.id::text = m."userId"::text
-        where m."organizationId"::text = $1::text
-        order by coalesce(u.name, u.email) asc
-        `,
-        String(vendor.organizationId),
-      )
+    ? await readOrganizationReviewAnalysts(vendor.organizationId)
     : [];
 
   const latestOutcome = await one<AnyRow>`
@@ -320,72 +308,14 @@ export default async function ReviewEngagementPage({ params }: Props) {
     })) ?? [];
 
 
-  const governanceMemoryRows = await prisma.$queryRawUnsafe<
-    Array<{
-      governanceScore: number | null;
-      governanceDecision: string | null;
-      residualRisk: string | null;
-      criticalFailures: number | null;
-      partialControls: number | null;
-      missingEvidenceCount: number | null;
-      remediationCount: number | null;
-      breachDisclosureDetected: boolean | null;
-      federalInvestigationDetected: boolean | null;
-      governanceNarrative: string | null;
-      createdAt: string | Date | null;
-    }>
-  >(
-    `
-    select
-      "governanceScore",
-      "governanceDecision",
-      "residualRisk",
-      "criticalFailures",
-      "partialControls",
-      "missingEvidenceCount",
-      "remediationCount",
-      "breachDisclosureDetected",
-      "federalInvestigationDetected",
-      "governanceNarrative",
-      "createdAt"
-    from "VendorGovernanceMemory"
-    where "vendorId" = $1
-    order by "createdAt" desc
-    limit 12
-    `,
-    vendorId,
-  );
+  const governanceMemoryRows = await readVendorGovernanceMemory(vendorId);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const latestVendorUrl = latestManagedAssessment?.id
     ? `${appUrl}/vendor-assessments/${latestManagedAssessment.id}`
     : null;
 
-  const creditLedgerRows = await prisma.$queryRawUnsafe<
-    Array<{
-      entryType: string;
-      availableDelta: number;
-      reservedDelta: number;
-      consumedDelta: number;
-      quantity: number;
-      note: string | null;
-      createdAt: Date | string | null;
-    }>
-  >(
-    `
-    select
-      "entryType"::text as "entryType",
-      "availableDelta",
-      "reservedDelta",
-      "consumedDelta",
-      quantity,
-      note,
-      "createdAt"
-    from "TruvernCreditLedgerEntry"
-    where "reviewAssignmentId" = $1
-      and status = 'POSTED'::text
-    order by "createdAt" asc, id asc
-    `,
+  const creditLedgerRows = await readPostedReviewCreditLedger(
     assignmentId,
   );
 

@@ -1,6 +1,7 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { governanceForbidden, governanceUnauthorized } from "@/lib/auth/governance-auth-errors";
+import { readGovernanceDbUserId } from "@/lib/repositories/governance-auth-repository";
 
 export type GovernanceActor = {
   userId: string;
@@ -18,16 +19,7 @@ function parseOpsUsers() {
 }
 
 async function findDbUserIdFromClerkUserId(clerkUserId: string) {
-  const rows = await prisma.$queryRawUnsafe<Array<{ id: number }>>(
-    `
-    select id
-    from "User"
-    where "clerkUserId" = $1
-       or id::text = $1
-    limit 1
-    `,
-    clerkUserId,
-  );
+  const rows = await readGovernanceDbUserId(clerkUserId);
 
   return rows[0]?.id ?? null;
 }

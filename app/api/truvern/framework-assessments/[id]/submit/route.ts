@@ -1,7 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +40,7 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const existing = await prisma.truvernFrameworkAssessment.findUnique({
+    const existing = await findTruvernFrameworkAssessment({
       where: { id },
       include: {
         framework: true,
@@ -70,7 +72,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
 
-    const assessment = await prisma.truvernFrameworkAssessment.update({
+    const assessment = await updateTruvernFrameworkAssessment({
       where: { id },
       data: {
         status: "SUBMITTED",

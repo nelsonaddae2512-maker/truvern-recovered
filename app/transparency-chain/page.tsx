@@ -1,5 +1,5 @@
-﻿import Link from "next/link";
-import prisma from "@/lib/prisma";
+import Link from "next/link";
+import { readTransparencyChainEntries } from "@/lib/repositories/transparency-chain-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -8,23 +8,7 @@ function safeStr(value: unknown) {
 }
 
 async function getEntries() {
-  const rows: any[] = await prisma.$queryRawUnsafe(`
-    select
-      id,
-      "receiptId",
-      "assignmentId",
-      "responseId",
-      checksum,
-      "entryHash",
-      "previousEntryHash",
-      timestamp,
-      "createdAt"
-    from "GovernanceTransparencyLog"
-    order by id desc
-    limit 100
-  `);
-
-  return rows;
+  return readTransparencyChainEntries(100);
 }
 
 export default async function TransparencyChainPage() {

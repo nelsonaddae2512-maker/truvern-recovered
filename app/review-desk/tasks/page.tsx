@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import prisma from "@/lib/prisma";
 import WorkflowTaskActions from "@/components/review-desk/workflow-task-actions.client";
 
@@ -30,14 +30,14 @@ export default async function WorkflowTasksPage({ searchParams }: PageProps) {
   const typeFilter = String(resolved.type ?? "ALL");
   const ownerFilter = String(resolved.owner ?? "ALL");
 
-  const summary = await prisma.$queryRawUnsafe<any[]>(`
+  const summary = await prisma.$queryRaw<any[]>`
     select type, status, count(*)::int as count
     from "WorkflowTask"
     group by type, status
     order by type, status
-  `);
+  `;
 
-  const tasks = await prisma.$queryRawUnsafe<any[]>(`
+  const tasks = await prisma.$queryRaw<any[]>`
     select
       wt.id,
       wt.type,
@@ -66,7 +66,7 @@ export default async function WorkflowTasksPage({ searchParams }: PageProps) {
       wt."slaDueAt" asc nulls last,
       wt."updatedAt" asc
     limit 250
-  `);
+  `;
 
   const filteredTasks = tasks.filter((task) => {
     const typeMatches = typeFilter === "ALL" || task.type === typeFilter;
@@ -147,14 +147,14 @@ export default async function WorkflowTasksPage({ searchParams }: PageProps) {
                       <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300">Priority {task.priority}</span>
                       <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300">{label(task.status)}</span>
                       {task.estimatedMinutes ? (
-                        <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100">≈ {task.estimatedMinutes} min</span>
+                        <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100">Ã¢â€°Ë† {task.estimatedMinutes} min</span>
                       ) : null}
                     </div>
 
                     <h3 className="mt-3 text-lg font-semibold">{task.title}</h3>
                     <p className="mt-1 max-w-4xl text-sm text-slate-400">{task.description}</p>
                     <p className="mt-2 text-xs text-slate-500">
-                      {task.vendorName || "Vendor"} · {task.organizationName || "Organization"} · Package: {task.packageTitle || task.packageId}
+                      {task.vendorName || "Vendor"} Ã‚Â· {task.organizationName || "Organization"} Ã‚Â· Package: {task.packageTitle || task.packageId}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       {task.assignedTo ? `Assigned to ${task.assignedReviewerName || task.assignedTo}` : "Unassigned"}

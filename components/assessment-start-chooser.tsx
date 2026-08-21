@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -55,7 +55,7 @@ function cleanText(value: string | null | undefined, fallback = "") {
 
   return value
     .replace(/\uFEFF/g, "")
-    .replace(/ï»¿/g, "")
+    .replace(/\uFEFF/g, "").replace(/\u00EF\u00BB\u00BF/g, "")
     .replace(/`r`n/g, "")
     .replace(/\\r\\n/g, "")
     .replace(/\\r/g, "")
@@ -187,7 +187,7 @@ async function handleStart() {
 
     // FREE_TRUVERN_NIST_LAUNCH_BLOCK
     const confirmed = window.confirm(
-      "Confirm assessment launch?\n\nThis starts a Self-Managed or Professional Review assessment workflow. You can still request Truvern professional review after the vendor submits the questionnaire. For Truvern Review end-to-end, use the dedicated Truvern Review route.",
+      "Confirm assessment launch?\n\nThis launches the vendor questionnaire for a Self-Managed Review or Professional Review. Self-Managed Review stays with your team and uses no Truvern Review credit. Professional Review starts with this same assessment and can be routed to Truvern for expert completion for 1 credit. For a fully operated review from questionnaire through release, choose Truvern Review.",
     );
 
     if (!confirmed) {
@@ -272,11 +272,11 @@ async function handleStart() {
 
             <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100">
               <div className="font-semibold">
-                Truvern Expert Review Access
+                Professional Review and Truvern Review
               </div>
 
               <div className="mt-1 text-cyan-200/90">
-                Truvern Reviews unlock enterprise governance frameworks, expert-operated reviews, remediation guidance, governance releases, and board-defensible records.
+                Keep the review Self-Managed with your own team, route the same assessment to Truvern later as a Professional Review for 1 credit, or use Truvern Review when you want Truvern to operate the workflow end to end.
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
@@ -635,6 +635,10 @@ function MetricCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+
+
+
 
 
 

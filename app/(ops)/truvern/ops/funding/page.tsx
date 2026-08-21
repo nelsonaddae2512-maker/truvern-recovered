@@ -1,6 +1,9 @@
-﻿import Link from "next/link";
-import prisma from "@/lib/prisma";
+import Link from "next/link";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
+import {
+  readOpsFundingOverview,
+  readOpsRecentCreditPurchases,
+} from "@/lib/repositories/ops-funding-overview-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,43 +23,8 @@ function safeInt(v: unknown) {
 export default async function TruvernOpsFundingPage() {
   await requireTruvernOperator();
 
-  const orgRows: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select
-      o.id,
-      o.name,
-      o.slug,
-      o."createdAt",
-      count(distinct v.id)::int as "vendorCount",
-      count(distinct ra.id)::int as "reviewCount",
-      coalesce(c."availableCredits", 0)::int as "availableCredits",
-      coalesce(c."reservedCredits", 0)::int as "reservedCredits",
-      coalesce(c."consumedCredits", 0)::int as "consumedCredits",
-      (
-        coalesce(c."availableCredits", 0)
-        + coalesce(c."reservedCredits", 0)
-        - coalesce(c."consumedCredits", 0)
-      )::int as "effectiveCredits"
-    from "Organization" o
-    left join "Vendor" v on v."organizationId" = o.id
-    left join "ReviewRequest" rr on rr."vendorId" = v.id
-    left join "ReviewAssignment" ra on ra."reviewRequestId" = rr.id
-    left join (
-      select
-        "organizationId",
-        coalesce(sum("availableDelta"), 0)::int as "availableCredits",
-        coalesce(sum("reservedDelta"), 0)::int as "reservedCredits",
-        coalesce(sum("consumedDelta"), 0)::int as "consumedCredits"
-      from "TruvernCreditLedgerEntry"
-      group by "organizationId"
-    ) c on c."organizationId" = o.id
-    group by
-      o.id,
-      c."availableCredits",
-      c."reservedCredits",
-      c."consumedCredits"
-    order by o."createdAt" desc
-    limit 100
-  `);
+  const orgRows: AnyRow[] =
+    await readOpsFundingOverview();
 
   const totalAvailableCredits = orgRows.reduce(
     (sum, row) => sum + safeInt(row.availableCredits),
@@ -74,21 +42,8 @@ export default async function TruvernOpsFundingPage() {
     )
     .slice(0, 5);
 
-  const recentPurchases: AnyRow[] = await prisma.$queryRawUnsafe(`
-    select
-      l.id,
-      l."organizationId",
-      o.name as "organizationName",
-      l.quantity,
-      l.note,
-      l."createdAt"
-    from "TruvernCreditLedgerEntry" l
-    left join "Organization" o
-      on o.id = l."organizationId"
-    where l."entryType"::text = 'PURCHASE'
-    order by l."createdAt" desc
-    limit 10
-  `);
+  const recentPurchases: AnyRow[] =
+    await readOpsRecentCreditPurchases();
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10 text-white">

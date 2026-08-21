@@ -1,6 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications/create-notification";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +39,7 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+  const assessment = await findTruvernFrameworkAssessment({
     where: { id },
     select: {
       id: true,
@@ -58,7 +60,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   const now = new Date().toISOString();
 
-  await prisma.truvernFrameworkAssessment.update({
+  await updateTruvernFrameworkAssessment({
     where: { id },
     data: {
       metadata: {

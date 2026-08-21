@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 3,
+  "scoreThresholds": {
+    "healthy": 88,
+    "attention": 75,
+    "reviewRequired": 60
+  },
+  "enforcement": {
+    "blockOnCriticalBoundary": true,
+    "blockBelowScore": 55,
+    "minimumCriticalConfidence": 0.8
+  },
+  "scoring": {
+    "categories": {
+      "BOUNDARIES": {
+        "weight": 35,
+        "scale": 12
+      },
+      "ARCHITECTURE_DRIFT": {
+        "weight": 20,
+        "scale": 18
+      },
+      "HOTSPOTS": {
+        "weight": 20,
+        "scale": 12
+      },
+      "QUALITY": {
+        "weight": 15,
+        "scale": 8
+      },
+      "DUPLICATION": {
+        "weight": 10,
+        "scale": 10
+      }
+    },
+    "severityMultipliers": {
+      "INFO": 0.0,
+      "LOW": 0.25,
+      "MEDIUM": 0.75,
+      "HIGH": 1.75,
+      "CRITICAL": 4.0
+    }
+  },
+  "rootCauseIntelligence": {
+    "maximumRootCauses": 30,
+    "maximumActions": 12,
+    "maximumRepresentativeAssets": 10,
+    "cycleOverlapMinimum": 1,
+    "minimumClusterConfidence": 0.5,
+    "ownershipSegments": {
+      "app": 3,
+      "components": 2,
+      "lib": 2,
+      "prisma": 2,
+      "tools": 3
+    },
+    "genericSegments": [
+      "app",
+      "api",
+      "components",
+      "lib",
+      "tools",
+      "atlas",
+      "page.tsx",
+      "route.ts",
+      "index.ts",
+      "client.tsx",
+      "server.ts"
+    ]
+  },
+  "presentation": {
+    "maximumEvidencePerFinding": 10
+  },
+  "suppressions": [
+    {
+      "id": "GENERATED-ATLAS-OUTPUT",
+      "pathPrefixes": [
+        "tools/atlas/output/",
+        "tools/atlas/snapshots/"
+      ],
+      "reason": "Generated ATLAS artifacts are excluded."
+    },
+    {
+      "id": "GENERATED-DEPENDENCY-METADATA",
+      "pathPrefixes": [
+        "node_modules/",
+        ".next/",
+        "coverage/",
+        "dist/",
+        "build/"
+      ],
+      "reason": "Generated dependency metadata is excluded."
+    }
+  ],
+  "pathRules": [
+    {
+      "id": "API-ROUTE-LOCATION",
+      "description": "API route modules must live under app/api.",
+      "nodeTypeContains": [
+        "api route",
+        "route handler"
+      ],
+      "requiredFileSuffixes": [
+        "route.ts",
+        "route.tsx",
+        "route.js",
+        "route.jsx"
+      ],
+      "allowedPathPrefixes": [
+        "app/api/"
+      ],
+      "severity": "HIGH",
+      "confidence": 0.95
+    },
+    {
+      "id": "PRISMA-ASSET-LOCATION",
+      "description": "Prisma schema and migration assets must live under prisma.",
+      "nodeTypeContains": [
+        "prisma schema",
+        "prisma model",
+        "migration"
+      ],
+      "allowedPathPrefixes": [
+        "prisma/"
+      ],
+      "severity": "HIGH",
+      "confidence": 0.9
+    },
+    {
+      "id": "SHARED-COMPONENT-LOCATION",
+      "description": "Shared React components should live under components or an app route segment.",
+      "nodeTypeContains": [
+        "react component",
+        "component"
+      ],
+      "requiredFileSuffixes": [
+        ".tsx",
+        ".jsx"
+      ],
+      "allowedPathPrefixes": [
+        "components/",
+        "app/"
+      ],
+      "severity": "LOW",
+      "confidence": 0.65
+    }
+  ],
+  "forbiddenDependencies": [
+    {
+      "id": "CLIENT-TO-PRISMA",
+      "description": "Client components must not depend directly on Prisma or database modules.",
+      "sourceTypeContains": [
+        "client component",
+        "component client"
+      ],
+      "sourcePathContains": [
+        ".client.",
+        "\"use client\"",
+        "'use client'"
+      ],
+      "targetTypeContains": [
+        "prisma",
+        "database model"
+      ],
+      "targetPathPrefixes": [
+        "prisma/",
+        "lib/prisma",
+        "lib/db"
+      ],
+      "severity": "CRITICAL",
+      "confidence": 0.98
+    },
+    {
+      "id": "CLIENT-TO-SERVER-ONLY",
+      "description": "Client components must not import server-only modules.",
+      "sourceTypeContains": [
+        "client component",
+        "component client"
+      ],
+      "sourcePathContains": [
+        ".client."
+      ],
+      "targetPathContains": [
+        ".server.",
+        "server-only"
+      ],
+      "severity": "CRITICAL",
+      "confidence": 0.95
+    }
+  ],
+  "hotspotRules": {
+    "highImpactScore": 75,
+    "criticalImpactScore": 92,
+    "minimumConfidence": 0.75
+  },
+  "cycleRules": {
+    "maximumRawCycles": 500,
+    "severity": "MEDIUM",
+    "confidence": 0.85
+  },
+  "qualityRules": {
+    "testPathMarkers": [
+      ".test.",
+      ".spec.",
+      "__tests__",
+      "/tests/"
+    ],
+    "documentationPathPrefixes": [
+      "docs/"
+    ],
+    "minimumDocumentationFiles": 3
+  }
+}

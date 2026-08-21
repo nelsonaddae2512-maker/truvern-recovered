@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "engineVersion": "ATLAS-08",
+  "mode": "REVIEW_ONLY",
+  "limits": {
+    "maximumPhases": 4,
+    "maximumPatchesPerPhase": 8,
+    "maximumFilesPerPatch": 12,
+    "maximumInstructionsPerPatch": 12
+  },
+  "safety": {
+    "neverAutoApply": true,
+    "requireCheckpoint": true,
+    "requireGitApplyCheck": true,
+    "requireTypeScriptValidation": true,
+    "requireGraphRefresh": true,
+    "requireGovernanceRefresh": true
+  },
+  "validationCommands": [
+    "npx tsc --noEmit",
+    "pnpm atlas:graph",
+    "node tools/atlas/repository-governance.js report",
+    "node tools/atlas/refactoring-planner.js report",
+    "node tools/atlas/portfolio-optimizer.js report"
+  ]
+}

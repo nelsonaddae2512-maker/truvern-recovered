@@ -1,4 +1,4 @@
-﻿import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 
 export type ReviewEvidenceItem = {
   id: number;
@@ -54,7 +54,7 @@ function mapEvidence(row: any): ReviewEvidenceItem {
 }
 
 export async function getVendorEvidence(vendorId: number) {
-  const rows = await prisma.$queryRawUnsafe(`
+  const rows = await prisma.$queryRaw`
     select
       e.id,
       e.title,
@@ -76,13 +76,13 @@ export async function getVendorEvidence(vendorId: number) {
       on er.id = e."evidenceRequestId"
     where e."vendorId" = ${Number(vendorId)}
     order by e."createdAt" desc
-  `);
+  `;
 
   return Array.isArray(rows) ? rows.map(mapEvidence) : [];
 }
 
 export async function getEvidenceForReview(reviewAssignmentId: number) {
-  const rows = await prisma.$queryRawUnsafe(`
+  const rows = await prisma.$queryRaw`
     select
       e.id,
       e.title,
@@ -107,7 +107,7 @@ export async function getEvidenceForReview(reviewAssignmentId: number) {
      and ra."vendorId" = er."vendorId"
      and ra."organizationId" = er."organizationId"
     order by e."createdAt" desc
-  `);
+  `;
 
   return Array.isArray(rows) ? rows.map(mapEvidence) : [];
 }

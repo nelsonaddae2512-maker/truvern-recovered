@@ -1,6 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
+import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
+import { findVendor } from "@/lib/repositories/vendor-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,25 +45,34 @@ export async function GET(_request: Request, context: Props) {
       );
     }
 
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `
-      select
-        ra.id as "assignmentId",
-        ra."vendorId",
-        v.name as "vendorName",
-        rr.id as "responseId",
-        rr.responses
-      from "ReviewAssignment" ra
-      left join "Vendor" v on v.id = ra."vendorId"
-      left join "ReviewResponse" rr on rr."reviewAssignmentId" = ra.id
-      where ra.id = $1
-      order by rr."updatedAt" desc nulls last
-      limit 1
-      `,
-      assignmentId,
-    );
+    const assignment = await findReviewAssignment({
+      where: { id: assignmentId },
+      select: {
+        id: true,
+        vendorId: true,
+      },
+    });
 
-    const row = rows[0];
+    const latestResponse = assignment
+      ? await findLatestReviewResponse(assignmentId)
+      : null;
+
+    const vendor = assignment
+      ? await findVendor({
+          where: { id: assignment.vendorId },
+          select: { name: true },
+        })
+      : null;
+
+    const row = assignment
+      ? {
+          assignmentId: assignment.id,
+          vendorId: assignment.vendorId,
+          vendorName: vendor?.name ?? null,
+          responseId: latestResponse?.id ?? null,
+          responses: latestResponse?.responses ?? {},
+        }
+      : null;
 
     if (!row) {
       return NextResponse.json(

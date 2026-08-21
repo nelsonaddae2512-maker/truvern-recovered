@@ -1,4 +1,8 @@
-﻿import prisma from "@/lib/prisma";
+import {
+  insertWorkflowSchedulerOverdueEvent,
+  readWorkflowSchedulerOpenItems,
+  updateWorkflowSchedulerQueueItem,
+} from "@/lib/repositories/workflow-scheduler-repository";
 
 type SchedulerResult = {
   checked: number;
@@ -8,22 +12,8 @@ type SchedulerResult = {
 };
 
 export async function runWorkflowScheduler(): Promise<SchedulerResult> {
-  const rows: any[] = await prisma.$queryRawUnsafe(`
-    select
-      id,
-      "workflowId",
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      queue,
-      status,
-      priority,
-      "assignedTo",
-      "dueAt",
-      payload
-    from "WorkflowQueueItem"
-    where status = 'OPEN'
-  `);
+  const rows: any[] =
+    await readWorkflowSchedulerOpenItems();
 
   let overdue = 0;
   let dueSoon = 0;
@@ -53,15 +43,7 @@ export async function runWorkflowScheduler(): Promise<SchedulerResult> {
       unclaimed++;
     }
 
-    await prisma.$executeRawUnsafe(
-      `
-      update "WorkflowQueueItem"
-      set
-        payload = coalesce(payload, '{}'::jsonb) || $1::jsonb,
-        priority = greatest(priority, $2),
-        "updatedAt" = now()
-      where id = $3
-      `,
+    await updateWorkflowSchedulerQueueItem(
       JSON.stringify({
         scheduler: {
           checkedAt: now.toISOString(),
@@ -69,31 +51,24 @@ export async function runWorkflowScheduler(): Promise<SchedulerResult> {
           unclaimed: !item.assignedTo,
         },
       }),
-      slaState === "OVERDUE" ? 95 : slaState === "DUE_SOON" ? 80 : item.priority,
+      slaState === "OVERDUE"
+        ? 95
+        : slaState === "DUE_SOON"
+          ? 80
+          : item.priority,
       item.id,
     );
 
     if (slaState === "OVERDUE") {
-      await prisma.$executeRawUnsafe(
-        `
-        insert into "WorkflowEvent" (
-          "workflowId",
-          "organizationId",
-          "vendorId",
-          "reviewAssignmentId",
-          type,
-          actor,
-          summary,
-          payload,
-          "createdAt"
-        )
-        values ($1, $2, $3, $4, 'SLA_OVERDUE', 'WORKFLOW_SCHEDULER', 'Workflow item is overdue.', $5::jsonb, now())
-        `,
+      await insertWorkflowSchedulerOverdueEvent(
         item.workflowId,
         item.organizationId,
         item.vendorId,
         item.reviewAssignmentId,
-        JSON.stringify({ queueItemId: item.id, queue: item.queue }),
+        JSON.stringify({
+          queueItemId: item.id,
+          queue: item.queue,
+        }),
       );
     }
   }

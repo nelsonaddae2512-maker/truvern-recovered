@@ -1,6 +1,9 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import prisma from "@/lib/prisma";
+import {
+  readTrustNetworkVendorBySlug,
+  readTrustNetworkVendorManifests,
+} from "@/lib/repositories/trust-network-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,29 +30,8 @@ export default async function TrustNetworkVendorPage({
 }) {
   const resolved = await params;
 
-  const vendors: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      v.id,
-      v.name,
-      v.slug,
-      v.category,
-      v."updatedAt",
-      count(distinct gm.id)::int as "releaseCount",
-      max(gm."createdAt") as "latestReleaseAt"
-    from "Vendor" v
-    left join "ReviewRequest" rr
-      on rr."vendorId" = v.id
-    left join "ReviewAssignment" ra
-      on ra."reviewRequestId" = rr.id
-    left join "GovernanceReleaseManifest" gm
-      on gm."reviewAssignmentId" = ra.id
-    where lower(v.slug) = lower($1)
-    group by v.id
-    limit 1
-    `,
-    resolved.slug,
-  );
+  const vendors: any[] =
+    await readTrustNetworkVendorBySlug(resolved.slug);
 
   const vendor = vendors[0];
 
@@ -57,26 +39,8 @@ export default async function TrustNetworkVendorPage({
     return notFound();
   }
 
-  const manifests: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      gm.id,
-      gm.checksum,
-      gm."createdAt",
-      ra.status::text as status
-    from "GovernanceReleaseManifest" gm
-    join "ReviewAssignment" ra
-      on ra.id = gm."reviewAssignmentId"
-    join "ReviewRequest" rr
-      on rr.id = ra."reviewRequestId"
-    join "Vendor" v
-      on v.id = rr."vendorId"
-    where v.id = $1
-    order by gm."createdAt" desc
-    limit 10
-    `,
-    vendor.id,
-  );
+  const manifests: any[] =
+    await readTrustNetworkVendorManifests(vendor.id);
 
   return (
     <main className="min-h-screen bg-[#020617] text-white">

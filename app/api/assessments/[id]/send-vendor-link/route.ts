@@ -1,8 +1,11 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
-import { sendEmail } from "@/lib/email";
+import {
+  COMMUNICATION_MAILBOX_KEYS,
+  sendCommunication,
+} from "@/lib/communications";
+import { findAssessment } from "@/lib/repositories/assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,13 +87,15 @@ try {
       );
     }
 
-    const assessment = await prisma.assessment.findUnique({
+    const assessment = await findAssessment({
       where: { id: assessmentId },
       select: {
         id: true,
         title: true,
         token: true,
         dueAt: true,
+        organizationId: true,
+        vendorId: true,
         vendor: {
           select: {
             name: true,
@@ -120,9 +125,8 @@ try {
           year: "numeric",
         }).format(assessment.dueAt)
       : "No due date";
-
     const subject =
-      `Vendor review request Ã¢‚¬€ ${assessment.title}`;
+      `Vendor review request: ${assessment.title}`;
 
     const html = `
       <div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#111827">
@@ -174,16 +178,37 @@ try {
       </div>
     `;
 
-    const result = await sendEmail({
+    const result = await sendCommunication({
+      organizationId: assessment.organizationId,
+      mailboxKey:
+        COMMUNICATION_MAILBOX_KEYS.ASSESSMENTS,
       to: recipients.join(", "),
       subject,
       html,
+      priority: "NORMAL",
+      channel: "EMAIL",
+      externalThreadId:
+        `assessment:${assessment.id}:vendor-link`,
+      context: {
+        organizationId:
+          assessment.organizationId,
+        vendorId: assessment.vendorId,
+        assessmentId: assessment.id,
+      },
     });
 
     return NextResponse.json({
       ok: true,
       provider: result.provider,
       recipients,
+      communication: {
+        mailboxId: result.mailboxId,
+        conversationId: result.conversationId,
+        messageId: result.messageId,
+        providerMessageId:
+          result.providerMessageId,
+        simulated: result.simulated,
+      },
     });
   } catch (error: any) {
     console.error(error);

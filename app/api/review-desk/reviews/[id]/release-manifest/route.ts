@@ -1,4 +1,4 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getEvidenceManifestForReview } from "@/lib/evidence/queries";
@@ -7,7 +7,9 @@ import {
   canonicalizeGovernancePayload,
   signGovernancePayload,
 } from "@/lib/governance/signing";
+import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
 import { createGovernanceNotarizationReceipt } from "@/lib/governance/notarization";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,26 +76,36 @@ const params = await ctx.params;
       );
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        ra.id as "assignmentId",
-        rr.id as "responseId",
-        rr.responses,
-        v.id as "vendorId",
-        v.name as "vendorName"
-      from "ReviewAssignment" ra
-      left join "ReviewResponse" rr on rr."reviewAssignmentId" = ra.id
-      left join "ReviewRequest" req on req.id = ra."reviewRequestId"
-      left join "Vendor" v on v.id = req."vendorId"
-      where ra.id = $1
-      order by rr."updatedAt" desc nulls last
-      limit 1
-      `,
-      assignmentId,
-    );
+    const assignment = await findReviewAssignment({
+      where: { id: assignmentId },
+      select: {
+        id: true,
+        reviewRequest: {
+          select: {
+            vendor: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-    const row = rows?.[0];
+    const latestResponse = assignment
+      ? await findLatestReviewResponse(assignmentId)
+      : null;
+
+    const row = assignment
+      ? {
+          assignmentId: assignment.id,
+          responseId: latestResponse?.id ?? null,
+          responses: latestResponse?.responses ?? {},
+          vendorId: assignment.reviewRequest?.vendor?.id ?? null,
+          vendorName: assignment.reviewRequest?.vendor?.name ?? null,
+        }
+      : null;
 
     if (!row) {
       return NextResponse.json(
@@ -102,9 +114,17 @@ const params = await ctx.params;
       );
     }
 
-    const responses =
-      row.responses && typeof row.responses === "object"
+    type GovernanceResponsesView = Record<string, any>;
+
+    const rawResponses = row.responses && typeof row.responses === "object"
         ? row.responses
+        : {};
+
+    const responses: GovernanceResponsesView =
+      rawResponses &&
+      typeof rawResponses === "object" &&
+      !Array.isArray(rawResponses)
+        ? (rawResponses as GovernanceResponsesView)
         : {};
 
     const snapshot =

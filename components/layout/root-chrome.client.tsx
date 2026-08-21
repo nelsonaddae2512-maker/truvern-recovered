@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 
@@ -44,6 +44,7 @@ const marketingLinks = [
 const appLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/vendors", label: "Vendors" },
+  { href: "/communications", label: "Communications" },
   { href: "/truvern-reviews", label: "Truvern Reviews" },
   { href: "/governance-ops", label: "Governance Ops" },
   { href: "/assessments/catalog", label: "Assessments" },
@@ -320,6 +321,13 @@ function AppNav({
       .catch(() => setIsOperator(false));
   }, []);
 
+  const visibleAppLinks = appLinks.filter(
+    (link) =>
+      link.href !== "/communications" ||
+      currentPlan === "PRO" ||
+      currentPlan === "ENTERPRISE" ||
+      isOperator,
+  );
 return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#020617]/95 backdrop-blur">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:min-h-20 sm:px-6">
@@ -342,7 +350,7 @@ return (
           </Link>
 
           <nav className="hidden items-center gap-5 xl:flex">
-            {appLinks.map((link) => (
+            {visibleAppLinks.map((link) => (
               <NavLink
                 key={link.href}
                 href={link.href}
@@ -429,7 +437,7 @@ return (
       {mobileMenuOpen ? (
         <div className="border-t border-white/10 bg-[#020617] xl:hidden">
           <div className="mx-auto max-w-7xl space-y-2 px-4 py-4 sm:px-6">
-            {appLinks.map((link) => {
+            {visibleAppLinks.map((link) => {
               const active = isActive(pathname, link.href);
 
               return (
@@ -613,6 +621,7 @@ export default function RootChrome({
     </div>
   );
 }
+
 
 
 

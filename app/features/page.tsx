@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -18,11 +18,11 @@ const capabilities = [
   },
   {
     title: "Governance Ops",
-    body: "Coordinate internal and Truvern-Truvern Reviews through a governance queue built for throughput.",
+    body: "Coordinate Self-Managed, Professional, and Truvern Reviews through one governance workflow built for throughput.",
   },
   {
     title: "Truvern Reviews",
-    body: "Use Truvern credits to reserve expert execution capacity when review demand exceeds team bandwidth.",
+    body: "Use Professional Review to escalate an existing assessment to Truvern, or Truvern Review for end-to-end execution. Each Truvern-operated review uses 1 credit.",
   },
   {
     title: "Board Outputs",
@@ -146,7 +146,7 @@ export default function FeaturesPage() {
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[
-            "Truvern-Truvern Reviews",
+            "Self-Managed, Professional, and Truvern Reviews",
             "Internal governance ops workflows",
             "Evidence collection and validation",
             "Automated findings and remediation",
@@ -168,6 +168,9 @@ export default function FeaturesPage() {
     </main>
   );
 }
+
+
+
 
 
 

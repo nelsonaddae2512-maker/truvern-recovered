@@ -3,8 +3,11 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-import prisma from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import {
+  countStripeCreditEntriesByEventKey,
+  insertStripeCreditPurchase,
+} from "@/lib/repositories/stripe-credit-purchase-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,14 +29,8 @@ async function insertCreditPurchaseLedgerEntry(input: {
 }) {
   const eventKey = `stripe:checkout:${input.stripeSessionId}`;
 
-  const existingRows = await prisma.$queryRawUnsafe<Array<{ count: number }>>(
-    `
-    select count(*)::int as count
-    from "TruvernCreditLedgerEntry"
-    where "eventKey" = $1
-    `,
-    eventKey,
-  );
+  const existingRows =
+    await countStripeCreditEntriesByEventKey(eventKey);
 
   if ((existingRows?.[0]?.count ?? 0) > 0) {
     return {
@@ -43,56 +40,13 @@ async function insertCreditPurchaseLedgerEntry(input: {
     };
   }
 
-  await prisma.$executeRawUnsafe(
-    `
-    insert into "TruvernCreditLedgerEntry" (
-      "organizationId",
-      "assessmentRunId",
-      "reviewAssignmentId",
-      "actorUserId",
-      "eventKey",
-      "entryType",
-      "fundingSource",
-      status,
-      "availableDelta",
-      "reservedDelta",
-      "consumedDelta",
-      quantity,
-      currency,
-      "unitPriceCents",
-      "amountCents",
-      note,
-      "metadataJson",
-      "createdAt"
-    )
-    values (
-      $1,
-      null,
-      null,
-      $2,
-      $3,
-      'PURCHASE'::"TruvernCreditEntryType",
-      'PREPAID_CREDITS'::"TruvernCreditFundingSource",
-      'POSTED'::text,
-      $4,
-      0,
-      0,
-      $5,
-      null,
-      null,
-      null,
-      $6,
-      $7::jsonb,
-      now()
-    )
-    `,
-    input.organizationId,
-    input.userId,
+  await insertStripeCreditPurchase({
+    organizationId: input.organizationId,
+    userId: input.userId,
     eventKey,
-    input.credits,
-    input.credits,
-    `Purchased ${input.credits} Truvern credit${input.credits === 1 ? "" : "s"} via Stripe Checkout.`,
-    JSON.stringify({
+    credits: input.credits,
+    note: `Purchased ${input.credits} Truvern credit${input.credits === 1 ? "" : "s"} via Stripe Checkout.`,
+    metadataJson: JSON.stringify({
       source: "stripe_checkout",
       stripeSessionId: input.stripeSessionId,
       stripePaymentIntentId: input.stripePaymentIntentId || null,
@@ -100,7 +54,7 @@ async function insertCreditPurchaseLedgerEntry(input: {
       packKey: input.packKey || null,
       packName: input.packName || null,
     }),
-  );
+  });
 
   return {
     ok: true,

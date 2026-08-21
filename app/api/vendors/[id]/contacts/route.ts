@@ -3,6 +3,15 @@ import { NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
+import { findFirstVendor } from "@/lib/repositories/vendor-repository";
+import { updateVendor } from "@/lib/repositories/vendor-repository";
+import {
+  clearPrimaryVendorContacts,
+  findVendorContactByEmail,
+  insertVendorContactRow,
+  readAllowedVendorContactRoles,
+  updateVendorContactRow,
+} from "@/lib/repositories/vendor-contacts-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,21 +51,7 @@ function parseBoolean(value: unknown) {
 
 
 async function getAllowedContactRoles() {
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{ value: string }>
-  >(
-    `
-    select e.enumlabel as value
-    from pg_enum e
-    join pg_type t
-      on t.oid = e.enumtypid
-    join pg_namespace n
-      on n.oid = t.typnamespace
-    where n.nspname = 'public'
-      and t.typname = 'VendorContactRole'
-    order by e.enumsortorder
-    `,
-  );
+  const rows = await readAllowedVendorContactRoles();
 
   return new Set(
     rows
@@ -227,7 +222,7 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    const vendor = await prisma.vendor.findFirst({
+    const vendor = await findFirstVendor({
       where: {
         id: vendorId,
         organizationId: gate.organizationId,
@@ -254,28 +249,14 @@ export async function POST(req: Request, { params }: Params) {
 
     await prisma.$transaction(async (tx) => {
       if (isPrimary) {
-        await tx.$executeRawUnsafe(
-          `
-          update "VendorContact"
-          set
-            "isPrimary" = false,
-            "updatedAt" = current_timestamp
-          where "vendorId" = $1
-          `,
+        await clearPrimaryVendorContacts(
+          tx,
           vendor.id,
         );
       }
 
-      const existingRows = await tx.$queryRawUnsafe<
-        Array<{ id: number }>
-      >(
-        `
-        select id
-        from "VendorContact"
-        where "vendorId" = $1
-          and lower(email) = lower($2)
-        limit 1
-        `,
+      const existingRows = await findVendorContactByEmail(
+        tx,
         vendor.id,
         email,
       );
@@ -283,60 +264,27 @@ export async function POST(req: Request, { params }: Params) {
       const existingId = existingRows[0]?.id ?? null;
 
       if (existingId) {
-        await tx.$executeRawUnsafe(
-          `
-          update "VendorContact"
-          set
-            name = $1,
-            email = $2,
-            role = $3::"VendorContactRole",
-            phone = $4,
-            "isPrimary" = $5,
-            "updatedAt" = current_timestamp
-          where id = $6
-          `,
+        await updateVendorContactRow(tx, {
+          id: existingId,
           name,
           email,
           role,
-          phone || null,
+          phone: phone || null,
           isPrimary,
-          existingId,
-        );
+        });
       } else {
-        await tx.$executeRawUnsafe(
-          `
-          insert into "VendorContact" (
-            "vendorId",
-            name,
-            email,
-            role,
-            phone,
-            "isPrimary",
-            "createdAt",
-            "updatedAt"
-          )
-          values (
-            $1,
-            $2,
-            $3,
-            $4::"VendorContactRole",
-            $5,
-            $6,
-            current_timestamp,
-            current_timestamp
-          )
-          `,
-          vendor.id,
+        await insertVendorContactRow(tx, {
+          vendorId: vendor.id,
           name,
           email,
           role,
-          phone || null,
+          phone: phone || null,
           isPrimary,
-        );
+        });
       }
 
       if (isPrimary) {
-        await tx.vendor.update({
+        await updateVendor({
           where: {
             id: vendor.id,
           },
@@ -344,7 +292,7 @@ export async function POST(req: Request, { params }: Params) {
             contactName: name,
             contactEmail: email,
           },
-        });
+        }, tx);
       }
     });
 

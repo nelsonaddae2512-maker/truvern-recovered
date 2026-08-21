@@ -1,8 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import prisma from "@/lib/prisma";
 import { emitWorkflowEvent } from "@/lib/workflow/workflow-events";
 import { WorkflowEvent } from "@/lib/workflow/workflow-constants";
 import { generateWorkflowTasksForPackage } from "@/lib/workflow/workflow-task-engine";
@@ -14,6 +13,12 @@ import {
   sanitizeFilename,
 } from "@/lib/storage/evidence-storage";
 
+import {
+  createVendorEvidenceUpload,
+  findRemediationPackageForEvidenceRequest,
+  findVendorEvidenceRequest,
+  fulfillVendorEvidenceRequest,
+} from "@/lib/repositories/vendor-evidence-upload-repository";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -72,18 +77,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Evidence file is required." }, { status: 400 });
     }
 
-    const requestRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select id, "vendorId", "organizationId", title, kind::text as kind
-      from "EvidenceRequest"
-      where id = $1 and "vendorId" = $2
-      limit 1
-      `,
+    const evidenceRequest = await findVendorEvidenceRequest({
       evidenceRequestId,
       vendorId,
-    );
-
-    const evidenceRequest = requestRows?.[0];
+    });
 
     if (!evidenceRequest) {
       return NextResponse.json({ ok: false, error: "Evidence request not found." }, { status: 404 });
@@ -139,73 +136,33 @@ export async function POST(request: Request) {
       storedUrl = `/uploads/vendor-evidence/${vendorId}/requests/${evidenceRequestId}/${localFileName}`;
     }
 
-    const insertedRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      insert into "Evidence" (
-        "vendorId",
-        "organizationId",
-        kind,
-        title,
-        notes,
-        url,
-        "fileUrl",
-        "evidenceRequestId",
-        "createdAt",
-        "updatedAt"
-      )
-      values (
-        $1,
-        $2,
-        $3::"EvidenceKind",
-        $4,
-        $5,
-        $6,
-        $6,
-        $7,
-        now(),
-        now()
-      )
-      returning id
-      `,
+    const evidence = await createVendorEvidenceUpload({
       vendorId,
-      Number(evidenceRequest.organizationId),
+      organizationId: Number(evidenceRequest.organizationId),
       kind,
       title,
-      note || `Uploaded file: ${fileName}`,
+      notes: note || `Uploaded file: ${fileName}`,
       storedUrl,
       evidenceRequestId,
-    );
+    });
 
-    const evidenceId = insertedRows?.[0]?.id ?? null;
+    const evidenceId = evidence.id;
 
     if (!evidenceId) {
       return NextResponse.json({ ok: false, error: "Evidence was not created." }, { status: 500 });
     }
 
-    await prisma.$executeRawUnsafe(
-      `
-      update "EvidenceRequest"
-      set
-        status = 'SUBMITTED'::"EvidenceRequestStatus",
-        "fulfilledEvidenceId" = $1,
-        "fulfilledAt" = now(),
-        "updatedAt" = now()
-      where id = $2
-      `,
+    await fulfillVendorEvidenceRequest({
+      evidenceRequestId,
       evidenceId,
-      evidenceRequestId,
-    );
-    const packageRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select id
-      from "RemediationPackage"
-      where "evidenceRequestId" = $1
-      limit 1
-      `,
-      evidenceRequestId,
-    );
+    });
+    const remediationPackage =
+      await findRemediationPackageForEvidenceRequest({
+        evidenceRequestId,
+      });
 
-    const remediationPackageId = Number(packageRows?.[0]?.id ?? 0) || null;
+    const remediationPackageId =
+      remediationPackage?.id ?? null;
 
     if (remediationPackageId) {
       await emitWorkflowEvent({

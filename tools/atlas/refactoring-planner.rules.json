@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "plannerVersion": "ATLAS-07",
+  "limits": {
+    "maximumPlans": 12,
+    "maximumFilesPerPlan": 40,
+    "maximumStepsPerPlan": 10,
+    "maximumTestsPerPlan": 12,
+    "maximumRollbackSteps": 6
+  },
+  "effort": {
+    "minutesPerFile": 18,
+    "minutesPerDependencyEdge": 4,
+    "minutesPerCycleOccurrence": 12,
+    "minimumMinutes": 30,
+    "maximumMinutes": 960
+  },
+  "risk": {
+    "highImpactScore": 90,
+    "mediumImpactScore": 70,
+    "highFileCount": 16,
+    "mediumFileCount": 7,
+    "highEdgeCount": 35,
+    "mediumEdgeCount": 15
+  },
+  "testInference": {
+    "markers": [
+      ".test.",
+      ".spec.",
+      "__tests__",
+      "/tests/"
+    ],
+    "preferredCommands": [
+      "npx tsc --noEmit",
+      "pnpm atlas:graph",
+      "node tools/atlas/repository-governance.js report"
+    ]
+  },
+  "ownership": {
+    "fallback": "Engineering",
+    "mappings": [
+      {
+        "pathPrefix": "app/api/",
+        "owner": "API and Platform Engineering"
+      },
+      {
+        "pathPrefix": "components/",
+        "owner": "Product Engineering"
+      },
+      {
+        "pathPrefix": "lib/",
+        "owner": "Platform Engineering"
+      },
+      {
+        "pathPrefix": "prisma/",
+        "owner": "Data Platform"
+      },
+      {
+        "pathPrefix": "tools/atlas/",
+        "owner": "Architecture Engineering"
+      }
+    ]
+  }
+}

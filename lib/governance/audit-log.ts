@@ -1,5 +1,5 @@
-﻿import prisma from "@/lib/prisma";
 import { getGovernanceActor } from "@/lib/auth/truvern-governance";
+import { insertGovernanceAuditLog } from "@/lib/repositories/governance-audit-log-repository";
 
 type AuditInput = {
   organizationId?: number | null;
@@ -21,28 +21,15 @@ export async function writeGovernanceAuditLog(input: AuditInput) {
   }
 
   try {
-    await prisma.$executeRawUnsafe(
-      `
-      insert into "AuditLog" (
-        "organizationId",
-        "actorUserId",
-        "entityType",
-        "entityId",
-        "action",
-        "message",
-        "metadata",
-        "createdAt"
-      )
-      values ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
-      `,
-      input.organizationId ?? null,
+    await insertGovernanceAuditLog({
+      organizationId: input.organizationId ?? null,
       actorUserId,
-      input.entityType,
-      String(input.entityId),
-      input.action,
-      input.message ?? null,
-      JSON.stringify(input.metadata ?? {}),
-    );
+      entityType: input.entityType,
+      entityId: String(input.entityId),
+      action: input.action,
+      message: input.message ?? null,
+      metadataJson: JSON.stringify(input.metadata ?? {}),
+    });
   } catch {
     // Audit failures must not break governance workflows.
   }

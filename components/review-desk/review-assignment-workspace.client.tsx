@@ -707,9 +707,9 @@ const initialFinalAssessment =
       .replace(/^Remediation:\s*/i, "")
       .replace(/^Follow-up:\s*/i, "")
       .replace(/^Condition:\s*/i, "")
-      .replace(/^€¢\s*/i, "")
-      .replace(/^â€¢\s*/i, "")
-      .replace(/^[•\-–—*]\s*/i, "")
+      .replace(/^\u00E2\u201A\u00AC\u00C2\u00A2\s*/i, "")
+      .replace(/^\u00C3\u00A2\u00E2\u201A\u00AC\u00C2\u00A2\s*/i, "")
+      .replace(/^(?:\u00E2\u20AC\u00A2|\u00E2\u20AC\u201C|\u00E2\u20AC\u201D|[\u2022\-\u2013\u2014*])\s*/i, "")
       .trim();
   }
 
@@ -1206,7 +1206,7 @@ const initialFinalAssessment =
 
     if (!acceptedTruvernCreditSpend) {
       setShowTruvernCreditPanel(true);
-      setMessage("Review the Truvern credit reservation before routing.");
+      setMessage("Review the Professional Review credit reservation before routing.");
       return;
     }
 
@@ -1246,7 +1246,7 @@ const initialFinalAssessment =
         throw new Error(data?.error || data?.detail || data?.code || "Failed to route to Truvern.");
       }
 
-      setMessage("Review routed to Truvern. Credit reserved.");
+      setMessage("Professional Review activated on this same review. 1 Truvern credit reserved.");
 
       setTimeout(() => {
         window.location.reload();
@@ -1696,11 +1696,11 @@ const initialFinalAssessment =
                     onClick={() => {
                       setShowTruvernCreditPanel(true);
                       setTruvernCreditError(null);
-                      setMessage("Review the Truvern credit reservation before routing.");
+                      setMessage("Review the Professional Review credit reservation before routing.");
                     }}
                     className="rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-3 text-sm font-semibold text-violet-50 transition hover:bg-violet-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Route to Truvern
+                    Route to Professional Review
                   </button>
                 ) : null}
 
@@ -1729,15 +1729,15 @@ const initialFinalAssessment =
           {showTruvernCreditPanel && !isTruvern ? (
             <div className="rounded-3xl border border-cyan-300/20 bg-slate-950/70 p-5 shadow-xl shadow-cyan-950/20">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
-                Truvern credit reservation
+                Professional Review credit reservation
               </p>
 
               <h4 className="mt-3 text-xl font-semibold text-white">
-                Confirm expert review spend
+                Confirm Professional Review
               </h4>
 
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Truvern expert review is sold separately from platform plans. This action will reserve 1 Truvern credit before Truvern Ops begins review work.
+                Professional Review is sold separately from platform plans. Routing keeps this existing assessment and review record, reserves 1 Truvern credit, and transfers professional review responsibility to Truvern Ops. No second questionnaire is created.
               </p>
 
               {truvernCreditError ? (
@@ -1790,7 +1790,7 @@ const initialFinalAssessment =
                       className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950 text-cyan-400"
                     />
                     <span className="leading-6">
-                      I acknowledge that routing this assignment to Truvern Ops will reserve 1 Truvern credit from this organization&apos;s balance.
+                      I acknowledge that activating Professional Review will keep this existing assessment, route it to Truvern Ops, and reserve 1 Truvern credit from this organization&apos;s balance.
                     </span>
                   </label>
 
@@ -1801,7 +1801,7 @@ const initialFinalAssessment =
                       onClick={routeToTruvern}
                       className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {saving ? "Routing..." : "Confirm and reserve credit"}
+                      {saving ? "Routing..." : "Activate Professional Review"}
                     </button>
 
                     <button
@@ -3859,6 +3859,13 @@ function CreditMiniCard({
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 

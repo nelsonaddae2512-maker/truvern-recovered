@@ -1,7 +1,6 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
-
+import { updateEvidenceRequestReviewStatus } from "@/lib/repositories/evidence-request-review-repository";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -53,13 +52,10 @@ export async function POST(
       status = "REQUESTED";
     }
 
-    await prisma.$executeRawUnsafe(`
-      UPDATE "EvidenceRequest"
-      SET
-        status = '${status}'::"EvidenceRequestStatus",
-        "updatedAt" = NOW()
-      WHERE id = ${id}
-    `);
+    await updateEvidenceRequestReviewStatus({
+      id,
+      status,
+    });
 
     return NextResponse.json({
       ok: true,

@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
-import prisma from "@/lib/prisma";
 import { requireVendorAssessmentAccess } from "@/lib/auth/truvern-governance";
+import { findFirstTruvernRemediationRequest, updateTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "vendorResponse is required." }, { status: 400 });
     }
 
-    const existing = await prisma.truvernRemediationRequest.findFirst({
+    const existing = await findFirstTruvernRemediationRequest({
       where: {
         id: remediationId,
         finding: {
@@ -53,7 +54,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "Remediation request not found." }, { status: 404 });
     }
 
-    const remediation = await prisma.truvernRemediationRequest.update({
+    const remediation = await updateTruvernRemediationRequest({
       where: { id: remediationId },
       data: {
         status: "SUBMITTED",
@@ -66,7 +67,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     });
 
-    await prisma.truvernFrameworkAssessment.update({
+    await updateTruvernFrameworkAssessment({
       where: { id: assessmentId },
       data: {
         status: "IN_REVIEW",

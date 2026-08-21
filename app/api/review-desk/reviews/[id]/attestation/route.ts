@@ -1,7 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { signGovernancePayload } from "@/lib/governance-signature";
+import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,27 +33,39 @@ export async function GET(_req: Request, ctx: RouteContext) {
     );
   }
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      ra.id as "assignmentId",
-      ra."organizationId",
-      rr.id as "responseId",
-      rr.responses,
-      v.id as "vendorId",
-      v.name as "vendorName"
-    from "ReviewAssignment" ra
-    join "ReviewResponse" rr on rr."reviewAssignmentId" = ra.id
-    left join "ReviewRequest" req on req.id = ra."reviewRequestId"
-    left join "Vendor" v on v.id = req."vendorId"
-    where ra.id = $1
-    order by rr."updatedAt" desc
-    limit 1
-    `,
-    assignmentId,
-  );
+  const assignment = await findReviewAssignment({
+    where: { id: assignmentId },
+    select: {
+      id: true,
+      organizationId: true,
+      reviewRequest: {
+        select: {
+          vendor: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
 
-  const row = rows?.[0];
+  const latestResponse = assignment
+    ? await findLatestReviewResponse(assignmentId)
+    : null;
+
+  const row =
+    assignment && latestResponse
+      ? {
+          assignmentId: assignment.id,
+          organizationId: assignment.organizationId,
+          responseId: latestResponse.id,
+          responses: latestResponse.responses,
+          vendorId: assignment.reviewRequest?.vendor?.id ?? null,
+          vendorName: assignment.reviewRequest?.vendor?.name ?? null,
+        }
+      : null;
 
   if (!row) {
     return NextResponse.json(
@@ -60,8 +74,16 @@ export async function GET(_req: Request, ctx: RouteContext) {
     );
   }
 
-  const responses =
-    row.responses && typeof row.responses === "object" ? row.responses : {};
+    type GovernanceResponsesView = Record<string, any>;
+
+    const rawResponses = row.responses && typeof row.responses === "object" ? row.responses : {};
+
+    const responses: GovernanceResponsesView =
+      rawResponses &&
+      typeof rawResponses === "object" &&
+      !Array.isArray(rawResponses)
+        ? (rawResponses as GovernanceResponsesView)
+        : {};
 
   const snapshot =
     responses.governanceReleaseSnapshot &&

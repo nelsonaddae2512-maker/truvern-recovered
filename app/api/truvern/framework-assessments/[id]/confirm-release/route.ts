@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -8,6 +8,11 @@ import {
   buildFrameworkReleaseSnapshot,
   checksumSnapshot,
 } from "@/lib/governance/framework-release";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { countTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { countTruvernRemediationRequests } from "@/lib/repositories/truvern-remediation-request-repository";
+import { countTruvernAssessmentAttestations } from "@/lib/repositories/truvern-assessment-attestation-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +39,7 @@ export async function POST(_request: Request, context: RouteContext) {
     await requireReviewerAccess();
     await requireFrameworkAssessmentAccess(assessmentId);
 
-    const unresolvedFindings = await prisma.truvernAssessmentFinding.count({
+    const unresolvedFindings = await countTruvernAssessmentFindings({
       where: {
         assessmentId,
         OR: [
@@ -44,14 +49,14 @@ export async function POST(_request: Request, context: RouteContext) {
       },
     });
 
-    const unresolvedRemediation = await prisma.truvernRemediationRequest.count({
+    const unresolvedRemediation = await countTruvernRemediationRequests({
       where: {
         finding: { assessmentId },
         status: { in: ["REQUESTED", "IN_PROGRESS", "SUBMITTED", "REJECTED"] },
       },
     });
 
-    const unresolvedAttestations = await prisma.truvernAssessmentAttestation.count({
+    const unresolvedAttestations = await countTruvernAssessmentAttestations({
       where: {
         assessmentId,
         status: { in: ["REQUESTED", "SUBMITTED", "REJECTED"] },
@@ -73,7 +78,7 @@ export async function POST(_request: Request, context: RouteContext) {
       );
     }
 
-    const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+    const assessment = await findTruvernFrameworkAssessment({
       where: { id: assessmentId },
       include: {
         framework: true,
@@ -109,7 +114,7 @@ export async function POST(_request: Request, context: RouteContext) {
     const checksum = checksumSnapshot(snapshot);
     const releasedAt = new Date();
 
-    const updated = await prisma.truvernFrameworkAssessment.update({
+    const updated = await updateTruvernFrameworkAssessment({
       where: { id: assessmentId },
       data: {
         status: "RELEASED",

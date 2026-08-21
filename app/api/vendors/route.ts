@@ -1,7 +1,7 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import { requireDbOrganization } from "@/lib/org-db";
 import { VendorCriticality, VendorTier } from "@prisma/client";
+import { createVendor } from "@/lib/repositories/vendor-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const vendor = await prisma.vendor.create({
+    const vendor = await createVendor({
       data: {
         name,
         organizationId: org.id,

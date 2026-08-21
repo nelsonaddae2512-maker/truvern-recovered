@@ -1,8 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
+import { readVendorContactRoles } from "@/lib/repositories/vendor-contact-role-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,19 +48,7 @@ export async function GET() {
       );
     }
 
-    const rows = await prisma.$queryRawUnsafe<EnumRow[]>(
-      `
-      select e.enumlabel as value
-      from pg_enum e
-      join pg_type t
-        on t.oid = e.enumtypid
-      join pg_namespace n
-        on n.oid = t.typnamespace
-      where n.nspname = 'public'
-        and t.typname = 'VendorContactRole'
-      order by e.enumsortorder
-      `,
-    );
+    const rows = await readVendorContactRoles();
 
     const roles = rows
       .map((row) => String(row.value || "").trim())

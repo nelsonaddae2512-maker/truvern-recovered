@@ -1,5 +1,5 @@
-﻿import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { findFirstGovernanceTransparencyLog } from "@/lib/repositories/governance-transparency-log-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,28 +25,24 @@ export async function GET(_req: Request, ctx: RouteContext) {
       );
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        id,
-        "entryId",
-        "assignmentId",
-        "responseId",
-        checksum,
-        "ledgerHash",
-        "receiptId",
-        timestamp,
-        "previousEntryHash",
-        "entryHash",
-        "createdAt"
-      from "GovernanceTransparencyLog"
-      where "receiptId" = $1
-      limit 1
-      `,
-      receiptId,
-    );
-
-    const entry = rows?.[0] ?? null;
+    const entry = await findFirstGovernanceTransparencyLog({
+      where: {
+        receiptId,
+      },
+      select: {
+        id: true,
+        entryId: true,
+        assignmentId: true,
+        responseId: true,
+        checksum: true,
+        ledgerHash: true,
+        receiptId: true,
+        timestamp: true,
+        previousEntryHash: true,
+        entryHash: true,
+        createdAt: true,
+      },
+    });
 
     if (!entry) {
       return NextResponse.json(

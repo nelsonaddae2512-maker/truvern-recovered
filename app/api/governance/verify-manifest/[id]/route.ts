@@ -1,10 +1,11 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import prisma from "@/lib/prisma";
 import {
   buildSignedGovernanceManifest,
   verifySignedGovernanceManifest,
 } from "@/lib/governance/manifest";
+import { findGovernanceTransparencyLogs } from "@/lib/repositories/governance-transparency-log-repository";
+import { findGovernanceReleaseManifest } from "@/lib/repositories/review-release-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,24 +30,43 @@ export async function GET(
       );
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        gm.*
-      from "GovernanceReleaseManifest" gm
-      left join "GovernanceTransparencyLog" gtl
-        on gtl."assignmentId" = gm."reviewAssignmentId"
-      where gm.id = $2
-         or gm."reviewAssignmentId" = $2
-         or gtl."receiptId" = $1
-      order by gm."createdAt" desc
-      limit 1
-      `,
-      id,
-      Number.isFinite(numericId) ? numericId : -1,
+    const receiptEntries = await findGovernanceTransparencyLogs({
+      where: {
+        receiptId: id,
+      },
+      select: {
+        assignmentId: true,
+      },
+    });
+
+    const receiptAssignmentIds = Array.from(
+      new Set(receiptEntries.map((entry) => entry.assignmentId)),
     );
 
-    const manifestRow = rows[0];
+    const numericLookupId = Number.isFinite(numericId)
+      ? numericId
+      : -1;
+
+    const manifestRow = await findGovernanceReleaseManifest({
+      where: {
+        OR: [
+          { id: numericLookupId },
+          { reviewAssignmentId: numericLookupId },
+          ...(receiptAssignmentIds.length > 0
+            ? [
+                {
+                  reviewAssignmentId: {
+                    in: receiptAssignmentIds,
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     if (!manifestRow) {
       return NextResponse.json(
@@ -59,20 +79,46 @@ export async function GET(
       );
     }
 
-    const immutableSnapshot = manifestRow.immutableSnapshot || {};
+    type GovernanceManifestSnapshot =
+      Parameters<typeof buildSignedGovernanceManifest>[0]["snapshot"];
+
+    type BuiltGovernanceManifest =
+      ReturnType<typeof buildSignedGovernanceManifest>;
+
+    const immutableSnapshot =
+      (
+        manifestRow.immutableSnapshot &&
+        typeof manifestRow.immutableSnapshot === "object" &&
+        !Array.isArray(manifestRow.immutableSnapshot)
+          ? manifestRow.immutableSnapshot
+          : {}
+      ) as GovernanceManifestSnapshot;
+
+    const storedSignedManifest =
+      immutableSnapshot as unknown as BuiltGovernanceManifest;
+
+    const signatureView = immutableSnapshot as GovernanceManifestSnapshot & {
+      signature?: string | null;
+      publicKeyFingerprint?: string | null;
+      governanceSeal?: {
+        signature?: string | null;
+        publicKeyFingerprint?: string | null;
+      } | null;
+    };
+
     const signature =
-      immutableSnapshot.signature ||
-      immutableSnapshot.governanceSeal?.signature ||
+      signatureView.signature ||
+      signatureView.governanceSeal?.signature ||
       null;
 
     const publicKeyFingerprint =
-      immutableSnapshot.publicKeyFingerprint ||
-      immutableSnapshot.governanceSeal?.publicKeyFingerprint ||
+      signatureView.publicKeyFingerprint ||
+      signatureView.governanceSeal?.publicKeyFingerprint ||
       null;
 
     const backfilledManifest =
       signature
-        ? immutableSnapshot
+        ? storedSignedManifest
         : buildSignedGovernanceManifest({
             organizationId: manifestRow.organizationId,
             vendorId: manifestRow.vendorId,

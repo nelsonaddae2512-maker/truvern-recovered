@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { requireDbOrganization } from "@/lib/org-db";
 import prisma from "@/lib/prisma";
+import { aggregateTruvernCreditLedger } from "@/lib/repositories/review-credit-ledger-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,24 +126,23 @@ function resolveEligiblePlan(org: Record<string, unknown>) {
 async function getTruvernAccess(organizationId: number) {
   const requiredCredits = reviewCreditCost();
 
-  const balanceRows: Array<{
-    availableCredits: number;
-    reservedCredits: number;
-    consumedCredits: number;
-  }> = await prisma.$queryRawUnsafe(
-    `
-    select
-      coalesce(sum("availableDelta"), 0)::int as "availableCredits",
-      coalesce(sum("reservedDelta"), 0)::int as "reservedCredits",
-      coalesce(sum("consumedDelta"), 0)::int as "consumedCredits"
-    from "TruvernCreditLedgerEntry"
-    where "organizationId" = $1
-      and status = 'POSTED'::text
-    `,
-    organizationId,
-  );
+  const aggregate = await aggregateTruvernCreditLedger({
+    where: {
+      organizationId,
+      status: "POSTED",
+    },
+    _sum: {
+      availableDelta: true,
+      reservedDelta: true,
+      consumedDelta: true,
+    },
+  });
 
-  const balance = balanceRows[0];
+  const balance = {
+    availableCredits: aggregate._sum.availableDelta ?? 0,
+    reservedCredits: aggregate._sum.reservedDelta ?? 0,
+    consumedCredits: aggregate._sum.consumedDelta ?? 0,
+  };
 
   const availableCredits = Number(balance?.availableCredits ?? 0);
   const reservedCredits = Number(balance?.reservedCredits ?? 0);

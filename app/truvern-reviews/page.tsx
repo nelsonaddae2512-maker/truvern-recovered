@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 const steps = [
   {
@@ -48,10 +48,12 @@ export default function ManagedReviewsPage() {
         </h1>
 
         <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300">
-          Truvern Reviews is the done-for-you vendor review lane:
-          Truvern Ops accepts the request, sends the questionnaire, reviews the
-          vendor response, generates findings and remediation requests, then
-          releases the final governance output.
+          Truvern Review is the end-to-end vendor governance lane. For 1 Truvern
+          credit, Truvern Ops manages questionnaire delivery, vendor follow-up,
+          evidence review, findings, remediation, and the final governance
+          release. If your team has already launched the assessment, use
+          Professional Review instead to route that same review to Truvern
+          without creating another questionnaire.
         </p>
 
         <div className="mt-8">
@@ -147,6 +149,7 @@ export default function ManagedReviewsPage() {
     </main>
   );
 }
+
 
 
 

@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -6,6 +6,11 @@ import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
 import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { generateFindings, type TruvernGeneratedFinding } from "@/lib/governance/findings-engine";
 import type { TruvernScoringInput } from "@/lib/governance/scoring-engine";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { findTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { deleteTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { createTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,7 +59,7 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "Invalid assessment id." }, { status: 400 });
     }
 
-    const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+    const assessment = await findTruvernFrameworkAssessment({
       where: { id },
       include: {
         responses: {
@@ -76,15 +81,15 @@ export async function POST(_request: Request, context: RouteContext) {
     const result = generateFindings(normalizeResponses(assessment.responses));
 
     const created = await prisma.$transaction(async (tx) => {
-      await tx.truvernAssessmentFinding.deleteMany({
+      await deleteTruvernAssessmentFindings({
         where: {
           assessmentId: id,
           status: "OPEN",
         },
-      });
+      }, tx);
 
       if (result.findings.length > 0) {
-        await tx.truvernAssessmentFinding.createMany({
+        await createTruvernAssessmentFindings({
           data: result.findings.map((finding) => ({
             assessmentId: id,
             controlId: Number.isInteger(Number(finding.controlKey)) ? Number(finding.controlKey) : null,
@@ -98,10 +103,10 @@ export async function POST(_request: Request, context: RouteContext) {
             dueAt: new Date(Date.now() + finding.dueInDays * 24 * 60 * 60 * 1000),
             metadata: finding.metadata as Prisma.InputJsonValue,
           })),
-        });
+        }, tx);
       }
 
-      await tx.truvernFrameworkAssessment.update({
+      await updateTruvernFrameworkAssessment({
         where: { id },
         data: {
           score: result.score.score,
@@ -122,12 +127,12 @@ export async function POST(_request: Request, context: RouteContext) {
             attestationRequired: result.attestationRequired,
           },
         },
-      });
+      }, tx);
 
-      return tx.truvernAssessmentFinding.findMany({
+      return findTruvernAssessmentFindings({
         where: { assessmentId: id },
         orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
-      });
+      }, tx);
     });
 
     await writeGovernanceAuditLog({

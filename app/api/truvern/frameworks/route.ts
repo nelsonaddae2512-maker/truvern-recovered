@@ -1,7 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
-import prisma from "@/lib/prisma";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { findTruvernFrameworks, createTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ function slugify(value: string) {
 export async function GET() {
   try {
     await requireReviewerAccess();
-    const frameworks = await prisma.truvernFramework.findMany({
+    const frameworks = await findTruvernFrameworks({
       orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
       include: {
         _count: {
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Invalid framework status." }, { status: 400 });
     }
 
-    const framework = await prisma.truvernFramework.create({
+    const framework = await createTruvernFramework({
       data: {
         name,
         slug,

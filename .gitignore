@@ -519,3 +519,26 @@ prisma/seed.prod.ts.bak*
 prisma/verify.ts
 prisma/verify.prod.ts
 prisma/seed/
+*.pem
+*.key
+*.p12
+*.pfx
+*.bak_*
+*.backup_*
+*.backup-*
+*.corrupted.bak
+*.empty-backup
+*.broken-backup
+*corrupted-transcript*
+/cls
+/-Destination
+*.bak
+# Truvern release hygiene
+tools/atlas/output/
+tools/atlas/snapshots/
+# Local RS / RC diagnostic artifacts
+ATLAS-CONFIRM-RELEASE-TEST-CONTEXT.txt
+RC33-*.txt
+RS-*.txt
+RS-*.ps1
+RC33*.txt

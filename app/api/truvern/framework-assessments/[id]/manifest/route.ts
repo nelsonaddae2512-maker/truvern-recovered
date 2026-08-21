@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireReleasePacketAccess } from "@/lib/auth/truvern-governance";
-import prisma from "@/lib/prisma";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { readFrameworkAssessmentAuditEventIds } from "@/lib/repositories/framework-assessment-audit-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     await requireReleasePacketAccess(assessmentId);
 
-    const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+    const assessment = await findTruvernFrameworkAssessment({
       where: {
         id: assessmentId,
       },
@@ -62,17 +63,8 @@ export async function GET(request: Request, context: RouteContext) {
     const snapshot = metadata.governanceReleaseSnapshot ?? null;
     const seal = metadata.governanceSeal ?? null;
 
-    const auditEvents = await prisma.$queryRawUnsafe<
-      Array<{ id: number }>
-    >(
-      `
-      select id
-      from "AuditLog"
-      where "entityType" = 'TruvernFrameworkAssessment'
-        and "entityId" = $1
-      `,
-      String(assessmentId),
-    );
+    const auditEvents =
+      await readFrameworkAssessmentAuditEventIds(assessmentId);
 
     const origin = new URL(request.url).origin;
 

@@ -1,9 +1,9 @@
 import QRCode from "qrcode";
 import { NextResponse } from "next/server";
 const PDFDocument = require("pdfkit/js/pdfkit.standalone.js");
-import prisma from "@/lib/prisma";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
+import { readGovernancePacketAssignment, readGovernancePacketEvidence } from "@/lib/repositories/governance-packet-pdf-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,23 +71,7 @@ export async function GET(request: Request, { params }: Props) {
     return NextResponse.json({ ok: false, error: "Invalid assignment id." }, { status: 400 });
   }
 
-  const rows = await prisma.$queryRawUnsafe(`
-    select
-      ra.id as "assignmentId",
-      ra.status as "assignmentStatus",
-      rr.responses,
-      rr."updatedAt" as "outcomeUpdatedAt",
-      v.id as "vendorId",
-      v.name as "vendorName",
-      v.category as "vendorCategory"
-    from "ReviewAssignment" ra
-    left join "ReviewResponse" rr on rr."reviewAssignmentId" = ra.id
-    left join "ReviewRequest" req on req.id = ra."reviewRequestId"
-    left join "Vendor" v on v.id = req."vendorId"
-    where ra.id = $1
-    order by rr."updatedAt" desc nulls last
-    limit 1
-  `, assignmentId) as any[];
+  const rows = await readGovernancePacketAssignment(assignmentId);
 
   const row = rows?.[0];
 
@@ -325,19 +309,9 @@ writeBlock(doc, "Executive Summary", governanceDisplayText(executiveSummary));
   writeBlock(doc, "Final Assessment", governanceDisplayText(finalAssessment));
   writeBlock(doc, "Conditions & Follow-ups", governanceDisplayText(conditions));
 
-const evidenceRows: any[] = await prisma.$queryRawUnsafe(
-  `
-    select
-      e.id,
-      e."createdAt",
-      er.title as "requestTitle"
-    from "Evidence" e
-    left join "EvidenceRequest" er on er.id = e."evidenceRequestId"
-    where e."vendorId" = $1
-    order by e."createdAt" asc
-  `,
-  row.vendorId,
-);
+  const evidenceRows = row.vendorId
+    ? await readGovernancePacketEvidence(Number(row.vendorId))
+    : [];
 
 doc.moveDown(0.35);
 
@@ -655,7 +629,7 @@ doc
 doc.moveDown(0.5);
 
 doc.fontSize(9).fillColor("#64748b").text(
-  "Truvern Governance Systems • Immutable Governance Record",
+  "Truvern Governance Systems â€¢ Immutable Governance Record",
   { align: "center" },
 );
 
@@ -701,7 +675,7 @@ const signatureBlocks = [
   {
     label: "Immutable seal attestation",
     name: checksum === renderedChecksum ? "Seal verified" : "Seal pending review",
-    meta: `SIG ${signatureFingerprint.slice(0, 16)}... • CHK ${checksum.slice(0, 12)}...`,
+    meta: `SIG ${signatureFingerprint.slice(0, 16)}... â€¢ CHK ${checksum.slice(0, 12)}...`,
   },
 ];
 
@@ -750,7 +724,7 @@ doc.y = signatureTop + signatureHeight + 8;
 doc.x = pageLeft;
 
 doc.fontSize(9).fillColor("#64748b").text(
-  "Truvern Governance Systems • Immutable Governance Record",
+  "Truvern Governance Systems â€¢ Immutable Governance Record",
   { align: "center" },
 );
 
@@ -790,7 +764,7 @@ doc
 doc
   .fontSize(7.5)
   .fillColor("#64748b")
-  .text(`Release record: assignment-${assignmentId} • Checksum ${checksum.slice(0, 16)}...`, pageLeft + 14, verifyTop + 46, {
+  .text(`Release record: assignment-${assignmentId} â€¢ Checksum ${checksum.slice(0, 16)}...`, pageLeft + 14, verifyTop + 46, {
     width: pageWidth - 120,
   });
 
@@ -831,7 +805,7 @@ doc.x = pageLeft;
       .fontSize(8)
       .fillColor("#94a3b8")
       .text(
-        `Truvern Governance Systems • Immutable Governance Record • Page ${i + 1} of ${range.count}`,
+        `Truvern Governance Systems â€¢ Immutable Governance Record â€¢ Page ${i + 1} of ${range.count}`,
         54,
         footerY,
         {

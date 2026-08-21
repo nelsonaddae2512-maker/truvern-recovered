@@ -1,6 +1,6 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
+import { deleteNotifications } from "@/lib/repositories/notification-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function DELETE(
     );
   }
 
-  await prisma.notification.deleteMany({
+  await deleteNotifications({
     where: {
       id,
       userId,

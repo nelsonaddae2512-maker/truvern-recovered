@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
-import prisma from "@/lib/prisma";
 import { requireReleasePacketAccess } from "@/lib/auth/truvern-governance";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { readFrameworkAssessmentAuditTimeline } from "@/lib/repositories/framework-assessment-audit-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   await requireReleasePacketAccess(assessmentId);
 
-  const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+  const assessment = await findTruvernFrameworkAssessment({
     where: { id: assessmentId },
     include: {
       framework: true,
@@ -40,32 +41,8 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: "Assessment not found." }, { status: 404 });
   }
 
-  const auditEvents = await prisma.$queryRawUnsafe<
-    Array<{
-      id: number;
-      actorUserId: string | null;
-      action: string;
-      message: string | null;
-      metadata: unknown;
-      createdAt: Date;
-    }>
-  >(
-    `
-    select
-      id,
-      "actorUserId",
-      action,
-      message,
-      metadata,
-      "createdAt"
-    from "AuditLog"
-    where "entityType" = 'TruvernFrameworkAssessment'
-      and "entityId" = $1
-    order by "createdAt" asc, id asc
-    limit 100
-    `,
-    String(assessmentId),
-  );
+  const auditEvents =
+    await readFrameworkAssessmentAuditTimeline(assessmentId);
 
   const metadata = assessment.metadata && typeof assessment.metadata === "object" ? assessment.metadata as any : {};
   const seal = metadata.governanceSeal ?? null;
@@ -98,11 +75,11 @@ export async function GET(_request: Request, context: RouteContext) {
   <section class="card">
     <div class="eyebrow">Truvern framework assessment release packet</div>
     <h1>${assessment.title}</h1>
-    <p class="muted">${assessment.framework.name}${assessment.framework.version ? ` · ${assessment.framework.version}` : ""}</p>
+    <p class="muted">${assessment.framework.name}${assessment.framework.version ? ` Â· ${assessment.framework.version}` : ""}</p>
     <div class="grid">
       <div class="metric"><strong>Status</strong><br/>${assessment.status}</div>
       <div class="metric"><strong>Risk</strong><br/>${assessment.riskLevel ?? "Unscored"}</div>
-      <div class="metric"><strong>Score</strong><br/>${assessment.score ?? "—"} / ${assessment.maxScore ?? "—"}</div>
+      <div class="metric"><strong>Score</strong><br/>${assessment.score ?? "â€”"} / ${assessment.maxScore ?? "â€”"}</div>
       <div class="metric"><strong>Released</strong><br/>${assessment.releasedAt ? new Date(assessment.releasedAt).toISOString() : "Not released"}</div>
     </div>
   </section>
@@ -120,7 +97,7 @@ export async function GET(_request: Request, context: RouteContext) {
     <p class="muted">${assessment.findings.length} finding(s) recorded.</p>
     ${assessment.findings.map((finding) => `
       <div class="metric">
-        <strong>${finding.severity} · ${finding.status}</strong><br/>
+        <strong>${finding.severity} Â· ${finding.status}</strong><br/>
         ${finding.title}<br/>
         <span class="muted">${finding.description}</span>
       </div>
@@ -162,10 +139,10 @@ export async function GET(_request: Request, context: RouteContext) {
         <span class="pill">${file.scope ?? "evidence"}</span>
         ${file.controlId ? `<span class="pill">${file.controlId}</span>` : ""}
         <strong>${file.filename ?? "Evidence file"}</strong><br/>
-        <span class="muted">Evidence ID: ${file.evidenceId ?? "—"}</span><br/>
-        <span class="muted">Content type: ${file.contentType ?? "—"} · Size: ${file.sizeBytes ?? "—"} bytes</span><br/>
+        <span class="muted">Evidence ID: ${file.evidenceId ?? "â€”"}</span><br/>
+        <span class="muted">Content type: ${file.contentType ?? "â€”"} Â· Size: ${file.sizeBytes ?? "â€”"} bytes</span><br/>
         <span class="muted">S3 key:</span>
-        <div class="seal">${file.key ?? "—"}</div>
+        <div class="seal">${file.key ?? "â€”"}</div>
       </div>
     `).join("") : `<p class="muted">No evidence files were sealed with this release.</p>`}
   </section>

@@ -1,6 +1,6 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import prisma from "@/lib/prisma";
+import { findFirstGovernanceTransparencyLog } from "@/lib/repositories/governance-transparency-log-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,30 +25,33 @@ export async function GET(
 
   const numericId = Number(id);
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      gtl.id,
-      gtl."receiptId",
-      gtl."assignmentId",
-      gtl."responseId",
-      gtl.checksum,
-      gtl."entryHash",
-      gtl."previousEntryHash",
-      gtl.timestamp,
-      gtl."createdAt"
-    from "GovernanceTransparencyLog" gtl
-    where gtl."receiptId" = $1
-       or gtl."assignmentId" = $2
-       or gtl.id = $2
-    order by gtl."createdAt" desc
-    limit 1
-    `,
-    id,
-    Number.isFinite(numericId) ? numericId : -1,
-  );
+  const numericLookupId = Number.isFinite(numericId)
+    ? numericId
+    : -1;
 
-  const entry = rows[0];
+  const entry = await findFirstGovernanceTransparencyLog({
+    where: {
+      OR: [
+        { receiptId: id },
+        { assignmentId: numericLookupId },
+        { id: numericLookupId },
+      ],
+    },
+    select: {
+      id: true,
+      receiptId: true,
+      assignmentId: true,
+      responseId: true,
+      checksum: true,
+      entryHash: true,
+      previousEntryHash: true,
+      timestamp: true,
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
   if (!entry) {
     return NextResponse.json(

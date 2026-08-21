@@ -1,4 +1,3 @@
-﻿import prisma from "@/lib/prisma";
 import {
   WorkflowEvent,
   type WorkflowEventType,
@@ -8,6 +7,13 @@ import {
 import { upsertWorkflowQueueItem } from "@/lib/workflow/queue-manager";
 import { recordWorkflowActivity } from "@/lib/workflow/activity-service";
 import { recordWorkflowNotification } from "@/lib/workflow/notification-service";
+import {
+  createWorkflowForEvent,
+  insertWorkflowEventRecord,
+  readWorkflowEventPackageContext,
+  updateWorkflowEventPackageStatus,
+  updateWorkflowEventStage,
+} from "@/lib/repositories/workflow-events-repository";
 
 type WorkflowEventInput = {
   event: WorkflowEventType;
@@ -24,24 +30,7 @@ type WorkflowEventInput = {
 async function resolvePackageContext(packageId?: number | null) {
   if (!packageId) return null;
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    select
-      rp.id,
-      rp."reviewAssignmentId",
-      rp."vendorId",
-      rp."organizationId",
-      rp.severity,
-      rp."dueAt",
-      wi.id as "workflowId"
-    from "RemediationPackage" rp
-    left join "WorkflowInstance" wi
-      on wi."reviewAssignmentId" = rp."reviewAssignmentId"
-     and wi."vendorId" = rp."vendorId"
-     and wi.type = 'VENDOR_GOVERNANCE_REVIEW'
-    where rp.id = $1
-    limit 1
-    `,
+  const rows: any[] = await readWorkflowEventPackageContext(
     packageId,
   );
 
@@ -57,23 +46,7 @@ async function ensureWorkflow(input: {
 }) {
   if (input.workflowId) return input.workflowId;
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    insert into "WorkflowInstance" (
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      type,
-      status,
-      priority,
-      "currentStage",
-      payload,
-      "createdAt",
-      "updatedAt"
-    )
-    values ($1, $2, $3, 'VENDOR_GOVERNANCE_REVIEW', 'ACTIVE', 'NORMAL', $4, $5::jsonb, now(), now())
-    returning id
-    `,
+  const rows: any[] = await createWorkflowForEvent(
     input.organizationId,
     input.vendorId ?? null,
     input.reviewAssignmentId ?? null,
@@ -112,21 +85,7 @@ export async function emitWorkflowEvent(input: WorkflowEventInput) {
       .toLowerCase()
       .replace(/^\w/, (letter) => letter.toUpperCase());
 
-  await prisma.$executeRawUnsafe(
-    `
-    insert into "WorkflowEvent" (
-      "workflowId",
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      type,
-      actor,
-      summary,
-      payload,
-      "createdAt"
-    )
-    values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, now())
-    `,
+  await insertWorkflowEventRecord(
     workflowId,
     organizationId,
     vendorId,
@@ -137,23 +96,13 @@ export async function emitWorkflowEvent(input: WorkflowEventInput) {
     JSON.stringify(input.payload ?? {}),
   );
 
-  await prisma.$executeRawUnsafe(
-    `
-    update "WorkflowInstance"
-    set "currentStage" = $1, "updatedAt" = now()
-    where id = $2
-    `,
+  await updateWorkflowEventStage(
     stage,
     workflowId,
   );
 
   if (input.packageId && packageStatus) {
-    await prisma.$executeRawUnsafe(
-      `
-      update "RemediationPackage"
-      set status = $1, "updatedAt" = now()
-      where id = $2
-      `,
+    await updateWorkflowEventPackageStatus(
       packageStatus,
       input.packageId,
     );

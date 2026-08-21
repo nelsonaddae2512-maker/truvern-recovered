@@ -1,7 +1,8 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
+import { readLatestVendorReviewStates } from "@/lib/repositories/vendor-list-review-state-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -197,34 +198,7 @@ export default async function VendorsPage() {
     },
   });
 
-  const reviewStateRows = await prisma.$queryRawUnsafe<
-    Array<{
-      vendorId: number;
-      assignmentStatus: string | null;
-      releaseState: string | null;
-      intent: string | null;
-    }>
-  >(
-    `
-    select distinct on (rr."vendorId")
-      rr."vendorId"::int as "vendorId",
-      ra.status::text as "assignmentStatus",
-      coalesce(resp.responses->>'releaseState', '')::text as "releaseState",
-      coalesce(resp.responses->>'intent', '')::text as intent
-    from "ReviewRequest" rr
-    join "ReviewAssignment" ra on ra."reviewRequestId" = rr.id
-    left join lateral (
-      select r.responses
-      from "ReviewResponse" r
-      where r."reviewAssignmentId" = ra.id
-      order by r."updatedAt" desc, r.id desc
-      limit 1
-    ) resp on true
-    where rr."organizationId" = $1
-      and resp.responses is not null
-      and coalesce(resp.responses->>'releaseState', '') not in ('ARCHIVED', 'CANCELLED', 'CANCELED')
-    order by rr."vendorId", ra."updatedAt" desc, ra.id desc
-    `,
+  const reviewStateRows = await readLatestVendorReviewStates(
     organizationId,
   );
 

@@ -1,10 +1,11 @@
-﻿import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import VendorAssessmentRunClient from "@/components/vendor-assessment-run-client";
 import VendorAssessmentAutoRefresh from "@/components/vendor-assessment-auto-refresh.client";
 import VendorEvidenceRequestSubmitClient from "@/components/vendor-portal/vendor-evidence-request-submit.client";
 import VendorRemediationCard from "@/components/vendor-portal/vendor-remediation-card";
 import VendorRemediationProgress from "@/components/vendor-portal/vendor-remediation-progress";
+import { readVendorAssessmentEvidenceRequests, readVendorAssessmentLatestRelease } from "@/lib/repositories/vendor-assessment-portal-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,35 +120,7 @@ export default async function VendorAssessmentPortalPage({
         options: parseOptions(question.options),
       }))
     ) || [];
-  const releaseRows = await prisma.$queryRawUnsafe<
-    Array<{
-      assignmentId: number | null;
-      requestId: number | null;
-      assignmentStatus: string | null;
-      releaseState: string | null;
-      intent: string | null;
-    }>
-  >(
-    `
-    select
-      ra.id as "assignmentId",
-      rr.id as "requestId",
-      ra.status::text as "assignmentStatus",
-      coalesce(resp.responses->>'releaseState', '')::text as "releaseState",
-      coalesce(resp.responses->>'intent', '')::text as intent
-    from "ReviewRequest" rr
-    join "ReviewAssignment" ra on ra."reviewRequestId" = rr.id
-    left join lateral (
-      select r.responses
-      from "ReviewResponse" r
-      where r."reviewAssignmentId" = ra.id
-      order by r."updatedAt" desc, r.id desc
-      limit 1
-    ) resp on true
-    where rr."vendorId" = $1
-    order by ra."updatedAt" desc, ra.id desc
-    limit 1
-    `,
+  const releaseRows = await readVendorAssessmentLatestRelease(
     assessment.vendor.id,
   );
 
@@ -218,51 +191,10 @@ export default async function VendorAssessmentPortalPage({
       and upper(coalesce(rp.status, '')) <> 'CANCELLED'
     order by rp."createdAt" desc, rp.id desc
   `;
-const evidenceRequestRows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: number;
-      status: string | null;
-      title: string | null;
-      notes: string | null;
-      reviewNote: string | null;
-      dueAt: Date | string | null;
-      fulfilledEvidenceId: number | null;
-      fulfilledAt: Date | string | null;
-      createdAt: Date | string | null;
-      packageId: number | null;
-      packageTitle: string | null;
-      packageStatus: string | null;
-      packageSeverity: string | null;
-      packagePayload: any;
-    }>
-  >(
-    `
-    select
-      er.id,
-      er.status::text as status,
-      er.title,
-      er.notes,
-      er."reviewNote",
-      er."dueAt",
-      er."fulfilledEvidenceId",
-      er."fulfilledAt",
-      er."createdAt",
-      rp.id as "packageId",
-      rp.title as "packageTitle",
-      rp.status as "packageStatus",
-      rp.severity as "packageSeverity",
-      rp.payload as "packagePayload"
-    from "EvidenceRequest" er
-    left join "RemediationPackage" rp on rp."evidenceRequestId" = er.id
-    left join "AssessmentRun" ar on ar.id = er."assessmentRunId"
-    where (ar."assessmentId" = $1
-       or er."vendorId" = $2)
-      and upper(coalesce(er.status::text, '')) <> 'CANCELLED'
-    order by er."createdAt" desc
-    `,
-    assessment.id,
-    assessment.vendor.id,
-  );
+  const evidenceRequestRows = await readVendorAssessmentEvidenceRequests({
+    assessmentId: assessment.id,
+    vendorId: assessment.vendor.id,
+  });
 
     const packageLinkedEvidenceRequestIds = new Set(
     vendorRemediationPackages

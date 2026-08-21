@@ -1,6 +1,9 @@
-﻿// lib/vendor-notifications.ts
+// lib/vendor-notifications.ts
 import prisma from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
+import {
+  COMMUNICATION_MAILBOX_KEYS,
+  sendCommunication,
+} from "@/lib/communications";
 
 function safe(s: any) {
   return typeof s === "string" ? s : s == null ? "" : String(s);
@@ -95,12 +98,24 @@ export async function notifyVendorEvidenceStatusChange(args: {
 
   let orgName = "Your customer";
   const orgId = (req as any).organizationId;
-  if (orgId != null) {
-    const org = await prisma.organization.findUnique({
-      where: { id: orgId },
-      select: { name: true } as any,
-    });
-    if (org?.name) orgName = String((org as any).name ?? "");
+
+  if (orgId == null) {
+    return {
+      ok: false as const,
+      skipped: true as const,
+      reason: "EvidenceRequest is not linked to an organization",
+      evidenceRequestId: (req as any).id,
+      vendorId: (req as any).vendorId,
+    };
+  }
+
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { name: true } as any,
+  });
+
+  if (org?.name) {
+    orgName = String((org as any).name ?? "");
   }
 
   const vendorName = safe((vendor as any)?.name || "Vendor");
@@ -125,10 +140,22 @@ export async function notifyVendorEvidenceStatusChange(args: {
     </p>
   </div>`;
 
-  await sendEmail({
+  await sendCommunication({
+    organizationId: orgId,
+    mailboxKey:
+      COMMUNICATION_MAILBOX_KEYS.ASSESSMENTS,
     to: vendorEmail,
     subject: args.subject,
     html,
+    priority: "NORMAL",
+    channel: "EMAIL",
+    externalThreadId:
+      `evidence-request:${(req as any).id}:vendor-status`,
+    context: {
+      organizationId: orgId,
+      vendorId: (req as any).vendorId,
+      evidenceRequestId: (req as any).id,
+    },
   });
 
   return { ok: true as const, to: vendorEmail };

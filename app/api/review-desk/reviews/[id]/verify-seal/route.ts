@@ -1,10 +1,12 @@
-﻿import { createHash } from "node:crypto";
+import { createHash } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { requireDbOrganization } from "@/lib/org-db";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
+import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,28 +112,39 @@ const params = await ctx.params;
       );
     }
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        ra.id as "assignmentId",
-        ra.status as "assignmentStatus",
-        rr.id as "responseId",
-        rr.responses,
-        rr."updatedAt" as "outcomeUpdatedAt",
-        v.id as "vendorId",
-        v.name as "vendorName"
-      from "ReviewAssignment" ra
-      left join "ReviewResponse" rr on rr."reviewAssignmentId" = ra.id
-      left join "ReviewRequest" req on req.id = ra."reviewRequestId"
-      left join "Vendor" v on v.id = req."vendorId"
-      where ra.id = $1
-      order by rr."updatedAt" desc nulls last
-      limit 1
-      `,
-      assignmentId,
-    );
+    const assignment = await findReviewAssignment({
+      where: { id: assignmentId },
+      select: {
+        id: true,
+        status: true,
+        reviewRequest: {
+          select: {
+            vendor: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-    const row = rows?.[0];
+    const latestResponse = assignment
+      ? await findLatestReviewResponse(assignmentId)
+      : null;
+
+    const row = assignment
+      ? {
+          assignmentId: assignment.id,
+          assignmentStatus: assignment.status,
+          responseId: latestResponse?.id ?? null,
+          responses: latestResponse?.responses ?? {},
+          outcomeUpdatedAt: latestResponse?.updatedAt ?? null,
+          vendorId: assignment.reviewRequest?.vendor?.id ?? null,
+          vendorName: assignment.reviewRequest?.vendor?.name ?? null,
+        }
+      : null;
 
     if (!row) {
       return NextResponse.json(
@@ -140,9 +153,17 @@ const params = await ctx.params;
       );
     }
 
-    const responses =
-      row.responses && typeof row.responses === "object"
+    type GovernanceResponsesView = Record<string, any>;
+
+    const rawResponses = row.responses && typeof row.responses === "object"
         ? row.responses
+        : {};
+
+    const responses: GovernanceResponsesView =
+      rawResponses &&
+      typeof rawResponses === "object" &&
+      !Array.isArray(rawResponses)
+        ? (rawResponses as GovernanceResponsesView)
         : {};
 
     const snapshot =

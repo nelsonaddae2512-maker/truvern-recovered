@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
+import {
+  insertOpsCreditGrant,
+  readOpsCreditBalance,
+  readOpsCreditGrantOrganization,
+} from "@/lib/repositories/ops-credit-grant-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,15 +56,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const orgRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select id, name
-      from "Organization"
-      where id = $1
-      limit 1
-      `,
-      organizationId,
-    );
+    const orgRows =
+      await readOpsCreditGrantOrganization(organizationId);
 
     const org = orgRows?.[0];
 
@@ -73,56 +70,14 @@ export async function POST(req: Request) {
 
     const eventKey = `legacy-ops-grant:${organizationId}:${Date.now()}`;
 
-    await prisma.$executeRawUnsafe(
-      `
-      insert into "TruvernCreditLedgerEntry" (
-        "organizationId",
-        "entryType",
-        "status",
-        "fundingSource",
-        "availableDelta",
-        "reservedDelta",
-        "consumedDelta",
-        "quantity",
-        "reason",
-        "note",
-        "eventKey",
-        "createdAt",
-        "updatedAt"
-      )
-      values (
-        $1,
-        'GRANT'::"TruvernCreditEntryType",
-        'POSTED'::text,
-        'PROMOTIONAL'::"TruvernCreditFundingSource",
-        $2,
-        0,
-        0,
-        $2,
-        $3,
-        $3,
-        $4,
-        now(),
-        now()
-      )
-      `,
+    await insertOpsCreditGrant({
       organizationId,
       credits,
       reason,
       eventKey,
-    );
+    });
 
-    const balanceRows: any[] = await prisma.$queryRawUnsafe(
-      `
-      select
-        coalesce(sum("availableDelta"), 0)::int as "availableCredits",
-        coalesce(sum("reservedDelta"), 0)::int as "reservedCredits",
-        coalesce(sum("consumedDelta"), 0)::int as "consumedCredits"
-      from "TruvernCreditLedgerEntry"
-      where "organizationId" = $1
-      `,
-      organizationId,
-    );
+    const balanceRows = await readOpsCreditBalance(organizationId);
 
     return NextResponse.json(
       {

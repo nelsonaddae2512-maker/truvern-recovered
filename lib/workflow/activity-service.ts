@@ -1,4 +1,4 @@
-﻿import prisma from "@/lib/prisma";
+import { insertWorkflowActivity } from "@/lib/repositories/workflow-activity-repository";
 
 export async function recordWorkflowActivity(input: {
   packageId?: number | null;
@@ -14,35 +14,18 @@ export async function recordWorkflowActivity(input: {
 }) {
   if (!input.packageId) return null;
 
-  const rows: any[] = await prisma.$queryRawUnsafe(
-    `
-    insert into "RemediationActivity" (
-      "packageId",
-      "taskId",
-      "workflowId",
-      "reviewAssignmentId",
-      "vendorId",
-      "organizationId",
-      type,
-      summary,
-      actor,
-      payload,
-      "createdAt"
-    )
-    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, now())
-    returning id
-    `,
-    input.packageId,
-    input.taskId ?? null,
-    input.workflowId ?? null,
-    input.reviewAssignmentId ?? null,
-    input.vendorId ?? null,
-    input.organizationId,
-    input.type,
-    input.summary,
-    input.actor ?? "SYSTEM",
-    JSON.stringify(input.payload ?? {}),
-  );
+  const rows = await insertWorkflowActivity({
+    packageId: input.packageId,
+    taskId: input.taskId ?? null,
+    workflowId: input.workflowId ?? null,
+    reviewAssignmentId: input.reviewAssignmentId ?? null,
+    vendorId: input.vendorId ?? null,
+    organizationId: input.organizationId,
+    type: input.type,
+    summary: input.summary,
+    actor: input.actor ?? "SYSTEM",
+    payloadJson: JSON.stringify(input.payload ?? {}),
+  });
 
   return rows[0] ?? null;
 }

@@ -1,7 +1,13 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
+import {
+  COMMUNICATION_MAILBOX_KEYS,
+  sendCommunication,
+} from "@/lib/communications";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { findTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { findVendor } from "@/lib/repositories/vendor-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +53,7 @@ export async function POST(req: Request, { params }: Params) {
     );
   }
 
-  const assessment = await prisma.truvernFrameworkAssessment.findUnique({
+  const assessment = await findTruvernFrameworkAssessment({
     where: { id: assessmentId },
   });
 
@@ -58,14 +64,25 @@ export async function POST(req: Request, { params }: Params) {
     );
   }
 
+  if (!assessment.organizationId) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Framework assessment is not linked to an organization.",
+      },
+      { status: 409 },
+    );
+  }
+
   const vendor = assessment.vendorId
-    ? await prisma.vendor.findUnique({
+    ? await findVendor({
         where: { id: assessment.vendorId },
         select: { name: true },
       })
     : null;
 
-  const framework = await prisma.truvernFramework.findUnique({
+  const framework = await findTruvernFramework({
     where: { id: assessment.frameworkId },
     select: {
       name: true,
@@ -134,10 +151,25 @@ export async function POST(req: Request, { params }: Params) {
     </div>
   `;
 
-  const result = await sendEmail({
+  const result = await sendCommunication({
+    organizationId: assessment.organizationId,
+    mailboxKey:
+      COMMUNICATION_MAILBOX_KEYS.ASSESSMENTS,
     to: recipients.join(", "),
     subject,
     html,
+    priority: "NORMAL",
+    channel: "EMAIL",
+    externalThreadId:
+      `truvern-framework-assessment:${assessment.id}:vendor-link`,
+    context: {
+      organizationId: assessment.organizationId,
+      vendorId: assessment.vendorId,
+      assessmentId: assessment.id,
+      assessmentRunId: assessment.assessmentRunId,
+      reviewAssignmentId:
+        assessment.reviewAssignmentId,
+    },
   });
 
   return NextResponse.json({
@@ -146,5 +178,13 @@ export async function POST(req: Request, { params }: Params) {
     recipients,
     vendorUrl,
     assessmentId: assessment.id,
+    communication: {
+      mailboxId: result.mailboxId,
+      conversationId: result.conversationId,
+      messageId: result.messageId,
+      providerMessageId:
+        result.providerMessageId,
+      simulated: result.simulated,
+    },
   });
 }

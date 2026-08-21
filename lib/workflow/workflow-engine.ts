@@ -1,4 +1,12 @@
-﻿import prisma from "@/lib/prisma";
+import {
+  createWorkflowInstanceRow,
+  insertRemediationActivity,
+  insertWorkflowTransitionEvent,
+  readWorkflowPackage,
+  updateRemediationPackageStatus,
+  updateWorkflowInstanceStage,
+  updateWorkflowQueueForPackage,
+} from "@/lib/repositories/workflow-engine-repository";
 
 export type WorkflowEventType =
   | "EVIDENCE_UPLOADED"
@@ -72,22 +80,7 @@ export async function workflowTransition(input: TransitionInput) {
   const payload = input.payload ?? {};
 
   const packageRows: any[] = input.packageId
-    ? await prisma.$queryRawUnsafe(
-        `
-        select
-          rp.id,
-          rp."reviewAssignmentId",
-          rp."vendorId",
-          rp."organizationId",
-          wi.id as "workflowId"
-        from "RemediationPackage" rp
-        left join "WorkflowInstance" wi
-          on wi."reviewAssignmentId" = rp."reviewAssignmentId"
-         and wi."vendorId" = rp."vendorId"
-         and wi.type = 'VENDOR_GOVERNANCE_REVIEW'
-        where rp.id = $1
-        limit 1
-        `,
+    ? await readWorkflowPackage(
         input.packageId,
       )
     : [];
@@ -109,34 +102,7 @@ export async function workflowTransition(input: TransitionInput) {
   let finalWorkflowId = workflowId;
 
   if (!finalWorkflowId) {
-    const created: any[] = await prisma.$queryRawUnsafe(
-      `
-      insert into "WorkflowInstance" (
-        "organizationId",
-        "vendorId",
-        "reviewAssignmentId",
-        type,
-        status,
-        priority,
-        "currentStage",
-        payload,
-        "createdAt",
-        "updatedAt"
-      )
-      values (
-        $1,
-        $2,
-        $3,
-        'VENDOR_GOVERNANCE_REVIEW',
-        'ACTIVE',
-        'NORMAL',
-        $4,
-        $5::jsonb,
-        now(),
-        now()
-      )
-      returning id
-      `,
+    const created: any[] = await createWorkflowInstanceRow(
       organizationId,
       vendorId,
       reviewAssignmentId,
@@ -147,21 +113,7 @@ export async function workflowTransition(input: TransitionInput) {
     finalWorkflowId = Number(created[0].id);
   }
 
-  await prisma.$executeRawUnsafe(
-    `
-    insert into "WorkflowEvent" (
-      "workflowId",
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      type,
-      actor,
-      summary,
-      payload,
-      "createdAt"
-    )
-    values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, now())
-    `,
+  await insertWorkflowTransitionEvent(
     finalWorkflowId,
     organizationId,
     vendorId,
@@ -172,62 +124,26 @@ export async function workflowTransition(input: TransitionInput) {
     JSON.stringify(payload),
   );
 
-  await prisma.$executeRawUnsafe(
-    `
-    update "WorkflowInstance"
-    set
-      "currentStage" = $1,
-      "updatedAt" = now()
-    where id = $2
-    `,
+  await updateWorkflowInstanceStage(
     queue,
     finalWorkflowId,
   );
 
   if (input.packageId && packageStatus) {
-    await prisma.$executeRawUnsafe(
-      `
-      update "RemediationPackage"
-      set status = $1, "updatedAt" = now()
-      where id = $2
-      `,
+    await updateRemediationPackageStatus(
       packageStatus,
       input.packageId,
     );
   }
 
   if (input.packageId) {
-    await prisma.$executeRawUnsafe(
-      `
-      update "WorkflowQueueItem"
-      set
-        queue = $1,
-        status = case when $1 = 'COMPLETE' then 'CLOSED' else 'OPEN' end,
-        "workflowId" = $2,
-        "updatedAt" = now()
-      where payload->>'remediationPackageId' = $3
-      `,
+    await updateWorkflowQueueForPackage(
       queue,
       finalWorkflowId,
       String(input.packageId),
     );
 
-    await prisma.$executeRawUnsafe(
-      `
-      insert into "RemediationActivity" (
-        "packageId",
-        "workflowId",
-        "reviewAssignmentId",
-        "vendorId",
-        "organizationId",
-        type,
-        summary,
-        actor,
-        payload,
-        "createdAt"
-      )
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, now())
-      `,
+    await insertRemediationActivity(
       input.packageId,
       finalWorkflowId,
       reviewAssignmentId,

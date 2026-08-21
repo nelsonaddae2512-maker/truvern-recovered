@@ -1,8 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
+import { countNotifications } from "@/lib/repositories/notification-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export async function GET() {
     .then(() => true)
     .catch(() => false);
 
-  const count = await prisma.notification.count({
+  const count = await countNotifications({
     where: {
       readAt: null,
       OR: [
