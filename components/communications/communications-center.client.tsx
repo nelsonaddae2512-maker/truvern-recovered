@@ -1926,14 +1926,19 @@ export default function CommunicationsCenter({
               refreshing={
                 refreshingDetail
               }
-              onRefresh={() =>
-                void loadConversationDetail(
-                  conversationDetail.id,
-                  {
+              onRefresh={() => {
+                void Promise.all([
+                  loadConversationDetail(
+                    conversationDetail.id,
+                    {
+                      quiet: true,
+                    },
+                  ),
+                  loadConversations({
                     quiet: true,
-                  },
-                )
-              }
+                  }),
+                ]);
+              }}
               onReply={(message) =>
                 openMessageComposer(
                   "REPLY",
