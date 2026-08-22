@@ -1,4 +1,4 @@
-﻿import { auth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import {
@@ -127,9 +127,9 @@ async function readBody(
 export async function GET(
   request: Request,
 ) {
-  try {
-    await requireTruvernOperator();
+  await requireTruvernOperator();
 
+  try {
     const url =
       new URL(request.url);
 
@@ -183,10 +183,10 @@ export async function GET(
 export async function POST(
   request: Request,
 ) {
-  try {
-    const operator =
-      await requireTruvernOperator();
+  const operator =
+    await requireTruvernOperator();
 
+  try {
     const { userId } =
       await auth();
 

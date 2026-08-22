@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { resolveCommunicationMailbox } from "@/lib/communications";
 import { requireDbOrganization } from "@/lib/org-db";
 import { canUseCommunications, getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
 
@@ -128,6 +129,21 @@ export async function GET() {
   }
 
   try {
+    /*
+     * Communications Center requires a usable mailbox before
+     * an operator can compose a new outbound message.
+     *
+     * Resolution is idempotent:
+     * - an existing active default mailbox is reused;
+     * - otherwise the organization's default mailbox is created.
+     *
+     * The resolver owns mailbox creation semantics so the API
+     * does not duplicate mailbox identity or address rules.
+     */
+    await resolveCommunicationMailbox({
+      organizationId: gate.organizationId,
+    });
+
     const mailboxes = await prisma.$queryRaw<MailboxRow[]>`
       select
         mailbox.id,
