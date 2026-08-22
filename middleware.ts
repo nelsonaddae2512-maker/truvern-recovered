@@ -34,6 +34,10 @@ const isApiNoRedirectRoute = createRouteMatcher([
   "/api/truvern/ops(.*)",
   "/api/stripe/webhook",
 
+  // Resend inbound email webhook.
+  // Authenticated by Svix/Resend signature verification,
+  // not by a Clerk browser session.
+  "/api/webhooks/resend",
   // Ã¢Å“â€¦ canonical trust network export route
   "/api/trust-network-export(.*)",
 
