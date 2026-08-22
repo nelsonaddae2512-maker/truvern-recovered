@@ -2721,7 +2721,7 @@ function GovernanceContextCard({
                 records.assessment.status ||
                 undefined
               }
-              href={`/assessments/${records.assessment.id}`}
+              href={`/assessments/${records.assessment.id}/launch`}
             />
           ) : null}
 
