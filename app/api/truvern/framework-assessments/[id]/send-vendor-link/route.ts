@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import {
   COMMUNICATION_MAILBOX_KEYS,
   sendCommunication,
@@ -8,6 +7,7 @@ import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import { findTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
 import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { findVendor } from "@/lib/repositories/vendor-repository";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +89,32 @@ export async function POST(req: Request, { params }: Params) {
       version: true,
     },
   });
+  const reviewAssignment =
+    assessment.reviewAssignmentId
+      ? await findReviewAssignment({
+          where: {
+            id: assessment.reviewAssignmentId,
+          },
+          select: {
+            id: true,
+            organizationId: true,
+            vendorId: true,
+            reviewRequestId: true,
+          },
+        })
+      : null;
+
+  const linkedReviewAssignment =
+    reviewAssignment &&
+    reviewAssignment.organizationId ===
+      assessment.organizationId &&
+    (
+      assessment.vendorId == null ||
+      reviewAssignment.vendorId ===
+        assessment.vendorId
+    )
+      ? reviewAssignment
+      : null;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const vendorUrl = `${appUrl}/vendor-assessments/${assessment.id}`;
@@ -167,8 +193,10 @@ export async function POST(req: Request, { params }: Params) {
       vendorId: assessment.vendorId,
       assessmentId: assessment.id,
       assessmentRunId: assessment.assessmentRunId,
+      reviewRequestId:
+        linkedReviewAssignment?.reviewRequestId ?? null,
       reviewAssignmentId:
-        assessment.reviewAssignmentId,
+        linkedReviewAssignment?.id ?? null,
     },
   });
 

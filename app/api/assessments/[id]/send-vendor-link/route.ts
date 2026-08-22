@@ -6,6 +6,7 @@ import {
   sendCommunication,
 } from "@/lib/communications";
 import { findAssessment } from "@/lib/repositories/assessment-repository";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,6 +97,7 @@ try {
         dueAt: true,
         organizationId: true,
         vendorId: true,
+        reviewAssignmentId: true,
         vendor: {
           select: {
             name: true,
@@ -110,6 +112,29 @@ try {
         { status: 404 },
       );
     }
+    const reviewAssignment =
+      assessment.reviewAssignmentId
+        ? await findReviewAssignment({
+            where: {
+              id: assessment.reviewAssignmentId,
+            },
+            select: {
+              id: true,
+              organizationId: true,
+              vendorId: true,
+              reviewRequestId: true,
+            },
+          })
+        : null;
+
+    const linkedReviewAssignment =
+      reviewAssignment &&
+      reviewAssignment.organizationId ===
+        assessment.organizationId &&
+      reviewAssignment.vendorId ===
+        assessment.vendorId
+        ? reviewAssignment
+        : null;
 
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -194,6 +219,10 @@ try {
           assessment.organizationId,
         vendorId: assessment.vendorId,
         assessmentId: assessment.id,
+        reviewRequestId:
+          linkedReviewAssignment?.reviewRequestId ?? null,
+        reviewAssignmentId:
+          linkedReviewAssignment?.id ?? null,
       },
     });
 
