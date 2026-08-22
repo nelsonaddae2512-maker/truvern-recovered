@@ -293,10 +293,27 @@ async function resolveConversation(input: {
       },
       communicationMessages: {
         some: {
-          fromAddress: {
-            equals: input.senderAddress,
-            mode: "insensitive",
-          },
+          OR: [
+            {
+              fromAddress: {
+                equals: input.senderAddress,
+                mode: "insensitive",
+              },
+            },
+            {
+              recipients: {
+                some: {
+                  kind: {
+                    in: ["TO", "CC"],
+                  },
+                  address: {
+                    equals: input.senderAddress,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            },
+          ],
         },
       },
     },
