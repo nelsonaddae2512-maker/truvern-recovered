@@ -162,6 +162,10 @@ export default function AssessmentStartChooser({
   const [dueAt, setDueAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewMode, setReviewMode] =
+    useState<"internal" | "truvern">("internal");
+  const [acceptedTruvernAcknowledgement, setAcceptedTruvernAcknowledgement] =
+    useState(false);
 
   const selectedTemplate = useMemo(
 
@@ -186,8 +190,20 @@ async function handleStart() {
     }
 
     // FREE_TRUVERN_NIST_LAUNCH_BLOCK
+    if (
+      reviewMode === "truvern" &&
+      !acceptedTruvernAcknowledgement
+    ) {
+      setError(
+        "Accept the Truvern Review acknowledgement before launching.",
+      );
+      return;
+    }
+
     const confirmed = window.confirm(
-      "Confirm assessment launch?\n\nThis launches the vendor questionnaire for a Self-Managed Review or Professional Review. Self-Managed Review stays with your team and uses no Truvern Review credit. Professional Review starts with this same assessment and can be routed to Truvern for expert completion for 1 credit. For a fully operated review from questionnaire through release, choose Truvern Review.",
+      reviewMode === "truvern"
+        ? "Confirm Truvern Review launch?\n\nTruvern will operate this review workflow. One Truvern Review credit may be reserved or consumed under the applicable review terms."
+        : "Confirm Self-Managed Review launch?\n\nYour team will own this review. You may route the same assessment to Truvern later without sending a second questionnaire.",
     );
 
     if (!confirmed) {
@@ -251,6 +267,62 @@ async function handleStart() {
         throw new Error(
           "Assessment launch returned an empty server response.",
         );
+      }
+
+      const launchedAssessmentId =
+        Number(data.assessmentId || data.id);
+
+      if (
+        !Number.isInteger(launchedAssessmentId) ||
+        launchedAssessmentId <= 0
+      ) {
+        throw new Error(
+          "Assessment launch completed without a valid assessment id.",
+        );
+      }
+
+      if (reviewMode === "truvern") {
+        const assignmentResponse =
+          await fetch("/api/review-desk/assignments", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              vendorId,
+              assessmentId: launchedAssessmentId,
+              templateId: selectedTemplateId,
+              mode: "truvern",
+              acceptedAcknowledgement:
+                acceptedTruvernAcknowledgement,
+            }),
+          });
+
+        const assignmentContentType =
+          assignmentResponse.headers.get("content-type") || "";
+
+        if (
+          !assignmentContentType
+            .toLowerCase()
+            .includes("application/json")
+        ) {
+          throw new Error(
+            "Truvern Review routing returned an invalid server response.",
+          );
+        }
+
+        const assignmentData =
+          await assignmentResponse.json().catch(() => null);
+
+        if (
+          !assignmentResponse.ok ||
+          !assignmentData?.ok
+        ) {
+          throw new Error(
+            assignmentData?.error ||
+              "Assessment launched, but Truvern Review routing failed.",
+          );
+        }
       }
 
       if (data.redirectUrl) {
@@ -518,6 +590,70 @@ async function handleStart() {
                 <MetricCard label="Standard" value={cleanText(selectedTemplate.standard, "Truvern")} />
               </div>
 
+              <div className="mt-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Review path
+                </p>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewMode("internal");
+                      setAcceptedTruvernAcknowledgement(false);
+                    }}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      reviewMode === "internal"
+                        ? "border-cyan-400/60 bg-cyan-950/30"
+                        : "border-slate-800 bg-slate-950/60 hover:border-cyan-500/30"
+                    }`}
+                  >
+                    <div className="text-sm font-semibold text-white">
+                      Self-Managed Review
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-slate-400">
+                      Your team owns review and release. You can route this same assessment to Truvern later.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewMode("truvern")}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      reviewMode === "truvern"
+                        ? "border-emerald-400/60 bg-emerald-950/30"
+                        : "border-slate-800 bg-slate-950/60 hover:border-emerald-500/30"
+                    }`}
+                  >
+                    <div className="text-sm font-semibold text-white">
+                      Truvern Review
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-slate-400">
+                      Truvern operates the questionnaire, expert review, findings, remediation, and governance release.
+                    </div>
+                  </button>
+                </div>
+
+                {reviewMode === "truvern" ? (
+                  <label className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-950/20 p-4">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTruvernAcknowledgement}
+                      onChange={(event) =>
+                        setAcceptedTruvernAcknowledgement(
+                          event.target.checked,
+                        )
+                      }
+                      className="mt-1"
+                    />
+
+                    <span className="text-xs leading-5 text-amber-100">
+                      I accept TRV-LEGAL-1.0 and acknowledge that a Truvern Review uses applicable Truvern Review credits and may incur a charge once Truvern work begins.
+                    </span>
+                  </label>
+                ) : null}
+              </div>
+
               <div className="mt-6 space-y-3">
                 <div>
                   <label className="block text-[11px] font-medium text-slate-400">
@@ -629,8 +765,12 @@ async function handleStart() {
                     className="flex w-full items-center justify-center rounded-2xl bg-cyan-300 px-6 py-4 text-base font-bold text-slate-950 shadow-xl shadow-cyan-950/40 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {submitting
-  ? "Launching assessment..."
-  : freeBlockedTruvernNistLaunch ? "Upgrade to Pro or Enterprise" : "Launch assessment workflow"}
+                      ? "Launching assessment..."
+                      : freeBlockedTruvernNistLaunch
+                        ? "Upgrade to Pro or Enterprise"
+                        : reviewMode === "truvern"
+                          ? "Request Truvern Review"
+                          : "Run Self-Managed Review"}
                   </button>
                 )}
               </div>

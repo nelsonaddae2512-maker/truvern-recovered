@@ -1,5 +1,5 @@
+import { randomBytes, randomUUID } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import {
@@ -665,58 +665,120 @@ export async function POST(req: Request) {
       // AUTO_LAUNCH_TRUVERN_VENDOR_QUESTIONNAIRE
       // Truvern Review requests immediately create a vendor questionnaire token.
       if (mode === "truvern") {
-        const existingAssessmentRows = await tx.$queryRaw<Array<{ id: number }>>`
-          select id
-          from "Assessment"
-          where "reviewAssignmentId" = ${assignment.id}
-          limit 1
-        `;
+        const template = selectedTemplate;
 
-        if (!existingAssessmentRows[0]) {
-          const template = selectedTemplate;
+        if (!template) {
+          throw new Error(
+            "Selected Truvern Review template was not resolved.",
+          );
+        }
 
-          if (!template) {
+        if (assessmentId) {
+          const assessmentRows = await tx.$queryRaw<
+            Array<{
+              id: number;
+              templateId: number | null;
+              reviewAssignmentId: number | null;
+            }>
+          >`
+            select
+              id,
+              "templateId",
+              "reviewAssignmentId"
+            from "Assessment"
+            where id = ${assessmentId}
+              and "organizationId" = ${vendor.organizationId}
+              and "vendorId" = ${vendor.id}
+            limit 1
+          `;
+
+          const existingAssessment =
+            assessmentRows[0] ?? null;
+
+          if (!existingAssessment) {
             throw new Error(
-              "Selected Truvern Review template was not resolved.",
+              "The selected assessment could not be resolved for this vendor.",
             );
           }
 
-          const token = buildVendorAssessmentToken();
+          if (
+            existingAssessment.templateId !== template.id
+          ) {
+            throw new Error(
+              "The selected assessment does not use the selected Truvern Review template.",
+            );
+          }
 
-          await tx.$executeRaw`
-            insert into "Assessment" (
-              "organizationId",
-              "vendorId",
-              "templateId",
-              "reviewAssignmentId",
-              title,
-              status,
-              token,
-              "vendorEmail",
-              "vendorContactName",
-              "launchedAt",
-              "dueAt",
-              "isVendorSubmitted",
-              "createdAt",
-              "updatedAt"
-            )
-            values (
-              ${vendor.organizationId},
-              ${vendor.id},
-              ${template?.id ?? null},
-              ${assignment.id},
-              ${`${template?.name ?? "Truvern Review Questionnaire"} for ${vendor.name}`},
-              'LAUNCHED'::"AssessmentStatus",
-              ${token},
-              ${null},
-              ${null},
-              now(),
-              ${addDays(14)},
-              false,
-              now(),
-              now()
-            )
+          if (
+            existingAssessment.reviewAssignmentId &&
+            existingAssessment.reviewAssignmentId !== assignment.id
+          ) {
+            throw new Error(
+              "The selected assessment is already linked to another review assignment.",
+            );
+          }
+
+          if (!existingAssessment.reviewAssignmentId) {
+            await tx.$executeRaw`
+              update "Assessment"
+              set
+                "reviewAssignmentId" = ${assignment.id},
+                "updatedAt" = now()
+              where id = ${assessmentId}
+                and "organizationId" = ${vendor.organizationId}
+                and "vendorId" = ${vendor.id}
+            `;
+          }
+        } else {
+          const existingAssessmentRows = await tx.$queryRaw<
+            Array<{ id: number }>
+          >`
+            select id
+            from "Assessment"
+            where "reviewAssignmentId" = ${assignment.id}
+            limit 1
           `;
+
+          if (!existingAssessmentRows[0]) {
+            const token =
+              randomBytes(24).toString("hex");
+
+            await tx.$executeRaw`
+              insert into "Assessment" (
+                "organizationId",
+                "vendorId",
+                "templateId",
+                "reviewAssignmentId",
+                title,
+                status,
+                token,
+                "vendorEmail",
+                "vendorContactName",
+                "launchedAt",
+                "dueAt",
+                "isVendorSubmitted",
+                "createdAt",
+                "updatedAt"
+              )
+              values (
+                ${vendor.organizationId},
+                ${vendor.id},
+                ${template.id},
+                ${assignment.id},
+                ${`${template.name ?? "Truvern Review Questionnaire"} for ${vendor.name}`},
+                'LAUNCHED'::"AssessmentStatus",
+                ${token},
+                ${null},
+                ${null},
+                now(),
+                ${addDays(14)},
+                false,
+                now(),
+                now()
+              )
+            `;
+          }
+        }
 
           await tx.$executeRaw`
             update "ReviewAssignment"
@@ -727,7 +789,6 @@ export async function POST(req: Request) {
             where id = ${assignment.id}
           `;
         }
-      }
       return {
         status: 200,
         body: {
