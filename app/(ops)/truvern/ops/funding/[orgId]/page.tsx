@@ -94,7 +94,7 @@ export default async function TruvernOpsFundingOrgPage({
         </h1>
 
         <p className="mt-3 text-sm text-slate-400">
-          Immutable credit grants, overrides, and funding operations.
+          Paid subscriptions, immutable credit grants, plan overrides, and funding operations.
         </p>
       </div>
 
@@ -105,7 +105,9 @@ export default async function TruvernOpsFundingOrgPage({
               ? "Pilot credits granted successfully."
               : status === "plan-override-applied"
                 ? "Organization plan override applied successfully."
-                : "Funding operation completed successfully."}
+                : status === "subscription-activated"
+                  ? "Paid subscription activated successfully."
+                  : "Funding operation completed successfully."}
           </p>
         </div>
       ) : null}
@@ -150,6 +152,228 @@ export default async function TruvernOpsFundingOrgPage({
             {effectivePlanTier}
           </p>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-3xl border border-emerald-400/20 bg-emerald-500/[0.06] p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">
+              Commercial subscription
+            </p>
+
+            <h2 className="mt-2 text-2xl font-semibold">
+              Activate paid subscription
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Record paid PRO or ENTERPRISE access after payment has been
+              received or contractually authorized. Paid subscriptions are
+              kept separate from Truvern administrative plan overrides.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 xl:max-w-sm">
+            <p className="text-sm font-semibold text-amber-100">
+              Expiration required
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-slate-300">
+              Paid access must have a finite term. Renewal or reactivation is
+              required after the subscription expires.
+            </p>
+          </div>
+        </div>
+
+        <form
+          action={`/api/truvern/ops/orgs/${organizationId}/subscription`}
+          method="POST"
+          className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <div>
+            <label className="text-sm text-slate-300">
+              Paid plan
+            </label>
+
+            <select
+              name="planTier"
+              defaultValue="PRO"
+              required
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            >
+              <option value="PRO">PRO</option>
+              <option value="ENTERPRISE">ENTERPRISE</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Payment source
+            </label>
+
+            <select
+              name="paymentSource"
+              defaultValue="CHECK"
+              required
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            >
+              <option value="STRIPE">Stripe</option>
+              <option value="CHECK">Check</option>
+              <option value="ACH">ACH</option>
+              <option value="WIRE">Wire</option>
+              <option value="INVOICE">Invoice</option>
+              <option value="CONTRACT">Contract</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Currency
+            </label>
+
+            <input
+              type="text"
+              name="currency"
+              defaultValue="USD"
+              maxLength={3}
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 uppercase text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Term starts
+            </label>
+
+            <input
+              type="datetime-local"
+              name="startsAt"
+              required
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Term expires
+            </label>
+
+            <input
+              type="datetime-local"
+              name="currentPeriodEnd"
+              required
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Payment received
+            </label>
+
+            <input
+              type="datetime-local"
+              name="paidAt"
+              required
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Payment amount
+            </label>
+
+            <input
+              type="number"
+              name="amountCents"
+              min={0}
+              step={1}
+              placeholder="Amount in cents"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+
+            <p className="mt-2 text-xs text-slate-500">
+              Example: 3500000 = $35,000.00.
+            </p>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="text-sm text-slate-300">
+              Payment reference
+            </label>
+
+            <input
+              type="text"
+              name="paymentReference"
+              placeholder="Check number, ACH trace, wire reference, invoice, contract..."
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+
+            <p className="mt-2 text-xs text-slate-500">
+              Required for non-Stripe payments.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Stripe customer ID
+            </label>
+
+            <input
+              type="text"
+              name="stripeCustomerId"
+              placeholder="Optional"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-300">
+              Stripe subscription ID
+            </label>
+
+            <input
+              type="text"
+              name="stripeSubId"
+              placeholder="Required for Stripe"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="text-sm text-slate-300">
+              Internal notes
+            </label>
+
+            <textarea
+              name="notes"
+              rows={3}
+              placeholder="Payment, contract, renewal, or approval context..."
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-3 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Activate commercial access
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                A new paid term supersedes the previous ACTIVE subscription.
+                Historical subscription records remain preserved.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              className="shrink-0 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-5 py-3 text-sm font-semibold text-emerald-50 hover:bg-emerald-500/20"
+            >
+              Activate paid subscription
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="mt-8 grid gap-8 lg:grid-cols-2">
@@ -383,6 +607,3 @@ export default async function TruvernOpsFundingOrgPage({
     </main>
   );
 }
-
-
-

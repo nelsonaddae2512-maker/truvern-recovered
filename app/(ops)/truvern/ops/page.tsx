@@ -263,6 +263,12 @@ export default async function TruvernOpsPage() {
           title="Ops Governance Ops"
           body="Operate expert review throughput, assignments, release readiness, and escalation state."
         />
+        <OpsLink
+          href="/truvern/ops/deployment-licenses"
+          eyebrow="Licensing"
+          title="Deployment Licenses"
+          body="Inspect private deployment entitlements, lifecycle state, expiration, and immutable license audit history."
+        />
       </section>
     
       <section className="mt-8 rounded-3xl border border-cyan-300/20 bg-cyan-400/10 p-6">

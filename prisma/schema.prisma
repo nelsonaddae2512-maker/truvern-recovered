@@ -162,6 +162,7 @@ model Organization {
   assessmentTemplates        AssessmentTemplate[]
   trustProfiles              TrustProfile[]
   subscriptions              Subscription[]
+  deploymentLicenses         DeploymentLicense[]
   usageEvents                UsageEvent[]
   invites                    InviteToken[]
   communicationMailboxes     CommunicationMailbox[]
@@ -493,8 +494,9 @@ model EvidenceRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vendor       Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendor       Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  auditEvents  DeploymentLicenseAudit[]
 
   assessmentRunId     Int?
   title               String?
@@ -834,18 +836,38 @@ model VendorPortalUser {
 }
 
 model Subscription {
-  id               Int                @id @default(autoincrement())
-  organizationId   Int
-  planId           Int
-  status           SubscriptionStatus @default(INACTIVE)
-  stripeCustomerId String?            @unique
-  stripeSubId      String?            @unique
+  id             Int                @id @default(autoincrement())
+  organizationId Int
+  planId         Int
+  status         SubscriptionStatus @default(INACTIVE)
+
+  // Payment-provider-independent subscription authority.
+  paymentSource    String    @default("STRIPE")
+  startsAt         DateTime  @default(now())
   currentPeriodEnd DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  paidAt           DateTime?
+  paymentReference String?
+  amountCents      Int?
+  currency         String    @default("USD")
+  createdByUserId  String?
+  notes            String?
+
+  // Stripe identifiers remain optional because enterprise customers
+  // may pay by check, ACH, wire, invoice, or contract.
+  stripeCustomerId String? @unique
+  stripeSubId      String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])
   plan         BillingPlan  @relation(fields: [planId], references: [id])
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([paymentSource])
+  @@index([startsAt])
+  @@index([currentPeriodEnd])
 }
 
 model UsageEvent {
@@ -947,6 +969,89 @@ model GovernanceReleaseManifest {
   @@index([reviewAssignmentId])
 }
 
+enum DeploymentLicenseType {
+  SAAS
+  MANAGED_PRIVATE
+  CUSTOMER_PRIVATE
+}
+
+enum DeploymentLicenseStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REVOKED
+  EXPIRED
+}
+
+enum DeploymentLicenseAuditAction {
+  ISSUED
+  SUSPENDED
+  REACTIVATED
+  REVOKED
+  EXPIRATION_UPDATED
+  KEY_ROTATED
+}
+
+model DeploymentLicenseAudit {
+  id                  Int                          @id @default(autoincrement())
+  deploymentLicenseId Int
+  action              DeploymentLicenseAuditAction
+  actorUserId         String
+  reason              String?
+
+  previousStatus DeploymentLicenseStatus?
+  newStatus      DeploymentLicenseStatus?
+
+  previousExpiresAt DateTime?
+  newExpiresAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  deploymentLicense          DeploymentLicense         @relation(fields: [deploymentLicenseId], references: [id], onDelete: Cascade)
+  evidenceRequest            EvidenceRequest?          @relation(fields: [evidenceRequestId], references: [id])
+  evidenceRequestId          Int?
+  organizationPlanOverride   OrganizationPlanOverride? @relation(fields: [organizationPlanOverrideId], references: [id])
+  organizationPlanOverrideId Int?
+
+  @@index([deploymentLicenseId])
+  @@index([action])
+  @@index([actorUserId])
+  @@index([createdAt])
+}
+
+model DeploymentLicense {
+  id             Int                     @id @default(autoincrement())
+  organizationId Int
+  licenseKeyHash String                  @unique
+  deploymentId   String                  @unique
+  type           DeploymentLicenseType
+  status         DeploymentLicenseStatus @default(PENDING)
+
+  issuedAt  DateTime  @default(now())
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime?
+  revokedAt DateTime?
+
+  environment String?
+  hostname    String?
+
+  createdByUserId String?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  auditEvents  DeploymentLicenseAudit[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([startsAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
 model OrganizationPlanOverride {
   id              Int       @id @default(autoincrement())
   organizationId  Int
@@ -959,7 +1064,8 @@ model OrganizationPlanOverride {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  auditEvents  DeploymentLicenseAudit[]
 
   @@index([organizationId])
   @@index([planTier])

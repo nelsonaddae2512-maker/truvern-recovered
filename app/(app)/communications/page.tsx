@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import CommunicationsCenter from "@/components/communications/communications-center.client";
 import { requireDbOrganization } from "@/lib/org-db";
-import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
+import { canUseCommunications, getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,11 +29,10 @@ export default async function CommunicationsPage() {
   }
 
   const planTier = await getCurrentOrgPlanTier();
-  const canUseCommunications =
-    planTier === "PRO" ||
-    planTier === "ENTERPRISE";
+  const communicationsAllowed =
+    await canUseCommunications(planTier);
 
-  if (!canUseCommunications) {
+  if (!communicationsAllowed) {
     redirect("/plans?feature=communications");
   }
 

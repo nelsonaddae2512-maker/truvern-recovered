@@ -228,6 +228,12 @@ type SendCommunicationResponse = {
   simulated?: boolean;
 };
 
+type DeleteConversationResponse = {
+  ok?: boolean;
+  error?: string;
+  deletedConversationId?: number;
+};
+
 type Props = {
   organizationId: number;
 };
@@ -679,6 +685,21 @@ export default function CommunicationsCenter({
 
   const [sendingMessage, setSendingMessage] =
     useState(false);
+
+  const [
+    deleteConversationId,
+    setDeleteConversationId,
+  ] = useState<number | null>(null);
+
+  const [
+    deletingConversation,
+    setDeletingConversation,
+  ] = useState(false);
+
+  const [
+    deleteConversationError,
+    setDeleteConversationError,
+  ] = useState<string | null>(null);
 
   const [
     composerError,
@@ -1424,6 +1445,105 @@ export default function CommunicationsCenter({
     }
   }
 
+  function requestDeleteConversation(
+    conversationId: number,
+  ) {
+    if (deletingConversation) {
+      return;
+    }
+
+    setDeleteConversationError(null);
+    setDeleteConversationId(
+      conversationId,
+    );
+  }
+
+  function cancelDeleteConversation() {
+    if (deletingConversation) {
+      return;
+    }
+
+    setDeleteConversationError(null);
+    setDeleteConversationId(null);
+  }
+
+  async function deleteConversation() {
+    if (
+      !deleteConversationId ||
+      deletingConversation
+    ) {
+      return;
+    }
+
+    setDeletingConversation(true);
+    setDeleteConversationError(null);
+
+    try {
+      const response =
+        await fetch(
+          `/api/communications/conversations/${deleteConversationId}`,
+          {
+            method: "DELETE",
+          },
+        );
+
+      const body =
+        await response.json() as
+          DeleteConversationResponse;
+
+      if (
+        !response.ok ||
+        !body.ok
+      ) {
+        throw new Error(
+          body.error ||
+          "The conversation could not be deleted.",
+        );
+      }
+
+      const deletedId =
+        body.deletedConversationId ??
+        deleteConversationId;
+
+      setConversations(
+        (current) =>
+          current.filter(
+            (conversation) =>
+              conversation.id !== deletedId,
+          ),
+      );
+
+      setSelectedConversationId(
+        (current) =>
+          current === deletedId
+            ? null
+            : current,
+      );
+
+      setConversationDetail(
+        (current) =>
+          current?.id === deletedId
+            ? null
+            : current,
+      );
+
+      setMessages([]);
+      setDeleteConversationId(null);
+
+      await loadConversations({
+        quiet: true,
+      });
+    } catch (deleteError) {
+      setDeleteConversationError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "The conversation could not be deleted.",
+      );
+    } finally {
+      setDeletingConversation(false);
+    }
+  }
+
   function submitSearch(
     event: React.FormEvent<HTMLFormElement>,
   ) {
@@ -1832,6 +1952,16 @@ export default function CommunicationsCenter({
                   message,
                 )
               }
+              onDelete={() =>
+                requestDeleteConversation(
+                  conversationDetail.id,
+                )
+              }
+              deleting={
+                deletingConversation &&
+                deleteConversationId ===
+                  conversationDetail.id
+              }
             />
           ) : selectedConversation ? (
             <ConversationDetailLoadingState />
@@ -1840,6 +1970,81 @@ export default function CommunicationsCenter({
           )}
         </div>
       </div>
+
+      {deleteConversationId ? (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/85 p-5 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-conversation-title"
+        >
+          <div className="w-full max-w-lg rounded-[2rem] border border-rose-400/20 bg-[#07111f] p-6 shadow-2xl shadow-black/60">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-300">
+              Permanent deletion
+            </p>
+
+            <h3
+              id="delete-conversation-title"
+              className="mt-3 text-2xl font-semibold text-white"
+            >
+              Delete conversation?
+            </h3>
+
+            <p className="mt-4 text-sm leading-6 text-slate-300">
+              This permanently removes the conversation and its associated communication records from Truvern. This action cannot be undone.
+            </p>
+
+            {conversationDetail?.id ===
+            deleteConversationId ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Conversation
+                </p>
+
+                <p className="mt-2 font-semibold text-white">
+                  {conversationDetail.subject}
+                </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Conversation #{conversationDetail.id}
+                </p>
+              </div>
+            ) : null}
+
+            {deleteConversationError ? (
+              <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
+                <p className="text-sm text-rose-100">
+                  {deleteConversationError}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={cancelDeleteConversation}
+                disabled={deletingConversation}
+                className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void deleteConversation()
+                }
+                disabled={deletingConversation}
+                className="rounded-full border border-rose-300/30 bg-rose-500/15 px-5 py-2.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingConversation
+                  ? "Deleting..."
+                  : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {composerOpen ? (
         <CommunicationComposer
@@ -2283,6 +2488,8 @@ function ConversationThread({
   onReply,
   onReplyAll,
   onForward,
+  onDelete,
+  deleting,
 }: {
   conversation: ConversationDetail;
   messages: ConversationMessage[];
@@ -2297,6 +2504,9 @@ function ConversationThread({
   onForward: (
     message: ConversationMessage,
   ) => void;
+
+  onDelete: () => void;
+  deleting: boolean;
 }) {
   return (
     <div className="flex min-h-[680px] flex-col">
@@ -2344,16 +2554,35 @@ function ConversationThread({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {refreshing
-              ? "Refreshing..."
-              : "Refresh thread"}
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={
+                refreshing ||
+                deleting
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh thread"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={
+                refreshing ||
+                deleting
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-rose-400/25 bg-rose-500/[0.08] px-4 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {deleting
+                ? "Deleting..."
+                : "Delete conversation"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -1,4 +1,5 @@
-﻿import { requireDbOrganization } from "@/lib/org-db";
+import { requireDbOrganization } from "@/lib/org-db";
+import { isTruvernOperator } from "@/lib/truvern-ops-access";
 import {
   normalizeOrganizationPlanTier,
   resolveOrganizationPlanTier,
@@ -38,3 +39,16 @@ export function canAccessTier(
   return need === "FREE";
 }
 
+export async function canUseCommunications(
+  plan?: MembershipTier,
+): Promise<boolean> {
+  const operator = await isTruvernOperator();
+
+  if (operator) {
+    return true;
+  }
+
+  const currentPlan = plan ?? (await getCurrentOrgPlanTier());
+
+  return currentPlan === "PRO" || currentPlan === "ENTERPRISE";
+}

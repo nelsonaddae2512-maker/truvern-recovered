@@ -30,6 +30,7 @@ import {
 import {
   consumeReservedReviewCredits,
 } from "@/lib/services/release/release-credit-service";
+import { scheduleVendorReassessment } from "@/lib/services/vendor-reassessment-service";
 
 
 function firstNarrativeValue(...values: any[]) {
@@ -581,6 +582,15 @@ const nextResponses = {
       nextResponses,
     );
 
+    const reassessmentSchedule =
+      assignment.vendorId
+        ? await scheduleVendorReassessment({
+            vendorId: assignment.vendorId,
+            completedAt:
+              new Date(confirmedAt),
+          })
+        : null;
+
     // VENDOR_GOVERNANCE_MEMORY_SNAPSHOT
     if (assignment.vendorId) {
       const memorySnapshot = (nextResponses as any).governanceReleaseSnapshot || {};
@@ -694,6 +704,7 @@ return serviceResult(200, {
       releaseState: "CONFIRMED",
       checksum,
       creditConsumption,
+      reassessmentSchedule,
     });
   } catch (error: any) {
     return serviceResult(500, {
@@ -702,39 +713,3 @@ return serviceResult(200, {
     });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

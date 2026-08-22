@@ -90,6 +90,20 @@ export async function createCommunicationConversation<
   return client.communicationConversation.create(args);
 }
 
+export async function deleteCommunicationConversation<
+  T extends Prisma.CommunicationConversationDeleteArgs,
+>(
+  args: Prisma.SelectSubset<
+    T,
+    Prisma.CommunicationConversationDeleteArgs
+  >,
+  client: CommunicationClient = prisma,
+): Promise<
+  Prisma.CommunicationConversationGetPayload<T>
+> {
+  return client.communicationConversation.delete(args);
+}
+
 export async function updateCommunicationConversation<
   T extends Prisma.CommunicationConversationUpdateArgs,
 >(

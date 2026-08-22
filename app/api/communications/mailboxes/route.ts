@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
-import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
+import { canUseCommunications, getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,10 +91,7 @@ async function requireApiAuth() {
 
     const planTier = await getCurrentOrgPlanTier();
 
-    if (
-      planTier !== "PRO" &&
-      planTier !== "ENTERPRISE"
-    ) {
+    if (!(await canUseCommunications(planTier))) {
       return {
         ok: false as const,
         response: json(403, {

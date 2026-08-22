@@ -166,6 +166,11 @@ export default async function VendorsPage() {
       category: true,
       riskScore: true,
       updatedAt: true,
+      tier: true,
+      criticality: true,
+      lastAssessmentCompletedAt: true,
+      nextReviewDueAt: true,
+      reviewCadenceDays: true,
       assessments: {
         where: {
           status: {
@@ -448,7 +453,7 @@ export default async function VendorsPage() {
               return (
                 <div
                   key={vendor.id}
-                  className={`relative grid gap-6 p-6 pl-8 transition before:absolute before:left-0 before:top-0 before:h-full before:w-1 hover:bg-cyan-400/[0.03] xl:grid-cols-[1.05fr_1.45fr_1.45fr_280px] xl:items-center ${rowAccent(score)}`}
+                  className={`relative mx-4 my-3 grid gap-6 rounded-[1.75rem] border border-white/10 bg-slate-950/20 p-6 transition before:absolute before:inset-y-5 before:left-0 before:w-1 before:rounded-r-full hover:border-cyan-300/20 hover:bg-cyan-400/[0.035] xl:grid-cols-[1.05fr_1.45fr_1.55fr_300px] xl:items-center ${rowAccent(score)}`}
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
@@ -473,42 +478,43 @@ export default async function VendorsPage() {
                         </span>
                       ) : null}
                       <span>#{vendor.id}</span>
-                      <span>• Tier: {tierLabel(vendor.category)}</span>
+                      <span>• Tier: {tierLabel(vendor.tier ?? vendor.category)}</span>
                       <span>• Updated {vendor.updatedAt.toLocaleDateString()}</span>
+                      {vendor.nextReviewDueAt ? (
+                        <span className="text-cyan-200">
+                          • Reassessment due{" "}
+                          {vendor.nextReviewDueAt.toLocaleDateString()}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
-                  <div className="space-y-4 border-l border-white/10 pl-7">
+                  <div className="space-y-4 border-l border-white/10 px-7">
                     <WorkflowRail activeStage={activeStage} />
                     <ProgressBar label="Evidence" value={evidencePct} />
                     <ProgressBar label="Review" value={reviewPct} />
                   </div>
 
-                  <div className="grid grid-cols-5 border-l border-white/10">
-                    <Metric label="Tier" value={tierLabel(vendor.category)} />
-                    <Metric label="Data shared" value={dataPosture(evidenceCount)} />
+                  <div className="grid min-w-0 grid-cols-[1.15fr_1.15fr_1fr_.7fr] border-l border-white/10">
                     <Metric
-                      label="Reviews"
-                      value={
-                        reviewReleased
-                          ? "Released"
-                          : reviewReady
-                          ? "Release ready"
-                          : reviewActive
-                          ? "In review"
-                          : reviewPosture(
-                              assessmentsCount,
-                              issuesCount,
-                              evidenceCount,
-                              vendorSubmitted,
-                            )
-                      }
+                      label="Tier"
+                      value={tierLabel(vendor.tier ?? vendor.category)}
                     />
-                    <Metric label="Requests" value={requestsCount.toString()} />
-                    <Metric label="Issues" value={issuesCount.toString()} />
+                    <Metric
+                      label="Data shared"
+                      value={dataPosture(evidenceCount)}
+                    />
+                    <Metric
+                      label="Review requests"
+                      value={requestsCount.toString()}
+                    />
+                    <Metric
+                      label="Issues"
+                      value={issuesCount.toString()}
+                    />
                   </div>
 
-                  <div className="flex w-full max-w-[280px] flex-col gap-3 border-l border-white/10 pl-7 xl:items-stretch">
+                  <div className="flex w-full max-w-[300px] flex-col gap-3 border-l border-white/10 pl-7 xl:items-stretch">
                     <div className="flex flex-wrap gap-3">
                       <Link
                         href={`/vendors/${vendor.id}`}
@@ -603,86 +609,16 @@ function ProgressBar({ label, value }: { label: string; value: number }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-h-[96px] flex-col items-center justify-center border-r border-white/10 px-4 text-center last:border-r-0">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+    <div className="flex min-h-[108px] min-w-0 flex-col items-center justify-center border-r border-white/10 px-2 text-center last:border-r-0 2xl:px-3">
+      <p className="max-w-full whitespace-normal text-[9px] font-semibold uppercase leading-4 tracking-[0.12em] text-slate-500 2xl:text-[10px]">
         {label}
       </p>
-      <p className="mt-2 max-w-[92px] text-base font-bold leading-snug text-white">
+      <p
+        className="mt-3 max-w-full whitespace-normal text-sm font-bold leading-snug text-white 2xl:text-base"
+        style={{ overflowWrap: "normal", wordBreak: "normal" }}
+      >
         {value}
       </p>
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

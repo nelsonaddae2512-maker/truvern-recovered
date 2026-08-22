@@ -1,4 +1,8 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
+
+import {
+  requireDeploymentAccess,
+} from "@/lib/licensing/deployment-access";
 
 export const metadata: Metadata = {
   robots: {
@@ -7,10 +11,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function NoIndexLayout({
+export default async function NoIndexLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireDeploymentAccess();
+
   return children;
 }

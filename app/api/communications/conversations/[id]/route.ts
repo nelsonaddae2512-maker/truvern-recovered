@@ -3,8 +3,12 @@ import { NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
-import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
-import { findCommunicationMessages } from "@/lib/repositories/communication-repository";
+import { canUseCommunications, getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
+import {
+  deleteCommunicationConversation,
+  findCommunicationMessages,
+  findFirstCommunicationConversation,
+} from "@/lib/repositories/communication-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,16 +138,13 @@ async function requireApiAuth() {
 
     const planTier = await getCurrentOrgPlanTier();
 
-    if (
-      planTier !== "PRO" &&
-      planTier !== "ENTERPRISE"
-    ) {
+    if (!(await canUseCommunications(planTier))) {
       return {
         ok: false as const,
         response: json(403, {
           ok: false,
           error:
-            "Communications requires a Pro or Enterprise plan",
+            "Communications requires Pro, Enterprise, or Truvern Ops access",
         }),
       };
     }
@@ -697,6 +698,90 @@ export async function GET(
       ok: false,
       error:
         "Failed to load communication conversation",
+    });
+  }
+}
+export async function DELETE(
+  _request: Request,
+  context: RouteContext,
+) {
+  const gate = await requireApiAuth();
+
+  if (!gate.ok) {
+    return gate.response;
+  }
+
+  const params = await context.params;
+  const conversationId =
+    positiveInt(params.id);
+
+  if (!conversationId) {
+    return json(400, {
+      ok: false,
+      error: "Invalid conversation id",
+    });
+  }
+
+  try {
+    /*
+     * Verify ownership before deletion.
+     *
+     * The delete itself uses the primary key, so this organization-scoped
+     * lookup is the authorization boundary preventing cross-organization
+     * deletion.
+     */
+    const conversation =
+      await findFirstCommunicationConversation({
+        where: {
+          id: conversationId,
+          organizationId:
+            gate.organizationId,
+        },
+        select: {
+          id: true,
+          organizationId: true,
+          subject: true,
+        },
+      });
+
+    if (!conversation) {
+      return json(404, {
+        ok: false,
+        error: "Conversation not found",
+      });
+    }
+
+    await deleteCommunicationConversation({
+      where: {
+        id: conversation.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return json(200, {
+      ok: true,
+      deletedConversationId:
+        conversation.id,
+    });
+  } catch {
+    /*
+     * Avoid returning database/provider details to the browser.
+     */
+    console.error(
+      "communications.conversation.delete.failed",
+      {
+        conversationId,
+        organizationId:
+          gate.organizationId,
+      },
+    );
+
+    return json(500, {
+      ok: false,
+      error:
+        "Failed to delete communication conversation",
     });
   }
 }

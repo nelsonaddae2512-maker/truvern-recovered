@@ -42,10 +42,25 @@ function reminderLabel(days: number) {
 export async function GET(req: Request) {
   try {
   const secret = process.env.CRON_SECRET;
-  const provided = req.headers.get("x-cron-secret") || new URL(req.url).searchParams.get("secret");
+  const authorization = req.headers.get("authorization");
+  const legacyHeader = req.headers.get("x-cron-secret");
 
-  if (secret && provided !== secret) {
-    return json(401, { ok: false, error: "Unauthorized" });
+  if (!secret) {
+    return json(503, {
+      ok: false,
+      error: "Cron authentication is not configured.",
+    });
+  }
+
+  const authorized =
+    authorization === `Bearer ${secret}` ||
+    legacyHeader === secret;
+
+  if (!authorized) {
+    return json(401, {
+      ok: false,
+      error: "Unauthorized",
+    });
   }
 
   const now = new Date();
@@ -147,6 +162,3 @@ export async function GET(req: Request) {
     });
   }
 }
-
-
-

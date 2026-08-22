@@ -406,31 +406,47 @@ return (
 
           <NotificationBell />
 
-          <div className="hidden items-center gap-3 xl:flex">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-sm font-bold text-cyan-100">
-              {(accountLabel || "A").slice(0, 1).toUpperCase()}
+          <div className="hidden items-center gap-2 xl:flex">
+            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.035] py-1.5 pl-1.5 pr-4 shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-sm font-bold text-cyan-100">
+                {(accountLabel || "A").slice(0, 1).toUpperCase()}
+              </div>
+
+              <div className="min-w-0 text-left">
+                <p className="max-w-[150px] truncate text-sm font-semibold leading-tight text-white">
+                  {accountLabel}
+                </p>
+
+                {isOperator ? (
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
+                      Truvern Ops
+                    </span>
+
+                    <span
+                      aria-hidden="true"
+                      className="h-1 w-1 rounded-full bg-slate-600"
+                    />
+
+                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                      Owner
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                    Plan {currentPlan}
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                Signed in
-              </p>
-
-              <p className="max-w-[180px] truncate text-sm font-semibold text-white">
-                {accountLabel}
-              </p>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
-                Plan · {currentPlan}
-              </p>
-            </div>
+            <Link
+              href="/"
+              className="inline-flex min-h-9 items-center rounded-full border border-white/10 bg-white/[0.025] px-3 text-xs font-semibold text-slate-300 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+            >
+              Public site
+            </Link>
           </div>
-
-          <Link
-            href="/"
-            className="hidden text-sm font-medium text-slate-400 transition hover:text-white xl:inline-flex"
-          >
-            Public site
-          </Link>
         </div>
       </div>
 
@@ -621,7 +637,6 @@ export default function RootChrome({
     </div>
   );
 }
-
 
 
 

@@ -32,6 +32,7 @@ function isActive(pathname: string, href: string) {
 export default function AppShellNav() {
   const [currentPlan, setCurrentPlan] =
     useState<"FREE" | "PRO" | "ENTERPRISE">("FREE");
+  const [isOperator, setIsOperator] = useState(false);
 
   useEffect(() => {
     fetch("/api/billing/current-plan", { cache: "no-store" })
@@ -48,6 +49,14 @@ export default function AppShellNav() {
         }
       })
       .catch(() => setCurrentPlan("FREE"));
+  }, []);
+  useEffect(() => {
+    fetch("/api/truvern/ops/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((body) =>
+        setIsOperator(Boolean(body?.isOperator)),
+      )
+      .catch(() => setIsOperator(false));
   }, []);
   const pathname = usePathname();
   const { user } = useUser();
@@ -72,7 +81,8 @@ export default function AppShellNav() {
     (link) =>
       link.href !== "/communications" ||
       currentPlan === "PRO" ||
-      currentPlan === "ENTERPRISE",
+      currentPlan === "ENTERPRISE" ||
+      isOperator,
   );
 
   return (

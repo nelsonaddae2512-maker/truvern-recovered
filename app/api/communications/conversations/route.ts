@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { requireDbOrganization } from "@/lib/org-db";
-import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
+import { canUseCommunications, getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
 import { searchCommunicationConversations } from "@/lib/repositories/communication-conversation-search-repository";
 
 export const runtime = "nodejs";
@@ -224,16 +224,13 @@ async function requireApiAuth() {
 
     const planTier = await getCurrentOrgPlanTier();
 
-    if (
-      planTier !== "PRO" &&
-      planTier !== "ENTERPRISE"
-    ) {
+    if (!(await canUseCommunications(planTier))) {
       return {
         ok: false as const,
         response: json(403, {
           ok: false,
           error:
-            "Communications requires a Pro or Enterprise plan",
+            "Communications requires Pro, Enterprise, or Truvern Ops access",
         }),
       };
     }

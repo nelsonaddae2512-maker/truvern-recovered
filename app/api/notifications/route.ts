@@ -34,7 +34,10 @@ export async function GET() {
         { userId },
         ...(organizationId ? [{ organizationId, userId: null }] : []),
         ...(isTruvernOperator
-          ? [{ type: "ASSESSMENT_ASSIGNED_TRUVERN" as const }]
+          ? [
+              { type: "ASSESSMENT_ASSIGNED_TRUVERN" as const },
+              { type: "REVIEW_ASSIGNED" as const },
+            ]
           : []),
       ],
     },
