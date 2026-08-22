@@ -29,6 +29,10 @@ const isPublicRoute = createRouteMatcher([
 const isApiNoRedirectRoute = createRouteMatcher([
   "/api/cron(.*)",
   "/api/issues(.*)",
+
+  // Organization-scoped vendor APIs own their JSON auth responses.
+  // Do not replace API 401/403 responses with Clerk HTML redirects.
+  "/api/vendors(.*)",
   "/api/review-desk(.*)",
   "/api/governance(.*)",
   "/api/truvern/ops(.*)",

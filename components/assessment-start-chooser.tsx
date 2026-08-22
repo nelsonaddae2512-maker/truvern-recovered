@@ -221,13 +221,37 @@ async function handleStart() {
           dueAt: dueAt || null,
         }),
       });
+      const contentType =
+        res.headers.get("content-type") || "";
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Failed to start assessment");
+      const isJson =
+        contentType
+          .toLowerCase()
+          .includes("application/json");
+
+      if (!isJson) {
+        throw new Error(
+          res.redirected
+            ? "Assessment launch was redirected before the API completed. Refresh the page and try again."
+            : "Assessment launch returned an invalid server response. Refresh the page and try again.",
+        );
       }
 
-      const data = await res.json();
+      const data =
+        await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to start assessment",
+        );
+      }
+
+      if (!data) {
+        throw new Error(
+          "Assessment launch returned an empty server response.",
+        );
+      }
 
       if (data.redirectUrl) {
         router.push(data.redirectUrl);
