@@ -1,10 +1,13 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   createOrgNotification,
 } from "@/lib/notifications/create-notification";
 import {
   submitAssessment,
 } from "@/lib/services/assessment-submit-service";
+import {
+  recordAssessmentSubmissionCommunication,
+} from "@/lib/communications/assessment-lifecycle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +61,19 @@ export async function POST(req: Request) {
      */
     if (!result.alreadySubmitted) {
       try {
+        await recordAssessmentSubmissionCommunication({
+          organizationId:
+            result.assessment.organizationId,
+          vendorId:
+            result.assessment.vendorId,
+          assessmentId:
+            result.assessment.id,
+          completionPercent:
+            result.assessment.completionPercent,
+          submittedAt:
+            result.assessment.submittedAt,
+        });
+
         await createOrgNotification({
           organizationId:
             result.assessment.organizationId,
