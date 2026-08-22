@@ -62,6 +62,7 @@ export default async function AssessmentLaunchPage({ params }: Props) {
   if (!assessment) return notFound();
 
   const vendorUrl = assessment.token ? `/vendor-assessment/${assessment.token}` : null;
+  const isSubmitted = String(assessment.status) === "SUBMITTED";
 
   const contactMap = new Map<string, { id: string; label: string; email: string }>();
 
@@ -88,20 +89,27 @@ export default async function AssessmentLaunchPage({ params }: Props) {
       <section className="grid gap-10 lg:grid-cols-[1fr_0.85fr] lg:items-start">
         <div>
           <div className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200">
-            Assessment launched
+            {isSubmitted ? "Assessment submitted" : "Assessment launched"}
           </div>
 
           <h1 className="mt-6 max-w-5xl text-5xl font-semibold tracking-tight">
-            Vendor review is ready to send.
+            {isSubmitted
+              ? "Vendor assessment submitted."
+              : "Vendor review is ready to send."}
           </h1>
 
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-            Truvern created a live assessment instance, generated a secure vendor
-            completion token, and prepared the submission workflow for Governance Ops intake.
+            {isSubmitted
+              ? "The vendor completed and submitted this assessment. It is now ready for governance review."
+              : "Truvern created a live assessment instance, generated a secure vendor completion token, and prepared the submission workflow for Governance Ops intake."}
           </p>
 
           <div className="mt-10 flex flex-wrap gap-4">
-            {vendorUrl ? (
+            {isSubmitted ? (
+              <Link href="/review-desk" className="rounded-full bg-cyan-300 px-7 py-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200">
+                Open Review Desk
+              </Link>
+            ) : vendorUrl ? (
               <Link href={vendorUrl} className="rounded-full bg-cyan-300 px-7 py-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200">
                 Open vendor link
               </Link>
@@ -111,9 +119,15 @@ export default async function AssessmentLaunchPage({ params }: Props) {
               Back to vendor
             </Link>
 
-            <Link href="/review-desk" className="rounded-full border border-white/15 px-7 py-4 text-sm font-semibold text-white transition hover:bg-white/10">
-              Governance Ops
-            </Link>
+            {!isSubmitted ? (
+              <Link href="/review-desk" className="rounded-full border border-white/15 px-7 py-4 text-sm font-semibold text-white transition hover:bg-white/10">
+                Governance Ops
+              </Link>
+            ) : vendorUrl ? (
+              <Link href={vendorUrl} className="rounded-full border border-white/15 px-7 py-4 text-sm font-semibold text-white transition hover:bg-white/10">
+                Open vendor portal
+              </Link>
+            ) : null}
           </div>
         </div>
 
@@ -131,7 +145,12 @@ export default async function AssessmentLaunchPage({ params }: Props) {
         </aside>
       </section>
 
-      <SendVendorAssessmentLink assessmentId={assessment.id} defaultContacts={contactOptions} />
+      {!isSubmitted ? (
+        <SendVendorAssessmentLink
+          assessmentId={assessment.id}
+          defaultContacts={contactOptions}
+        />
+      ) : null}
 
 
         <section className="mt-8 rounded-[2rem] border border-amber-400/20 bg-amber-400/[0.08] p-7">
@@ -151,11 +170,18 @@ export default async function AssessmentLaunchPage({ params }: Props) {
           <AssessmentPortalControls assessmentId={assessment.id} variant="panel" />
         </section>
 <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.04] p-7">
-        <p className="text-xs uppercase tracking-[0.3em] text-cyan-200">Secure vendor link</p>
-        <h2 className="mt-3 text-3xl font-semibold">Send this link to the vendor.</h2>
+        <p className="text-xs uppercase tracking-[0.3em] text-cyan-200">
+          {isSubmitted ? "Vendor portal" : "Secure vendor link"}
+        </p>
+        <h2 className="mt-3 text-3xl font-semibold">
+          {isSubmitted
+            ? "Vendor submission is complete."
+            : "Send this link to the vendor."}
+        </h2>
         <p className="mt-4 max-w-3xl leading-8 text-slate-300">
-          The vendor can complete the questionnaire without logging into your workspace.
-          Once submitted, Truvern will mark the assessment review-ready.
+          {isSubmitted
+            ? "The secure portal remains available for authorized lifecycle management while the submitted assessment proceeds through governance review."
+            : "The vendor can complete the questionnaire without logging into your workspace. Once submitted, Truvern will mark the assessment review-ready."}
         </p>
         <div className="mt-6 rounded-3xl border border-cyan-400/20 bg-slate-950/70 p-5 shadow-2xl shadow-cyan-950/20">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
