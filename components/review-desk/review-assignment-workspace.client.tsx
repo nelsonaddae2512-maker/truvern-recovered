@@ -837,42 +837,17 @@ const initialFinalAssessment =
       }
     }
   }, [searchParams]);
-
   // FINDINGS_GENERATED_STATUS_MESSAGE
+  // Draft generation is intentionally non-publishing.
+  // Truvern reviewers must validate findings before remediation
+  // requests are sent to the vendor.
   useEffect(() => {
     if (searchParams.get("status") === "findings-generated") {
-      let cancelled = false;
-
-      setMessage("Truvern Findings Engine generated and saved the review draft successfully. Publishing remediation requests to the vendor...");
-
-      fetch(`/api/review-desk/reviews/${assignment.id}/publish-remediation`, {
-        method: "POST",
-      })
-        .then((response) => response.json().catch(() => ({})))
-        .then((json) => {
-          if (cancelled) return;
-
-          if (json?.ok) {
-            setMessage(
-              `Truvern Findings Engine generated the assessment and auto-published ${json.createdCount ?? 0} remediation request(s) to the vendor.`
-            );
-          } else {
-            setMessage("Findings generated. Auto-publish remediation could not be confirmed.");
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setMessage("Findings generated. Auto-publish remediation could not be confirmed.");
-          }
-        });
-
-      return () => {
-        cancelled = true;
-      };
+      setMessage(
+        "Truvern Findings Engine generated and saved the review draft. Review the findings before publishing remediation requests.",
+      );
     }
-
-    return undefined;
-  }, [searchParams, assignment.id]);
+  }, [searchParams]);
   const [showAuditTimeline, setShowAuditTimeline] = useState(false);
   const autoPublishedRemediationCount = remediationRequests.filter((request: any) => String(request?.notes ?? "").includes("Auto-created by Truvern Findings Engine")).length;
   const [activeWorkspaceTab, setActiveWorkspaceTab] =

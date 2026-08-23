@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 
@@ -422,7 +422,10 @@ const reviewerFollowUps = resolveReviewerFollowUps(responses);
 
     return [...evidenceRows, ...attestationRows].filter((item: any) => cleanText(item.text));
   });
-  const generatedFindings = safeArray(intelligence.findings);
+  const generatedFindings =
+    safeArray(intelligence.findings).length > 0
+      ? safeArray(intelligence.findings)
+      : safeArray(intelligence.responseDrivenFindingsV2);
   const textFindings: Finding[] = [];
 
   const findings = generatedFindings as Finding[];

@@ -1035,6 +1035,7 @@ findings: responseDrivenFindingsV2.findingsText,
       truvernReviewerIntelligence: {
         ...(generatedDraft as any).truvernReviewerIntelligence,
         source: responseDrivenFindingsV2.intelligenceMode,
+        findings: responseDrivenFindingsV2.responseDrivenFindings,
         responseDrivenFindingsV2: responseDrivenFindingsV2.responseDrivenFindings,
         assessmentAnswerRowsForFindingsCount: assessmentAnswerRowsForFindings.length,
       },
