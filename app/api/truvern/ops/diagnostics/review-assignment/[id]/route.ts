@@ -157,6 +157,29 @@ export async function GET(
     );
   }
 
+  const reviewRequestRows =
+    assignment.reviewRequestId
+      ? await prisma.$queryRaw<
+          Array<Record<string, any>>
+        >`
+          select
+            id,
+            "organizationId",
+            "vendorId",
+            "assessmentId",
+            status::text as status,
+            kind,
+            title,
+            "createdAt",
+            "updatedAt"
+          from "ReviewRequest"
+          where id = ${assignment.reviewRequestId}
+          limit 1
+        `
+      : [];
+
+  const reviewRequest =
+    reviewRequestRows[0] ?? null;
   const standardAssessmentRows =
     await prisma.$queryRaw<
       Array<Record<string, any>>
@@ -171,16 +194,20 @@ export async function GET(
         a."submittedAt",
         a."createdAt",
         a."updatedAt",
+        t.name as "templateName",
         count(aa.id)::int as "answerCount"
       from "Assessment" a
       left join "AssessmentAnswer" aa
         on aa."assessmentId" = a.id
+      left join "AssessmentTemplate" t
+        on t.id = a."templateId"
       where
         a."reviewAssignmentId" = ${assignmentId}
         or (
-          a."vendorId" = ${assignment.vendorId}
-          and a."organizationId" = ${assignment.organizationId}
+          ${reviewRequest?.assessmentId ?? null}::int is not null
+          and a.id = ${reviewRequest?.assessmentId ?? null}
         )
+        or a."vendorId" = ${assignment.vendorId}
       group by
         a.id,
         a.title,
@@ -190,12 +217,19 @@ export async function GET(
         a."reviewAssignmentId",
         a."submittedAt",
         a."createdAt",
-        a."updatedAt"
+        a."updatedAt",
+        t.name
       order by
+        case
+          when a.id = ${reviewRequest?.assessmentId ?? null}
+            then 0
+          when a."reviewAssignmentId" = ${assignmentId}
+            then 1
+          else 2
+        end,
         a."submittedAt" desc nulls last,
         a.id desc
     `;
-
   const standardAssessmentIds =
     standardAssessmentRows
       .map((row) => Number(row.id))
@@ -376,6 +410,64 @@ export async function GET(
           assignment.updatedAt ?? null,
       },
 
+      linkage: {
+        assignment: {
+          id: assignment.id,
+          reviewRequestId:
+            assignment.reviewRequestId ?? null,
+          vendorId:
+            assignment.vendorId ?? null,
+        },
+
+        reviewRequest: reviewRequest
+          ? {
+              id: reviewRequest.id,
+              organizationId:
+                reviewRequest.organizationId ?? null,
+              vendorId:
+                reviewRequest.vendorId ?? null,
+              assessmentId:
+                reviewRequest.assessmentId ?? null,
+              status:
+                reviewRequest.status ?? null,
+              kind:
+                reviewRequest.kind ?? null,
+              title:
+                reviewRequest.title ?? null,
+            }
+          : null,
+
+        resolutionCandidates:
+          standardAssessmentRows.map((row) => ({
+            assessmentId:
+              row.id,
+            reviewAssignmentId:
+              row.reviewAssignmentId ?? null,
+            vendorId:
+              row.vendorId ?? null,
+            organizationId:
+              row.organizationId ?? null,
+            status:
+              row.status ?? null,
+            templateName:
+              row.templateName ?? null,
+            submittedAt:
+              row.submittedAt ?? null,
+            answerCount:
+              Number(row.answerCount ?? 0),
+
+            matchesReviewRequestAssessment:
+              Boolean(
+                reviewRequest?.assessmentId &&
+                Number(row.id) ===
+                  Number(reviewRequest.assessmentId),
+              ),
+
+            matchesReviewAssignment:
+              Number(row.reviewAssignmentId) ===
+              Number(assignmentId),
+          })),
+      },
       assessmentSources: {
         standardAssessments:
           standardAssessmentRows.map((row) => ({
@@ -389,6 +481,8 @@ export async function GET(
               row.reviewAssignmentId ?? null,
             submittedAt:
               row.submittedAt ?? null,
+            templateName:
+              row.templateName ?? null,
             answerCount:
               Number(row.answerCount ?? 0),
           })),
