@@ -830,7 +830,7 @@ const initialFinalAssessment =
         window.localStorage.getItem("truvern-findings-generated") === "1");
 
     if (generated) {
-      setMessage("Truvern Findings Engine generated and saved the assessment successfully.");
+      setMessage("Truvern Findings Engine generated and saved the review draft successfully.");
 
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("truvern-findings-generated");
@@ -843,7 +843,7 @@ const initialFinalAssessment =
     if (searchParams.get("status") === "findings-generated") {
       let cancelled = false;
 
-      setMessage("Truvern Findings Engine generated and saved the assessment successfully. Publishing remediation requests to the vendor...");
+      setMessage("Truvern Findings Engine generated and saved the review draft successfully. Publishing remediation requests to the vendor...");
 
       fetch(`/api/review-desk/reviews/${assignment.id}/publish-remediation`, {
         method: "POST",
@@ -1311,10 +1311,10 @@ const initialFinalAssessment =
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || data?.code || `Failed to generate assessment. HTTP ${res.status}`);
+        throw new Error(data?.error || data?.code || `Failed to generate review draft. HTTP ${res.status}`);
       }
 
-      setMessage("Truvern Findings Engine generated and saved the assessment successfully.");
+      setMessage("Truvern Findings Engine generated and saved the review draft successfully.");
       setActiveWorkspaceTab("findings");
 
       const params = new URLSearchParams(searchParams.toString());
@@ -2531,7 +2531,7 @@ const initialFinalAssessment =
                   onClick={generateDraft}
                   className="rounded-2xl border border-violet-300/20 bg-violet-400/10 px-5 py-3 text-sm font-semibold text-violet-50 hover:bg-violet-400/15 disabled:opacity-50"
                 >
-                  {generatingDraft ? "Generating assessment..." : "Generate assessment"}
+                  {generatingDraft ? "Generating review draft..." : "Generate review draft"}
                 </button>
               ) : null}
 
@@ -3065,7 +3065,7 @@ const initialFinalAssessment =
                   onClick={generateDraft}
                   className="rounded-2xl border border-violet-300/20 bg-violet-400/10 px-5 py-3 text-sm font-semibold text-violet-50 hover:bg-violet-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {generatingDraft ? "Generating assessment..." : "Generate assessment"}
+                  {generatingDraft ? "Generating review draft..." : "Generate review draft"}
                 </button>
               )}
             </div>

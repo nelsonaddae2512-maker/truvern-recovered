@@ -692,6 +692,7 @@ if (!request) {
 
 const vendorId = safeInt(request.vendorId);
 
+const linkedAssessmentId = safeInt(request.assessmentId);
 if (!vendorId) {
   return json(409, {
     ok: false,
@@ -741,17 +742,24 @@ if (!vendorId) {
           },
         ],
       });
-
     const submittedAssessment = await findFirstAssessment({
-      where: {
-        vendorId,
-        status: {
-          in: ["SUBMITTED", "REVIEW_READY"],
-        },
-      },
-      orderBy: {
-        submittedAt: "desc",
-      },
+      where: linkedAssessmentId
+        ? {
+            id: linkedAssessmentId,
+            vendorId,
+            organizationId: vendor.organizationId,
+          }
+        : {
+            vendorId,
+            status: {
+              in: ["SUBMITTED", "REVIEW_READY"],
+            },
+          },
+      orderBy: linkedAssessmentId
+        ? undefined
+        : {
+            submittedAt: "desc",
+          },
       include: {
         answers: {
           include: {
@@ -767,17 +775,27 @@ if (!vendorId) {
 
     const assessmentAnswerRowsForFindings =
       await findAssessmentAnswers({
-        where: {
-          assessment: {
-            is: {
-              vendorId: vendor.id,
-              organizationId: vendor.organizationId,
-              status: {
-                in: ["SUBMITTED", "REVIEW_READY"],
+        where: linkedAssessmentId
+          ? {
+              assessmentId: linkedAssessmentId,
+              assessment: {
+                is: {
+                  vendorId: vendor.id,
+                  organizationId: vendor.organizationId,
+                },
+              },
+            }
+          : {
+              assessment: {
+                is: {
+                  vendorId: vendor.id,
+                  organizationId: vendor.organizationId,
+                  status: {
+                    in: ["SUBMITTED", "REVIEW_READY"],
+                  },
+                },
               },
             },
-          },
-        },
         select: {
           id: true,
           assessmentId: true,
@@ -1087,36 +1105,3 @@ findings: responseDrivenFindingsV2.findingsText,
     });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
