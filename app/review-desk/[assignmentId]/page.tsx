@@ -80,6 +80,12 @@ export default async function ReviewEngagementPage({ params }: Props) {
       `
     : null;
 
+  // Existing-assessment continuity guard.
+  // A Professional Review conversion preserves the assessment
+  // already attached to the ReviewRequest.
+  const linkedAssessmentId =
+    safeInt(request?.assessmentId);
+
   const vendorId = safeInt(assignment.vendorId) ?? safeInt(request?.vendorId);
 
   if (!vendorId) notFound();
@@ -416,7 +422,8 @@ export default async function ReviewEngagementPage({ params }: Props) {
 
 
         <div className="mt-8 space-y-6">
-          {upper(assignment.assignmentType) === "TRUVERN" ? (
+          {upper(assignment.assignmentType) === "TRUVERN" &&
+          !linkedAssessmentId ? (
             <ManagedReviewAssessmentLauncher
               vendorId={vendor.id}
               vendorName={vendor.name}
@@ -665,51 +672,3 @@ export default async function ReviewEngagementPage({ params }: Props) {
     </main>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
