@@ -1,6 +1,7 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { requireDbOrganization } from "@/lib/org-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,15 +38,6 @@ function slugify(value: string) {
     .slice(0, 64);
 }
 
-async function getDefaultOrganizationId() {
-  const org = await prisma.organization.findFirst({
-    orderBy: { id: "asc" },
-    select: { id: true },
-  });
-
-  return org?.id ?? null;
-}
-
 async function createTemplate(formData: FormData) {
   "use server";
 
@@ -60,7 +52,13 @@ async function createTemplate(formData: FormData) {
     throw new Error("Template name is required.");
   }
 
-  const organizationId = await getDefaultOrganizationId();
+  const org = await requireDbOrganization();
+
+  if ("_needsOrgSelection" in org) {
+    redirect("/dashboard");
+  }
+
+  const organizationId = org.id;
   const code = `${slugify(name) || "template"}-${Date.now()}`;
 
   const created = await prisma.assessmentTemplate.create({
@@ -245,8 +243,3 @@ export default function NewAssessmentTemplatePage() {
     </main>
   );
 }
-
-
-
-
-
