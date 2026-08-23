@@ -307,9 +307,39 @@ export async function POST(_request: Request, props: Props) {
       row.vendorName || "Vendor",
     );
 
+    const canonicalFindings = (
+      Array.isArray(intelligence.findings)
+        ? intelligence.findings
+        : []
+    ).map((finding: any) => {
+      const requiredEvidence =
+        Array.isArray(finding?.requiredEvidence)
+          ? finding.requiredEvidence.filter(Boolean)
+          : [];
+
+      const requiredAttestation =
+        Array.isArray(finding?.requiredAttestation)
+          ? finding.requiredAttestation.filter(Boolean)
+          : [];
+
+      return {
+        ...finding,
+        remediationRequired:
+          typeof finding?.remediationRequired === "boolean"
+            ? finding.remediationRequired
+            : requiredEvidence.length > 0,
+        attestationRequired:
+          typeof finding?.attestationRequired === "boolean"
+            ? finding.attestationRequired
+            : requiredAttestation.length > 0,
+        requiredEvidence,
+        requiredAttestation,
+      };
+    });
+
     const canonicalOutcome = deriveCanonicalGovernanceOutcome({
       baseRiskLevel: intelligence?.score?.riskLevel ?? null,
-      findings: Array.isArray(intelligence.findings) ? intelligence.findings : [],
+      findings: canonicalFindings,
     });
     const canonicalGovernanceArtifact = buildCanonicalGovernanceArtifact({
       executiveSummary: structuredNarratives.executiveSummary,
@@ -317,7 +347,7 @@ export async function POST(_request: Request, props: Props) {
       finalRecommendation: structuredNarratives.finalRecommendation,
       decision: canonicalOutcome.recommendation,
       riskLevel: canonicalOutcome.riskLevel,
-      findings: Array.isArray(intelligence.findings) ? intelligence.findings : [],
+      findings: canonicalFindings,
       conditionsAndFollowUps: canonicalOutcome.followUps,
       boardSummary: structuredNarratives.boardSummary,
       customerSummary: structuredNarratives.customerSummary,
@@ -332,7 +362,7 @@ export async function POST(_request: Request, props: Props) {
     vendorName: intelligence.vendorName,
     frameworkName: intelligence.frameworkName,
     score: intelligence.score,
-    findings: Array.isArray(intelligence.findings) ? intelligence.findings : [],
+    findings: canonicalFindings,
     remediationRequired: canonicalOutcome.remediationRequired,
     attestationRequired: canonicalOutcome.attestationRequired,
     recommendation: canonicalOutcome.recommendation,
@@ -387,7 +417,7 @@ export async function POST(_request: Request, props: Props) {
             riskLevel: canonicalOutcome.riskLevel,
             decision: canonicalOutcome.recommendation,
             findings: JSON.stringify(
-              intelligence.findings,
+              canonicalFindings,
               null,
               2,
             ),
@@ -413,16 +443,3 @@ export async function POST(_request: Request, props: Props) {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
