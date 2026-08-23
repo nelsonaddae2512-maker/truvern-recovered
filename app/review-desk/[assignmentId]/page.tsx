@@ -551,8 +551,18 @@ export default async function ReviewEngagementPage({ params }: Props) {
             latestOutcome={{
               id: latestOutcome?.id ? Number(latestOutcome.id) : null,
               status: upper(latestOutcomeResponses?.intent) || "DRAFT",
-              decision: safeStr(latestOutcomeResponses?.decision) || null,
-              riskLevel: safeStr(latestOutcomeResponses?.riskLevel) || null,
+              decision:
+                safeStr(
+                  latestOutcomeResponses?.canonicalGovernanceArtifact?.decision,
+                ) ||
+                safeStr(latestOutcomeResponses?.decision) ||
+                null,
+              riskLevel:
+                safeStr(
+                  latestOutcomeResponses?.canonicalGovernanceArtifact?.riskLevel,
+                ) ||
+                safeStr(latestOutcomeResponses?.riskLevel) ||
+                null,
               releaseState:
                 safeStr(latestOutcomeResponses?.releaseState) || null,
               findings:
@@ -576,14 +586,18 @@ export default async function ReviewEngagementPage({ params }: Props) {
                 "",
 
               conditionsAndFollowUps: Array.isArray(
-                latestOutcomeResponses?.conditionsAndFollowUps,
+                latestOutcomeResponses?.canonicalGovernanceArtifact?.conditionsAndFollowUps,
               )
-                ? latestOutcomeResponses.conditionsAndFollowUps
+                ? latestOutcomeResponses.canonicalGovernanceArtifact.conditionsAndFollowUps
                 : Array.isArray(
-                    latestOutcomeResponses?.structuredAssessment?.conditionsAndFollowUps,
+                    latestOutcomeResponses?.conditionsAndFollowUps,
                   )
-                  ? latestOutcomeResponses.structuredAssessment.conditionsAndFollowUps
-                  : [],
+                  ? latestOutcomeResponses.conditionsAndFollowUps
+                  : Array.isArray(
+                      latestOutcomeResponses?.structuredAssessment?.conditionsAndFollowUps,
+                    )
+                    ? latestOutcomeResponses.structuredAssessment.conditionsAndFollowUps
+                    : [],
 
  updatedAt: iso(latestOutcome?.updatedAt),
               generatedDraft: {
@@ -607,11 +621,32 @@ export default async function ReviewEngagementPage({ params }: Props) {
                       ? latestOutcomeResponses.structuredAssessment
                       : {}
                   ),
-                  conditionsAndFollowUps: Array.isArray(
-                    latestOutcomeResponses?.conditionsAndFollowUps,
+                  followUps: Array.isArray(
+                    latestOutcomeResponses?.canonicalGovernanceArtifact?.conditionsAndFollowUps,
                   )
-                    ? latestOutcomeResponses.conditionsAndFollowUps
-                    : [],
+                    ? latestOutcomeResponses.canonicalGovernanceArtifact.conditionsAndFollowUps
+                    : Array.isArray(
+                        latestOutcomeResponses?.conditionsAndFollowUps,
+                      )
+                      ? latestOutcomeResponses.conditionsAndFollowUps
+                      : Array.isArray(
+                          latestOutcomeResponses?.structuredAssessment?.conditionsAndFollowUps,
+                        )
+                        ? latestOutcomeResponses.structuredAssessment.conditionsAndFollowUps
+                        : [],
+                  conditionsAndFollowUps: Array.isArray(
+                    latestOutcomeResponses?.canonicalGovernanceArtifact?.conditionsAndFollowUps,
+                  )
+                    ? latestOutcomeResponses.canonicalGovernanceArtifact.conditionsAndFollowUps
+                    : Array.isArray(
+                        latestOutcomeResponses?.conditionsAndFollowUps,
+                      )
+                      ? latestOutcomeResponses.conditionsAndFollowUps
+                      : Array.isArray(
+                          latestOutcomeResponses?.structuredAssessment?.conditionsAndFollowUps,
+                        )
+                        ? latestOutcomeResponses.structuredAssessment.conditionsAndFollowUps
+                        : [],
                   truvernRemediation:
                     latestOutcomeResponses?.truvernRemediation &&
                     typeof latestOutcomeResponses.truvernRemediation === "object"
@@ -621,6 +656,11 @@ export default async function ReviewEngagementPage({ params }: Props) {
                     latestOutcomeResponses?.truvernReviewerIntelligence &&
                     typeof latestOutcomeResponses.truvernReviewerIntelligence === "object"
                       ? latestOutcomeResponses.truvernReviewerIntelligence
+                      : null,
+                  canonicalGovernanceArtifact:
+                    latestOutcomeResponses?.canonicalGovernanceArtifact &&
+                    typeof latestOutcomeResponses.canonicalGovernanceArtifact === "object"
+                      ? latestOutcomeResponses.canonicalGovernanceArtifact
                       : null,
                   releaseState: safeStr(latestOutcomeResponses?.releaseState),
                   releaseBlocked: Boolean(latestOutcomeResponses?.releaseBlocked),
