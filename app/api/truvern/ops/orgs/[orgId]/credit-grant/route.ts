@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentTruvernAccess } from "@/lib/truvern-ops-access";
 import { createOrgNotification } from "@/lib/notifications/create-notification";
 import { findOrganization } from "@/lib/repositories/organization-repository";
 
@@ -14,16 +14,6 @@ type Params = {
 
 type BodyMap = Record<string, unknown>;
 
-function isOpsUser(userId: string | null | undefined) {
-  if (!userId) return false;
-
-  const allowlist = String(process.env.TRUVERN_OPS_USERS || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  return allowlist.includes(userId);
-}
 
 async function readBody(request: Request): Promise<BodyMap> {
   const contentType = request.headers.get("content-type") || "";
@@ -47,16 +37,23 @@ function redirectBack(request: Request, organizationId: number, status: string) 
 }
 
 export async function POST(request: Request, context: Params) {
-  const { userId } = await auth();
 
   const { orgId } = await context.params;
   const organizationId = Number(orgId);
 
-  if (!isOpsUser(userId)) {
+  const truvernAccess = await getCurrentTruvernAccess();
+
+
+  if (!truvernAccess.isTruvernOperator) {
+
     return NextResponse.json(
+
       { ok: false, error: "Unauthorized ops user." },
+
       { status: 403 },
+
     );
+
   }
 
   if (!Number.isInteger(organizationId) || organizationId <= 0) {
@@ -124,9 +121,3 @@ await createOrgNotification({
 
   return redirectBack(request, organizationId, "credits-granted");
 }
-
-
-
-
-
-

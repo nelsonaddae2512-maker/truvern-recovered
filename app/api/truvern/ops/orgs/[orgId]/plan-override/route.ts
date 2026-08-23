@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentTruvernAccess } from "@/lib/truvern-ops-access";
 import prisma from "@/lib/prisma";
 import { createOrgNotification } from "@/lib/notifications/create-notification";
 import { normalizeOrganizationPlanTier } from "@/lib/billing/organization-plan";
@@ -16,16 +16,6 @@ type Params = {
 
 type BodyMap = Record<string, unknown>;
 
-function isOpsUser(userId: string | null | undefined) {
-  if (!userId) return false;
-
-  const allowlist = String(process.env.TRUVERN_OPS_USERS || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  return allowlist.includes(userId);
-}
 
 function parseDate(value: unknown): Date | null {
   if (!value) return null;
@@ -58,16 +48,25 @@ function redirectBack(request: Request, organizationId: number, status: string) 
 }
 
 export async function POST(request: Request, context: Params) {
-  const { userId } = await auth();
 
   const { orgId } = await context.params;
   const organizationId = Number(orgId);
 
-  if (!isOpsUser(userId)) {
+  const truvernAccess = await getCurrentTruvernAccess();
+
+  const userId = truvernAccess.userId;
+
+
+  if (!truvernAccess.isTruvernOperator || !userId) {
+
     return NextResponse.json(
+
       { ok: false, error: "Unauthorized ops user." },
+
       { status: 403 },
+
     );
+
   }
 
   if (!Number.isInteger(organizationId) || organizationId <= 0) {
@@ -141,13 +140,20 @@ export async function POST(request: Request, context: Params) {
 }
 
 export async function DELETE(request: Request, context: Params) {
-  const { userId } = await auth();
 
-  if (!isOpsUser(userId)) {
+  const truvernAccess = await getCurrentTruvernAccess();
+
+
+  if (!truvernAccess.isTruvernOperator) {
+
     return NextResponse.json(
+
       { ok: false, error: "Unauthorized ops user." },
+
       { status: 403 },
+
     );
+
   }
 
   const { orgId } = await context.params;
@@ -175,6 +181,3 @@ export async function DELETE(request: Request, context: Params) {
     revokedCount: updated.count,
   });
 }
-
-
-
