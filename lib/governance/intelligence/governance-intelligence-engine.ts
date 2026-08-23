@@ -1,4 +1,4 @@
-﻿import {
+import {
   generateFindings,
   shouldRequestAttestation,
   shouldRequestRemediation,
@@ -44,16 +44,211 @@ export type GovernanceIntelligenceResult = {
   };
 };
 
-function recommendationFor(result: TruvernFindingsResult): GovernanceRecommendation {
-  const critical = result.findings.filter((f) => f.severity === "CRITICAL").length;
-  const high = result.findings.filter((f) => f.severity === "HIGH").length;
+export type CanonicalGovernanceFindingInput = {
+  title?: string | null;
+  severity?: string | null;
+  remediationRequired?: boolean | null;
+  attestationRequired?: boolean | null;
+  requiredEvidence?: unknown;
+  requiredAttestation?: unknown;
+};
 
-  if (result.score.riskLevel === "CRITICAL" || critical > 0) return "NOT_RECOMMENDED";
-  if (result.score.riskLevel === "HIGH" || high >= 3) return "HIGH_RISK";
-  if (shouldRequestRemediation(result)) return "REMEDIATION_REQUIRED";
-  if (shouldRequestAttestation(result) || result.findings.length > 0) return "APPROVED_WITH_CONDITIONS";
+export type CanonicalGovernanceOutcome = {
+  riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  recommendation: GovernanceRecommendation;
+  releaseReady: boolean;
+  followUps: string[];
+  findingCount: number;
+  remediationRequired: boolean;
+  attestationRequired: boolean;
+};
 
-  return "APPROVED";
+function normalizeCanonicalRiskLevel(
+  value: unknown,
+): CanonicalGovernanceOutcome["riskLevel"] {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase();
+
+  if (normalized === "CRITICAL") return "CRITICAL";
+  if (normalized === "HIGH") return "HIGH";
+
+  if (
+    normalized === "MEDIUM" ||
+    normalized === "MODERATE"
+  ) {
+    return "MEDIUM";
+  }
+
+  return "LOW";
+}
+
+function canonicalRiskRank(
+  value: CanonicalGovernanceOutcome["riskLevel"],
+) {
+  if (value === "CRITICAL") return 4;
+  if (value === "HIGH") return 3;
+  if (value === "MEDIUM") return 2;
+  return 1;
+}
+
+export function deriveCanonicalGovernanceOutcome(input: {
+  baseRiskLevel?: unknown;
+  findings?: CanonicalGovernanceFindingInput[] | null;
+}): CanonicalGovernanceOutcome {
+  const findings =
+    Array.isArray(input.findings)
+      ? input.findings
+      : [];
+
+  const baseRiskLevel =
+    normalizeCanonicalRiskLevel(
+      input.baseRiskLevel,
+    );
+
+  let riskLevel = baseRiskLevel;
+
+  for (const finding of findings) {
+    const findingRisk =
+      normalizeCanonicalRiskLevel(
+        finding?.severity,
+      );
+
+    if (
+      canonicalRiskRank(findingRisk) >
+      canonicalRiskRank(riskLevel)
+    ) {
+      riskLevel = findingRisk;
+    }
+  }
+
+  const criticalCount =
+    findings.filter(
+      (finding) =>
+        normalizeCanonicalRiskLevel(
+          finding?.severity,
+        ) === "CRITICAL",
+    ).length;
+
+  const highCount =
+    findings.filter(
+      (finding) =>
+        normalizeCanonicalRiskLevel(
+          finding?.severity,
+        ) === "HIGH",
+    ).length;
+
+  const remediationRequired =
+    findings.some(
+      (finding) =>
+        finding?.remediationRequired === true,
+    );
+
+  const attestationRequired =
+    findings.some((finding) => {
+      if (finding?.attestationRequired === true) {
+        return true;
+      }
+
+      return (
+        Array.isArray(
+          finding?.requiredAttestation,
+        ) &&
+        finding.requiredAttestation.length > 0
+      );
+    });
+
+  let recommendation: GovernanceRecommendation;
+
+  if (
+    riskLevel === "CRITICAL" ||
+    criticalCount > 0
+  ) {
+    recommendation = "NOT_RECOMMENDED";
+  } else if (
+    baseRiskLevel === "HIGH" ||
+    highCount >= 3
+  ) {
+    recommendation = "HIGH_RISK";
+  } else if (remediationRequired) {
+    recommendation = "REMEDIATION_REQUIRED";
+  } else if (
+    attestationRequired ||
+    findings.length > 0
+  ) {
+    recommendation =
+      "APPROVED_WITH_CONDITIONS";
+  } else {
+    recommendation = "APPROVED";
+  }
+
+  const followUps =
+    Array.from(
+      new Set(
+        findings.flatMap((finding) => {
+          const title =
+            String(finding?.title ?? "")
+              .trim() ||
+            "Governance finding";
+
+          const rows: string[] = [];
+
+          if (
+            finding?.remediationRequired === true
+          ) {
+            rows.push(
+              `Remediation required: ${title}`,
+            );
+          }
+
+          if (
+            Array.isArray(
+              finding?.requiredEvidence,
+            ) &&
+            finding.requiredEvidence.length > 0
+          ) {
+            rows.push(
+              `Evidence required: ${title}`,
+            );
+          }
+
+          if (
+            finding?.attestationRequired === true ||
+            (
+              Array.isArray(
+                finding?.requiredAttestation,
+              ) &&
+              finding.requiredAttestation.length > 0
+            )
+          ) {
+            rows.push(
+              `Attestation required: ${title}`,
+            );
+          }
+
+          return rows;
+        }),
+      ),
+    );
+
+  return {
+    riskLevel,
+    recommendation,
+    releaseReady:
+      recommendation === "APPROVED",
+    followUps,
+    findingCount: findings.length,
+    remediationRequired,
+    attestationRequired,
+  };
+}
+function recommendationFor(
+  result: TruvernFindingsResult,
+): GovernanceRecommendation {
+  return deriveCanonicalGovernanceOutcome({
+    baseRiskLevel: result.score.riskLevel,
+    findings: result.findings,
+  }).recommendation;
 }
 
 function labelRecommendation(value: GovernanceRecommendation) {

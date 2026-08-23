@@ -1,3 +1,4 @@
+import { deriveCanonicalGovernanceOutcome } from "@/lib/governance/intelligence/governance-intelligence-engine";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -879,16 +880,20 @@ if (!vendorId) {
       });
     }
 
-    const riskLevel = inferRiskLevel(vendor, assessmentRun);
-    const decision = inferDecision(riskLevel);
+    const inferredRiskLevel =
+      inferRiskLevel(vendor, assessmentRun);
+
+    const inferredDecision =
+      inferDecision(inferredRiskLevel);
+
     const nowIso = new Date().toISOString();
 
     const fallbackFindingsText = [
       buildFindings({
         vendor,
         assessmentRun: submittedAssessment || assessmentRun,
-        riskLevel,
-        decision,
+        riskLevel: inferredRiskLevel,
+        decision: inferredDecision,
       }),
       "",
       "SUBMITTED QUESTIONNAIRE REVIEW",
@@ -914,6 +919,19 @@ if (!vendorId) {
 
     console.log("FINDINGS ENGINE OUTPUT");
     console.dir(responseDrivenFindingsV2, { depth: 4 });
+
+    const canonicalOutcome =
+      deriveCanonicalGovernanceOutcome({
+        baseRiskLevel: inferredRiskLevel,
+        findings:
+          responseDrivenFindingsV2.responseDrivenFindings,
+      });
+
+    const riskLevel =
+      canonicalOutcome.riskLevel;
+
+    const decision =
+      canonicalOutcome.recommendation;
 
     const generatedDraft = {
       schema: "truvern.vendor_review_response.v1",
@@ -974,22 +992,20 @@ if (!vendorId) {
           observations: [
             `Vendor submitted ${submittedAnswerCount} questionnaire answer${submittedAnswerCount === 1 ? "" : "s"} for governance review.`,
             "Vendor operational posture aligns with submitted assessment information.",
-            "No immediate critical governance blockers were identified during review.",
+            canonicalOutcome.findingCount > 0
+              ? `${canonicalOutcome.findingCount} response-driven governance finding${canonicalOutcome.findingCount === 1 ? "" : "s"} require reviewer disposition.`
+              : "No response-driven governance findings were identified during draft generation.",
             "Residual risk classification reflects currently available evidence and assessment context.",
           ],
         },
 
         governanceRecommendation: {
           recommendation: decision,
-          releaseReady: true,
+          releaseReady: canonicalOutcome.releaseReady,
           requiresCustomerConfirmation: true,
         },
 
-        conditionsAndFollowUps: [
-          "Continue periodic governance monitoring.",
-          "Maintain evidence and operational control documentation.",
-          "Notify customers of material operational or security changes when applicable.",
-        ],
+        conditionsAndFollowUps: canonicalOutcome.followUps,
 
         finalAssessment: [
           `This assessment was reviewed through Truvern governance workflows using submitted assessment materials, vendor operational context, evidence documentation, and risk evaluation procedures.`,
@@ -998,7 +1014,9 @@ if (!vendorId) {
           ``,
           `Based on the available assessment information and governance review process, Truvern determined that the current recommendation and residual risk classification accurately reflect the vendor's present operational and risk posture.`,
           ``,
-          `This assessment outcome is prepared for governance release and customer consumption.`,
+          canonicalOutcome.releaseReady
+            ? `This assessment outcome is eligible for governance release after required reviewer approval.`
+            : `This assessment outcome remains blocked from governance release until required findings, evidence, attestations, or remediation are resolved and validated.`,
         ].join("\n"),
       },
 
