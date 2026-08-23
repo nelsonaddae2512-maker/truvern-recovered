@@ -8,6 +8,8 @@ import type { TruvernScoringInput } from "@/lib/governance/scoring-engine";
 import { findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findReviewAssignment, updateReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 import { findVendor } from "@/lib/repositories/vendor-repository";
+import { findReviewRequest } from "@/lib/repositories/review-request-repository";
+import { findAssessmentAnswers } from "@/lib/repositories/assessment-answer-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -155,6 +157,45 @@ This assessment outcome is prepared for governance release and customer consumpt
   };
 }
 
+function normalizeAssessmentAnswerValue(
+  valueJson: unknown,
+  value: unknown,
+): TruvernScoringInput["answer"] {
+  const candidate =
+    valueJson ??
+    value ??
+    null;
+
+  if (
+    candidate === null ||
+    candidate === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof candidate === "string" ||
+    typeof candidate === "number" ||
+    typeof candidate === "boolean"
+  ) {
+    return candidate;
+  }
+
+  if (Array.isArray(candidate)) {
+    return candidate.filter(
+      (item): item is string =>
+        typeof item === "string",
+    );
+  }
+
+  if (typeof candidate === "object") {
+    return JSON.parse(
+      JSON.stringify(candidate),
+    ) as Record<string, unknown>;
+  }
+
+  return String(candidate);
+}
 function extractResponses(payload: any): TruvernScoringInput[] {
   const candidates = [
     payload?.answers,
@@ -241,6 +282,7 @@ export async function POST(_request: Request, props: Props) {
         id: true,
         organizationId: true,
         vendorId: true,
+        reviewRequestId: true,
       },
     });
 
@@ -263,6 +305,7 @@ export async function POST(_request: Request, props: Props) {
       ? {
           assignmentId: assignment.id,
           organizationId: assignment.organizationId,
+          reviewRequestId: assignment.reviewRequestId,
           vendorId: assignment.vendorId,
           vendorName: vendor?.name ?? null,
           responseId: latestResponse?.id ?? null,
@@ -274,13 +317,99 @@ export async function POST(_request: Request, props: Props) {
       return NextResponse.json({ ok: false, error: "Review assignment not found." }, { status: 404 });
     }
 
+    const reviewRequest =
+      row.reviewRequestId
+        ? await findReviewRequest({
+            where: {
+              id: row.reviewRequestId,
+            },
+            select: {
+              id: true,
+              assessmentId: true,
+              vendorId: true,
+              organizationId: true,
+            },
+          })
+        : null;
+
+    const linkedAssessmentId =
+      Number(reviewRequest?.assessmentId ?? 0) > 0
+        ? Number(reviewRequest?.assessmentId)
+        : null;
+
+    const assessmentAnswerRows =
+      linkedAssessmentId
+        ? await findAssessmentAnswers({
+            where: {
+              assessmentId: linkedAssessmentId,
+              assessment: {
+                is: {
+                  vendorId: row.vendorId,
+                  organizationId: row.organizationId,
+                },
+              },
+            },
+            select: {
+              id: true,
+              assessmentId: true,
+              questionId: true,
+              value: true,
+              valueJson: true,
+              riskImpact: true,
+              question: {
+                select: {
+                  id: true,
+                  text: true,
+                  description: true,
+                  category: true,
+                },
+              },
+            },
+            orderBy: {
+              id: "asc",
+            },
+            take: 500,
+          })
+        : [];
+
+    const assessmentScoringResponses: TruvernScoringInput[] =
+      assessmentAnswerRows.map((answer) => ({
+        questionId:
+          answer.questionId ??
+          answer.question?.id ??
+          answer.id,
+        family:
+          answer.question?.category ??
+          null,
+        prompt:
+          answer.question?.text ??
+          answer.question?.description ??
+          null,
+        answer: normalizeAssessmentAnswerValue(
+          answer.valueJson,
+          answer.value,
+        ),
+      }));
     const responsePayload =
       row.responses &&
       typeof row.responses === "object" &&
       !Array.isArray(row.responses)
         ? (row.responses as Record<string, any>)
         : {};
-    const scoringResponses = extractResponses(responsePayload);
+    const legacyScoringResponses =
+      extractResponses(responsePayload);
+
+    const scoringResponses =
+      assessmentScoringResponses.length > 0
+        ? assessmentScoringResponses
+        : legacyScoringResponses;
+
+    const scoringSource =
+      assessmentScoringResponses.length > 0
+        ? "ASSESSMENT_ANSWERS"
+        : legacyScoringResponses.length > 0
+          ? "LEGACY_REVIEW_RESPONSE"
+          : "NONE";
 
     if (scoringResponses.length === 0) {
       return NextResponse.json(
@@ -290,7 +419,7 @@ export async function POST(_request: Request, props: Props) {
     }
 
     const intelligence = runGovernanceIntelligence({
-      assessmentId: assignmentId,
+      assessmentId: linkedAssessmentId ?? assignmentId,
       vendorName: row.vendorName || "Vendor",
       frameworkName: "Truvern Governance Review",
       responses: scoringResponses,
@@ -388,6 +517,17 @@ export async function POST(_request: Request, props: Props) {
       customerSummary: structuredNarratives.customerSummary,
       governanceDecisionNarrative: structuredNarratives.governanceDecisionNarrative,
       canonicalGovernanceArtifact,
+      intelligenceInput: {
+        source: scoringSource,
+        reviewRequestId:
+          row.reviewRequestId ?? null,
+        assessmentId:
+          linkedAssessmentId,
+        assessmentAnswerCount:
+          assessmentScoringResponses.length,
+        legacyResponseCount:
+          legacyScoringResponses.length,
+      },
       findings: persistedReviewerIntelligence.findings,
     };
     const mergedResponsesJson =
