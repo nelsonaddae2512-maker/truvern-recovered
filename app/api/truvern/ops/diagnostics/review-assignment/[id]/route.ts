@@ -127,7 +127,6 @@ export async function GET(
     >`
       select
         id,
-        "requestId",
         "reviewRequestId",
         "vendorId",
         status::text as status,
@@ -230,8 +229,7 @@ export async function GET(
 
       assignment: {
         id: assignment.id,
-        requestId:
-          assignment.requestId ??
+        reviewRequestId:
           assignment.reviewRequestId ??
           null,
         vendorId:
