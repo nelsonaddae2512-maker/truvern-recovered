@@ -1,4 +1,4 @@
-﻿import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import {
   lockReviewAssignment,
   persistAssignedReviewer,
@@ -26,6 +26,8 @@ export type ReviewAssignmentServiceInput = {
   reviewerUserId?: string | null;
   reviewerName?: string | null;
   reviewCreditCost?: number;
+  acceptedLegal?: boolean;
+  acceptanceVersion?: string | null;
 };
 
 export type ReviewAssignmentSuccess = {
@@ -383,6 +385,23 @@ export async function mutateReviewAssignment(
     };
   }
 
+  if (
+    input.action === "truvern" &&
+    (
+      input.acceptedLegal !== true ||
+      safeString(input.acceptanceVersion) !==
+        "TRV-LEGAL-1.0"
+    )
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code:
+        "TRUVERN_LEGAL_ACCEPTANCE_REQUIRED",
+      error:
+        "TRV-LEGAL-1.0 acceptance is required before activating Professional Review.",
+    };
+  }
   return prisma.$transaction(
     async (tx) => {
       const assignment =
@@ -431,7 +450,3 @@ export async function mutateReviewAssignment(
     },
   );
 }
-
-
-
-

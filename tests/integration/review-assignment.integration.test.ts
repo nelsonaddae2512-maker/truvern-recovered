@@ -290,6 +290,9 @@ const routed =
             assignmentId:
               assignment.id,
             action: "truvern",
+            acceptedLegal: true,
+            acceptanceVersion:
+              "TRV-LEGAL-1.0",
             actorUserId:
               "user_rs3c_customer",
             reviewCreditCost: 1,
@@ -565,6 +568,91 @@ const routed =
       30_000,
     );
 
+    test(
+      "rejects Truvern routing without TRV-LEGAL-1.0 acceptance",
+      async () => {
+        const organization =
+          await createOrganizationFixture({
+            planTier: "PRO",
+          });
+
+        const vendor =
+          await createVendorFixture({
+            organizationId:
+              organization.id,
+            status: "SUBMISSION",
+          });
+
+        const request =
+          await createReviewRequestFixture({
+            organizationId:
+              organization.id,
+            vendorId: vendor.id,
+            kind: "TRUVERN_REVIEW",
+            status: "REQUESTED",
+            note:
+              "R8A legal acceptance rejection.",
+          });
+
+        const assignment =
+          await createReviewAssignmentFixture({
+            organizationId:
+              organization.id,
+            vendorId: vendor.id,
+            reviewRequestId:
+              request.id,
+            assignmentType:
+              "INTERNAL",
+            status: "PENDING",
+          });
+
+        const rejected =
+          await mutateReviewAssignment({
+            assignmentId:
+              assignment.id,
+            action: "truvern",
+            actorUserId:
+              "user_r8a_legal_gate",
+            reviewCreditCost: 1,
+          });
+
+        expect(rejected.ok).toBe(false);
+
+        if (rejected.ok) {
+          throw new Error(
+            "Expected missing legal acceptance to be rejected.",
+          );
+        }
+
+        expect(rejected.code).toBe(
+          "TRUVERN_LEGAL_ACCEPTANCE_REQUIRED",
+        );
+
+        const unchanged =
+          await getIntegrationPrisma()
+            .reviewAssignment.findUnique({
+              where: {
+                id: assignment.id,
+              },
+            });
+
+        expect(
+          unchanged?.assignmentType,
+        ).toBe("INTERNAL");
+
+        expect(
+          unchanged?.status,
+        ).toBe("PENDING");
+
+        expect(
+          unchanged?.assignedReviewerName,
+        ).toBeNull();
+
+        expect(
+          unchanged?.startedAt,
+        ).toBeNull();
+      },
+    );
     test(
       "blocks unassign after a Truvern review has started",
       async () => {

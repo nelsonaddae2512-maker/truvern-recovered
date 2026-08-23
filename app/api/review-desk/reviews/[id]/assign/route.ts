@@ -165,6 +165,10 @@ export async function POST(
       reviewerUserId,
       reviewerName:
         requestedReviewerName,
+      acceptedLegal:
+        body?.acceptedLegal === true,
+      acceptanceVersion:
+        safeString(body?.acceptanceVersion),
     });
 
   if (!result.ok) {
