@@ -2,6 +2,7 @@
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import prisma from "@/lib/prisma";
+import { requireDbOrganization } from "@/lib/org-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,11 +23,49 @@ function clean(value: unknown) {
   return String(value ?? "").trim();
 }
 
+async function requireOwnedCustomTemplate(
+  templateId: number,
+) {
+  const org =
+    await requireDbOrganization();
+
+  if ("_needsOrgSelection" in org) {
+    redirect("/dashboard");
+  }
+
+  const template =
+    await prisma.assessmentTemplate.findFirst({
+      where: {
+        id: templateId,
+        organizationId: org.id,
+        source: "CUSTOM",
+        isSystem: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+      },
+    });
+
+  if (!template) {
+    throw new Error(
+      "Template not found or is not editable by this organization.",
+    );
+  }
+
+  return template;
+}
+
 async function addSection(formData: FormData) {
   "use server";
 
   const templateId = parseId(formData.get("templateId"));
   if (!templateId) throw new Error("Invalid template id.");
+
+  await requireOwnedCustomTemplate(
+    templateId,
+  );
 
   const title = clean(formData.get("title"));
   const description = clean(formData.get("description"));
@@ -58,6 +97,27 @@ async function addQuestion(formData: FormData) {
 
   if (!templateId) throw new Error("Invalid template id.");
   if (!sectionId) throw new Error("Choose a section first.");
+
+  await requireOwnedCustomTemplate(
+    templateId,
+  );
+
+  const section =
+    await prisma.assessmentSection.findFirst({
+      where: {
+        id: sectionId,
+        templateId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+  if (!section) {
+    throw new Error(
+      "The selected section does not belong to this template.",
+    );
+  }
 
   const text = clean(formData.get("text"));
   const helpText = clean(formData.get("helpText"));
@@ -107,6 +167,10 @@ async function bulkImportQuestions(formData: FormData) {
 
   const templateId = parseId(formData.get("templateId"));
   if (!templateId) throw new Error("Invalid template id.");
+
+  await requireOwnedCustomTemplate(
+    templateId,
+  );
 
   const raw = clean(formData.get("bulkText"));
   const defaultType = clean(formData.get("bulkType")) || "YES_NO";
@@ -187,15 +251,209 @@ async function bulkImportQuestions(formData: FormData) {
   redirect(`/assessments/templates/${templateId}/builder`);
 }
 
+async function publishTemplate(
+  formData: FormData,
+) {
+  "use server";
+
+  const templateId =
+    parseId(
+      formData.get("templateId"),
+    );
+
+  if (!templateId) {
+    throw new Error(
+      "Invalid template id.",
+    );
+  }
+
+  await requireOwnedCustomTemplate(
+    templateId,
+  );
+
+  const [
+    sectionCount,
+    questionCount,
+  ] =
+    await Promise.all([
+      prisma.assessmentSection.count({
+        where: {
+          templateId,
+        },
+      }),
+      prisma.assessmentQuestion.count({
+        where: {
+          templateId,
+        },
+      }),
+    ]);
+
+  if (
+    sectionCount < 1 ||
+    questionCount < 1
+  ) {
+    throw new Error(
+      "Add at least one section and one question before publishing.",
+    );
+  }
+
+  await prisma.assessmentTemplate.update({
+    where: {
+      id: templateId,
+    },
+    data: {
+      isActive: true,
+    },
+  });
+
+  redirect(
+    `/assessments/templates/${templateId}/builder`,
+  );
+}
+
+async function archiveTemplate(
+  formData: FormData,
+) {
+  "use server";
+
+  const templateId =
+    parseId(
+      formData.get("templateId"),
+    );
+
+  if (!templateId) {
+    throw new Error(
+      "Invalid template id.",
+    );
+  }
+
+  await requireOwnedCustomTemplate(
+    templateId,
+  );
+
+  await prisma.assessmentTemplate.update({
+    where: {
+      id: templateId,
+    },
+    data: {
+      isActive: false,
+    },
+  });
+
+  redirect(
+    `/assessments/templates/${templateId}/builder`,
+  );
+}
+
+async function deleteUnusedTemplate(
+  formData: FormData,
+) {
+  "use server";
+
+  const templateId =
+    parseId(
+      formData.get("templateId"),
+    );
+
+  if (!templateId) {
+    throw new Error(
+      "Invalid template id.",
+    );
+  }
+
+  const template =
+    await requireOwnedCustomTemplate(
+      templateId,
+    );
+
+  const confirmName =
+    clean(
+      formData.get("confirmName"),
+    );
+
+  if (
+    confirmName !== template.name
+  ) {
+    throw new Error(
+      "Enter the exact template name to confirm permanent deletion.",
+    );
+  }
+
+  const [
+    assessmentCount,
+    runCount,
+  ] =
+    await Promise.all([
+      prisma.assessment.count({
+        where: {
+          templateId,
+        },
+      }),
+      prisma.assessmentRun.count({
+        where: {
+          templateId,
+        },
+      }),
+    ]);
+
+  if (
+    assessmentCount > 0 ||
+    runCount > 0
+  ) {
+    throw new Error(
+      "This template has assessment history and cannot be permanently deleted. Archive it instead.",
+    );
+  }
+
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.assessmentQuestion.deleteMany({
+        where: {
+          templateId,
+        },
+      });
+
+      await tx.assessmentSection.deleteMany({
+        where: {
+          templateId,
+        },
+      });
+
+      await tx.assessmentTemplate.delete({
+        where: {
+          id: templateId,
+        },
+      });
+    },
+  );
+
+  redirect(
+    "/assessments/catalog",
+  );
+}
+
 export default async function TemplateBuilderPage({ params }: Props) {
   const resolvedParams = await params;
   const templateId = parseId(resolvedParams.id);
 
   if (!templateId) return notFound();
 
-  const template = await prisma.assessmentTemplate.findUnique({
-    where: { id: templateId },
-    select: {
+  const org =
+    await requireDbOrganization();
+
+  if ("_needsOrgSelection" in org) {
+    redirect("/dashboard");
+  }
+
+  const template =
+    await prisma.assessmentTemplate.findFirst({
+      where: {
+        id: templateId,
+        organizationId: org.id,
+        source: "CUSTOM",
+        isSystem: false,
+      },
+      select: {
       id: true,
       name: true,
       description: true,
@@ -203,6 +461,11 @@ export default async function TemplateBuilderPage({ params }: Props) {
       standard: true,
       version: true,
       isActive: true,
+      _count: {
+        select: {
+          assessments: true,
+        },
+      },
       sections: {
         orderBy: [{ order: "asc" }, { id: "asc" }],
         select: {
@@ -237,6 +500,20 @@ export default async function TemplateBuilderPage({ params }: Props) {
     0,
   );
 
+  const runCount =
+    await prisma.assessmentRun.count({
+      where: {
+        templateId,
+      },
+    });
+
+  const usageCount =
+    template._count.assessments +
+    runCount;
+
+  const canDelete =
+    usageCount === 0;
+
   return (
     <main className="mx-auto max-w-7xl px-6 py-10 text-white">
       <section className="rounded-[2.5rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-950/40 via-slate-950 to-violet-950/20 p-8 shadow-2xl shadow-cyan-950/30">
@@ -267,11 +544,136 @@ export default async function TemplateBuilderPage({ params }: Props) {
               Catalog
             </Link>
 
-            <Link href="/vendors" className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200">
-              Use with vendor
-            </Link>
+            {template.isActive ? (
+              <Link
+                href="/vendors"
+                className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+              >
+                Use with vendor
+              </Link>
+            ) : (
+              <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-6 py-3 text-sm font-semibold text-amber-100">
+                Publish before vendor use
+              </span>
+            )}
           </div>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.04] p-7">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200">
+              Template lifecycle
+            </p>
+
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              {template.isActive
+                ? "Published template"
+                : "Draft template"}
+            </h2>
+
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+              Draft templates are editable but unavailable for new vendor reviews.
+              Publish only after the questionnaire is ready. Templates with assessment
+              history can be archived, but their historical definition is preserved.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <Badge>
+                {usageCount} historical use{usageCount === 1 ? "" : "s"}
+              </Badge>
+
+              <Badge>
+                {canDelete
+                  ? "Permanent delete available"
+                  : "Historical retention required"}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex min-w-[240px] flex-col gap-3">
+            {template.isActive ? (
+              <form action={archiveTemplate}>
+                <input
+                  type="hidden"
+                  name="templateId"
+                  value={template.id}
+                />
+
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl border border-amber-300/30 bg-amber-300/10 px-5 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-300/15"
+                >
+                  Archive template
+                </button>
+              </form>
+            ) : (
+              <form action={publishTemplate}>
+                <input
+                  type="hidden"
+                  name="templateId"
+                  value={template.id}
+                />
+
+                <button
+                  type="submit"
+                  disabled={sectionCount < 1 || questionCount < 1}
+                  className="w-full rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
+                >
+                  Publish template
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+
+        {canDelete ? (
+          <div className="mt-7 border-t border-white/10 pt-7">
+            <h3 className="text-base font-semibold text-rose-200">
+              Delete unused template
+            </h3>
+
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-400">
+              This custom template has never been used for an assessment and may
+              therefore be permanently removed. Its sections and questions will
+              also be deleted. This cannot be undone.
+            </p>
+
+            <form
+              action={deleteUnusedTemplate}
+              className="mt-4 flex flex-col gap-3 lg:flex-row"
+            >
+              <input
+                type="hidden"
+                name="templateId"
+                value={template.id}
+              />
+
+              <input
+                name="confirmName"
+                required
+                placeholder={`Type "${template.name}" to confirm`}
+                className="min-h-12 flex-1 rounded-2xl border border-rose-300/20 bg-slate-950/70 px-4 text-sm text-white outline-none focus:border-rose-300/50"
+              />
+
+              <button
+                type="submit"
+                className="rounded-2xl border border-rose-300/30 bg-rose-400/10 px-5 py-3 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/15"
+              >
+                Delete template permanently
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="mt-7 border-t border-white/10 pt-7">
+            <p className="text-sm leading-7 text-slate-400">
+              Permanent deletion is disabled because this template has assessment
+              history. Archive it to remove it from new vendor-review selection
+              while preserving historical governance records.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="mt-8 grid gap-8 lg:grid-cols-[0.82fr_1.18fr]">
@@ -520,7 +922,3 @@ function Stat({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
-
-
-
-

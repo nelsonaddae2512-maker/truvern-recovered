@@ -41,7 +41,6 @@ function slugify(value: string) {
 async function createTemplate(formData: FormData) {
   "use server";
 
-  const intent = String(formData.get("intent") || "publish");
   const name = String(formData.get("name") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const category = String(formData.get("category") || "").trim();
@@ -70,7 +69,7 @@ async function createTemplate(formData: FormData) {
       standard: standard || "Truvern Custom",
       version,
       code,
-      isActive: intent === "publish",
+      isActive: false,
     },
     select: { id: true },
   });
@@ -180,24 +179,18 @@ export default function NewAssessmentTemplatePage() {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8">
             <button
               type="submit"
-              name="intent"
-              value="publish"
               className="rounded-full bg-cyan-300 px-7 py-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
             >
-              Publish template
+              Create draft and continue
             </button>
 
-            <button
-              type="submit"
-              name="intent"
-              value="draft"
-              className="rounded-full border border-white/15 px-7 py-4 text-sm font-semibold text-white transition hover:bg-white/10"
-            >
-              Save inactive draft
-            </button>
+            <p className="mt-3 max-w-2xl text-xs leading-6 text-slate-400">
+              New custom templates begin as drafts. Add and review the questionnaire
+              in Template Studio, then publish it when it is ready for vendor use.
+            </p>
           </div>
         </section>
 
