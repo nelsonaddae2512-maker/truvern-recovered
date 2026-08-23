@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
-import { runGovernanceIntelligence } from "@/lib/governance/intelligence/governance-intelligence-engine";
+import { deriveCanonicalGovernanceOutcome, runGovernanceIntelligence } from "@/lib/governance/intelligence/governance-intelligence-engine";
 import { buildCanonicalGovernanceArtifact } from "@/lib/governance/canonical-governance-artifact";
 import type { TruvernScoringInput } from "@/lib/governance/scoring-engine";
 import { findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
@@ -307,14 +307,18 @@ export async function POST(_request: Request, props: Props) {
       row.vendorName || "Vendor",
     );
 
+    const canonicalOutcome = deriveCanonicalGovernanceOutcome({
+      baseRiskLevel: intelligence?.score?.riskLevel ?? null,
+      findings: Array.isArray(intelligence.findings) ? intelligence.findings : [],
+    });
     const canonicalGovernanceArtifact = buildCanonicalGovernanceArtifact({
       executiveSummary: structuredNarratives.executiveSummary,
       finalAssessment: structuredNarratives.finalAssessment,
       finalRecommendation: structuredNarratives.finalRecommendation,
-      decision: intelligence?.recommendation ?? null,
-      riskLevel: intelligence?.score?.riskLevel ?? null,
+      decision: canonicalOutcome.recommendation,
+      riskLevel: canonicalOutcome.riskLevel,
       findings: Array.isArray(intelligence.findings) ? intelligence.findings : [],
-      conditionsAndFollowUps: structuredNarratives.conditionsAndFollowUps,
+      conditionsAndFollowUps: canonicalOutcome.followUps,
       boardSummary: structuredNarratives.boardSummary,
       customerSummary: structuredNarratives.customerSummary,
     });
@@ -329,14 +333,14 @@ export async function POST(_request: Request, props: Props) {
     frameworkName: intelligence.frameworkName,
     score: intelligence.score,
     findings: Array.isArray(intelligence.findings) ? intelligence.findings : [],
-    remediationRequired: Boolean(intelligence.remediationRequired),
-    attestationRequired: Boolean(intelligence.attestationRequired),
-    recommendation: intelligence.recommendation,
+    remediationRequired: canonicalOutcome.remediationRequired,
+    attestationRequired: canonicalOutcome.attestationRequired,
+    recommendation: canonicalOutcome.recommendation,
     executiveSummary: structuredNarratives.executiveSummary,
     finalAssessment: structuredNarratives.finalAssessment,
     finalRecommendation: structuredNarratives.finalRecommendation,
-    followUps: structuredNarratives.followUps,
-    conditionsAndFollowUps: structuredNarratives.conditionsAndFollowUps,
+    followUps: canonicalOutcome.followUps,
+    conditionsAndFollowUps: canonicalOutcome.followUps,
     boardSummary: structuredNarratives.boardSummary,
     customerSummary: structuredNarratives.customerSummary,
     governanceDecisionNarrative: structuredNarratives.governanceDecisionNarrative,
@@ -380,8 +384,8 @@ export async function POST(_request: Request, props: Props) {
             id: assignmentId,
           },
           data: {
-            riskLevel: intelligence.score.riskLevel,
-            decision: intelligence.recommendation,
+            riskLevel: canonicalOutcome.riskLevel,
+            decision: canonicalOutcome.recommendation,
             findings: JSON.stringify(
               intelligence.findings,
               null,
@@ -396,11 +400,11 @@ export async function POST(_request: Request, props: Props) {
     return NextResponse.json({
       ok: true,
       assignmentId,
-      recommendation: intelligence.recommendation,
-      riskLevel: intelligence.score.riskLevel,
+      recommendation: canonicalOutcome.recommendation,
+      riskLevel: canonicalOutcome.riskLevel,
       score: intelligence.score.percent,
       findings: intelligence.findings.length,
-      followUps: intelligence.followUps.length,
+      followUps: canonicalOutcome.followUps.length,
     });
   } catch (error: any) {
     return NextResponse.json(
