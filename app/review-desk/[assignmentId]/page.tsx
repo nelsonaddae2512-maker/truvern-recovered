@@ -219,27 +219,44 @@ export default async function ReviewEngagementPage({ params }: Props) {
       and upper(coalesce(status, '')) <> 'CANCELLED'
     order by "createdAt" desc, id desc
   `;
-  const submittedAssessment = await prisma.assessment.findFirst({
-    where: {
-      vendorId,
-      status: {
-        in: ["SUBMITTED", "REVIEW_READY"],
-      },
-    },
-    orderBy: {
-      submittedAt: "desc",
-    },
-    include: {
-      answers: {
+  const submittedAssessment = linkedAssessmentId
+    ? await prisma.assessment.findFirst({
+        where: {
+          id: linkedAssessmentId,
+          vendorId,
+        },
         include: {
-          question: true,
+          answers: {
+            include: {
+              question: true,
+            },
+            orderBy: {
+              updatedAt: "desc",
+            },
+          },
+        },
+      })
+    : await prisma.assessment.findFirst({
+        where: {
+          vendorId,
+          status: {
+            in: ["SUBMITTED", "REVIEW_READY"],
+          },
         },
         orderBy: {
-          updatedAt: "desc",
+          submittedAt: "desc",
         },
-      },
-    },
-  });
+        include: {
+          answers: {
+            include: {
+              question: true,
+            },
+            orderBy: {
+              updatedAt: "desc",
+            },
+          },
+        },
+      });
 
   const submittedAssessmentAnswers =
     submittedAssessment?.answers?.map((answer) => ({
@@ -408,9 +425,11 @@ export default async function ReviewEngagementPage({ params }: Props) {
               </h1>
 
               <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-                Self-managed review workspace for evidence review,
-                findings, remediation, attestations, and governance release
-                operations.
+                {upper(assignment.assignmentType) === "TRUVERN"
+                  ? linkedAssessmentId
+                    ? "Professional Review workspace. Truvern Ops is reviewing the existing assessment, evidence, findings, remediation, attestations, and governance release without creating a second questionnaire."
+                    : "Truvern Review workspace for vendor outreach, assessment coordination, evidence review, findings, remediation, attestations, and governance release."
+                  : "Self-managed review workspace for evidence review, findings, remediation, attestations, and governance release operations."}
               </p>
             </div>
 
