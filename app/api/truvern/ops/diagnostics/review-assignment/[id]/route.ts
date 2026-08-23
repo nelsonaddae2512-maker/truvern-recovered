@@ -157,6 +157,136 @@ export async function GET(
     );
   }
 
+  const standardAssessmentRows =
+    await prisma.$queryRaw<
+      Array<Record<string, any>>
+    >`
+      select
+        a.id,
+        a.title,
+        a.status::text as status,
+        a."vendorId",
+        a."organizationId",
+        a."reviewAssignmentId",
+        a."submittedAt",
+        a."createdAt",
+        a."updatedAt",
+        count(aa.id)::int as "answerCount"
+      from "Assessment" a
+      left join "AssessmentAnswer" aa
+        on aa."assessmentId" = a.id
+      where
+        a."reviewAssignmentId" = ${assignmentId}
+        or (
+          a."vendorId" = ${assignment.vendorId}
+          and a."organizationId" = ${assignment.organizationId}
+        )
+      group by
+        a.id,
+        a.title,
+        a.status,
+        a."vendorId",
+        a."organizationId",
+        a."reviewAssignmentId",
+        a."submittedAt",
+        a."createdAt",
+        a."updatedAt"
+      order by
+        a."submittedAt" desc nulls last,
+        a.id desc
+    `;
+
+  const standardAssessmentIds =
+    standardAssessmentRows
+      .map((row) => Number(row.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+  const standardAnswerRows =
+    standardAssessmentIds.length
+      ? await prisma.$queryRaw<
+          Array<Record<string, any>>
+        >`
+          select
+            aa.id,
+            aa."assessmentId",
+            aa."questionId",
+            aa.value,
+            aa."valueJson",
+            aa."riskImpact",
+            q.text as "questionText",
+            q.category as "questionCategory"
+          from "AssessmentAnswer" aa
+          left join "AssessmentQuestion" q
+            on q.id = aa."questionId"
+          where aa."assessmentId" in (
+            select unnest(
+              ${standardAssessmentIds}::int[]
+            )
+          )
+          order by
+            aa."assessmentId" desc,
+            aa.id asc
+          limit 30
+        `
+      : [];
+
+  const frameworkAssessmentRows =
+    await prisma.$queryRaw<
+      Array<Record<string, any>>
+    >`
+      select
+        fa.id,
+        fa.status::text as status,
+        fa."vendorId",
+        fa."organizationId",
+        fa."reviewAssignmentId",
+        fa."createdAt",
+        fa."updatedAt",
+        count(fr.id)::int as "responseCount"
+      from "TruvernFrameworkAssessment" fa
+      left join "TruvernAssessmentResponse" fr
+        on fr."assessmentId" = fa.id
+      where fa."reviewAssignmentId" = ${assignmentId}
+      group by
+        fa.id,
+        fa.status,
+        fa."vendorId",
+        fa."organizationId",
+        fa."reviewAssignmentId",
+        fa."createdAt",
+        fa."updatedAt"
+      order by fa.id desc
+    `;
+
+  const frameworkAssessmentIds =
+    frameworkAssessmentRows
+      .map((row) => Number(row.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+  const frameworkResponseRows =
+    frameworkAssessmentIds.length
+      ? await prisma.$queryRaw<
+          Array<Record<string, any>>
+        >`
+          select
+            fr.id,
+            fr."assessmentId",
+            fr."questionId",
+            fr.answer,
+            fr.score,
+            fr.evidence
+          from "TruvernAssessmentResponse" fr
+          where fr."assessmentId" in (
+            select unnest(
+              ${frameworkAssessmentIds}::int[]
+            )
+          )
+          order by
+            fr."assessmentId" desc,
+            fr.id asc
+          limit 30
+        `
+      : [];
   const responseRows =
     await prisma.$queryRaw<
       Array<Record<string, any>>
@@ -246,6 +376,70 @@ export async function GET(
           assignment.updatedAt ?? null,
       },
 
+      assessmentSources: {
+        standardAssessments:
+          standardAssessmentRows.map((row) => ({
+            id: row.id,
+            title: row.title ?? null,
+            status: row.status ?? null,
+            vendorId: row.vendorId ?? null,
+            organizationId:
+              row.organizationId ?? null,
+            reviewAssignmentId:
+              row.reviewAssignmentId ?? null,
+            submittedAt:
+              row.submittedAt ?? null,
+            answerCount:
+              Number(row.answerCount ?? 0),
+          })),
+
+        standardAnswerSample:
+          standardAnswerRows.map((row) => ({
+            id: row.id,
+            assessmentId:
+              row.assessmentId ?? null,
+            questionId:
+              row.questionId ?? null,
+            value:
+              row.value ?? null,
+            valueJson:
+              row.valueJson ?? null,
+            riskImpact:
+              row.riskImpact ?? null,
+            questionText:
+              row.questionText ?? null,
+            questionCategory:
+              row.questionCategory ?? null,
+          })),
+
+        frameworkAssessments:
+          frameworkAssessmentRows.map((row) => ({
+            id: row.id,
+            status: row.status ?? null,
+            vendorId: row.vendorId ?? null,
+            organizationId:
+              row.organizationId ?? null,
+            reviewAssignmentId:
+              row.reviewAssignmentId ?? null,
+            responseCount:
+              Number(row.responseCount ?? 0),
+          })),
+
+        frameworkResponseSample:
+          frameworkResponseRows.map((row) => ({
+            id: row.id,
+            assessmentId:
+              row.assessmentId ?? null,
+            questionId:
+              row.questionId ?? null,
+            answer:
+              row.answer ?? null,
+            score:
+              row.score ?? null,
+            evidencePresent:
+              Boolean(row.evidence),
+          })),
+      },
       latestReviewResponse: response
         ? {
             found: true,
