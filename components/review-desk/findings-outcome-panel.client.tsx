@@ -594,12 +594,35 @@ const reviewerFollowUps = resolveReviewerFollowUps(responses);
   async function rerunIntelligence() {
     setGenerating(true);
 
-    await fetch(`/api/review-desk/reviews/${assignmentId}/generate-findings`, {
-      method: "POST",
-    });
+    try {
+      const response = await fetch(
+        `/api/review-desk/reviews/${assignmentId}/generate-findings`,
+        {
+          method: "POST",
+        },
+      );
 
-    setGenerating(false);
-    window.location.reload();
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ||
+            `Unable to generate governance intelligence (HTTP ${response.status}).`,
+        );
+      }
+
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to generate governance intelligence.",
+      );
+    } finally {
+      setGenerating(false);
+    }
   }
 
   return (
@@ -956,42 +979,3 @@ const reviewerFollowUps = resolveReviewerFollowUps(responses);
     </section>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
