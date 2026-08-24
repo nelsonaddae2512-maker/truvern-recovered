@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { governanceForbidden, governanceUnauthorized } from "@/lib/auth/governance-auth-errors";
 import { readGovernanceDbUserId } from "@/lib/repositories/governance-auth-repository";
+import { getCurrentTruvernAccess } from "@/lib/truvern-ops-access";
 
 export type GovernanceActor = {
   userId: string;
@@ -33,8 +34,9 @@ export async function getGovernanceActor(): Promise<GovernanceActor> {
   }
 
   const opsUsers = parseOpsUsers();
+  const truvernAccess = await getCurrentTruvernAccess();
 
-  if (opsUsers.has(userId)) {
+  if (opsUsers.has(userId) || truvernAccess.isTruvernOperator) {
     return {
       userId,
       organizationId: null,
@@ -61,7 +63,7 @@ export async function getGovernanceActor(): Promise<GovernanceActor> {
     return {
       userId,
       organizationId: null,
-      role: "UNKNOWN",
+      role: truvernAccess.isTruvernReviewer ? "REVIEWER" : "UNKNOWN",
     };
   }
 
@@ -157,7 +159,3 @@ export async function requireReleasePacketAccess(assessmentId: number) {
 
   return access;
 }
-
-
-
-
