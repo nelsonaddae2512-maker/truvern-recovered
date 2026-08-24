@@ -7,11 +7,39 @@ export type GovernanceAuthUserRow = {
 export async function readGovernanceDbUserId(
   clerkUserId: string,
 ): Promise<GovernanceAuthUserRow[]> {
-  return prisma.$queryRaw<GovernanceAuthUserRow[]>`
-    select id
-    from "User"
-    where "clerkUserId" = ${clerkUserId}
-       or id::text = ${clerkUserId}
-    limit 1
-  `;
+  const user = await prisma.user.findUnique({
+    where: {
+      clerkId: clerkUserId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (user) {
+    return [user];
+  }
+
+  const numericUserId = Number(clerkUserId);
+
+  if (
+    Number.isSafeInteger(numericUserId) &&
+    numericUserId > 0 &&
+    String(numericUserId) === clerkUserId
+  ) {
+    const numericUser = await prisma.user.findUnique({
+      where: {
+        id: numericUserId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (numericUser) {
+      return [numericUser];
+    }
+  }
+
+  return [];
 }
