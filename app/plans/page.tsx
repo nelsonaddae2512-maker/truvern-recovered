@@ -1,1 +1,5 @@
-export { default } from "@/app/billing/plans/page";
+import { redirect } from "next/navigation";
+
+export default function PlansRedirectPage() {
+  redirect("/pricing");
+}

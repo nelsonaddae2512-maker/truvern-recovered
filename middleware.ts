@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/pricing",
+  "/truvern-reviews(.*)",
   "/contact",
   "/features",
   "/trust-network",
@@ -46,10 +47,10 @@ const isApiNoRedirectRoute = createRouteMatcher([
   // Authenticated by Svix/Resend signature verification,
   // not by a Clerk browser session.
   "/api/webhooks/resend",
-  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ canonical trust network export route
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ canonical trust network export route
   "/api/trust-network-export(.*)",
 
-  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ legacy shim route must also not redirect (so it can 307 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ canonical)
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ legacy shim route must also not redirect (so it can 307 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ canonical)
   "/api/trust-network/export(.*)",
 
   "/api/auth/(.*)",
@@ -58,7 +59,7 @@ const isApiNoRedirectRoute = createRouteMatcher([
 export default clerkMiddleware(async (authFn, req) => {
   const res = NextResponse.next();
 
-  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ CRITICAL: always call authFn() so Clerk can hydrate request auth
+  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ CRITICAL: always call authFn() so Clerk can hydrate request auth
   const a = await authFn();
 
   // Optional: lightweight dev-only marker (no identifiers)
@@ -103,9 +104,3 @@ export const config = {
     "/(api|trpc)(.*)",
   ],
 };
-
-
-
-
-
-
