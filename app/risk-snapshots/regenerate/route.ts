@@ -60,13 +60,43 @@ export async function POST(req: Request) {
     // ðŸ”’ Ensure vendor belongs to org
     const vendor = await prisma.vendor.findFirst({
       where: { id: vendorId, organizationId: "id" in org ? org.id : 0 },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        riskScore: true,
+        _count: {
+          select: {
+            issues: true,
+            evidenceRequests: true,
+            evidence: true,
+            assessments: true,
+          },
+        },
+      },
     });
     if (!vendor) return json({ routeSig, ok: false, error: "Vendor not found" }, 404);
 
     const label = typeof (bodyRes.data as any)?.label === "string" ? (bodyRes.data as any).label : null;
     const summary =
       typeof (bodyRes.data as any)?.summary === "string" ? (bodyRes.data as any).summary : null;
+
+    const issues = vendor._count.issues || 0;
+    const requests = vendor._count.evidenceRequests || 0;
+    const evidence = vendor._count.evidence || 0;
+    const assessments = vendor._count.assessments || 0;
+
+    let score =
+      10 +
+      issues * 12 +
+      requests * 6 -
+      Math.min(evidence, 20) * 1.2 -
+      Math.min(assessments, 10) * 2;
+
+    if (!Number.isFinite(score)) {
+      score = 50;
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score)));
 
     const result = await prisma.$transaction(async (tx: any) => {
       const latest = await tx.vendorRiskSnapshot.findFirst({
@@ -78,17 +108,37 @@ export async function POST(req: Request) {
         await tx.vendorRiskSnapshot.delete({ where: { id: latest.id } });
       }
 
+      await tx.vendor.update({
+        where: { id: vendor.id },
+        data: { riskScore: score },
+      });
+
       const created = await tx.vendorRiskSnapshot.create({
         data: {
           vendorId: vendor.id,
-          score: 50, // TODO: replace with real scoring logic
+          score,
           ...(label ? { label } : {}),
           ...(summary ? { summary } : {}),
         } as any,
-        select: { id: true, vendorId: true, score: true, summary: true } as any,
+        select: {
+          id: true,
+          vendorId: true,
+          score: true,
+          summary: true,
+        } as any,
       });
 
-      return { deleted: latest || null, created };
+      return {
+        deleted: latest || null,
+        created,
+        previousRiskScore: vendor.riskScore ?? null,
+        counts: {
+          issues,
+          evidenceRequests: requests,
+          evidence,
+          assessments,
+        },
+      };
     });
 
     return json({ routeSig, ok: true, vendorId: vendor.id, ...result });
@@ -104,6 +154,7 @@ export async function POST(req: Request) {
     );
   }
 }
+
 
 
 
