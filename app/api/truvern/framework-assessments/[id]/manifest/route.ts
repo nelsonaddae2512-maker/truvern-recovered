@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireReleasePacketAccess } from "@/lib/auth/truvern-governance";
 import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
-import { readFrameworkAssessmentAuditEventIds } from "@/lib/repositories/framework-assessment-audit-repository";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -62,10 +60,44 @@ export async function GET(request: Request, context: RouteContext) {
 
     const snapshot = metadata.governanceReleaseSnapshot ?? null;
     const seal = metadata.governanceSeal ?? null;
+    /*
+     * Immutable release-manifest projection.
+     *
+     * Release-facing identity and inventory derive from
+     * the persisted governance snapshot and seal only.
+     */
+    const releasedAssessment =
+      snapshot?.assessment &&
+      typeof snapshot.assessment === "object"
+        ? snapshot.assessment as any
+        : {};
 
-    const auditEvents =
-      await readFrameworkAssessmentAuditEventIds(assessmentId);
+    const releasedFramework =
+      snapshot?.framework &&
+      typeof snapshot.framework === "object"
+        ? snapshot.framework as any
+        : {};
 
+    const releasedFindings =
+      Array.isArray(snapshot?.findings)
+        ? snapshot.findings
+        : [];
+
+    const releasedAttestations =
+      Array.isArray(snapshot?.attestations)
+        ? snapshot.attestations
+        : [];
+
+    const releasedEvidence =
+      Array.isArray(snapshot?.evidence)
+        ? snapshot.evidence
+        : [];
+
+    const manifestReleasedAt =
+      seal?.sealedAt ??
+      releasedAssessment.releasedAt ??
+      snapshot?.generatedAt ??
+      null;
     const origin = new URL(request.url).origin;
 
     return NextResponse.json({
@@ -73,34 +105,56 @@ export async function GET(request: Request, context: RouteContext) {
       manifestVersion: "truvern.framework-release-manifest.v1",
 
       assessment: {
-        id: assessment.id,
-        title: assessment.title,
-        status: assessment.status,
-        releasedAt: assessment.releasedAt,
+        id: releasedAssessment.id ?? assessmentId,
+        title: releasedAssessment.title ?? null,
+        status: releasedAssessment.status ?? null,
+        releasedAt: manifestReleasedAt,
       },
 
       framework: {
-        id: assessment.frameworkId,
-        name: assessment.framework?.name ?? null,
-        version: assessment.framework?.version ?? null,
+        id: releasedFramework.id ?? null,
+        name: releasedFramework.name ?? null,
+        version: releasedFramework.version ?? null,
       },
 
       release: {
         sealed: Boolean(seal),
-        sealedAt: seal?.sealedAt ?? assessment.releasedAt ?? null,
+        sealedAt: seal?.sealedAt ?? manifestReleasedAt,
         checksum: seal?.checksum ?? null,
         algorithm: seal?.algorithm ?? "SHA-256",
         schema: snapshot?.schema ?? null,
+        /*
+         * Public detached-signature identity.
+         *
+         * Projected verbatim from the persisted governance seal.
+         * This route never signs or reconstructs the released payload.
+         */
+        cryptographicSignature:
+          seal?.cryptographicSignature
+            ? {
+                algorithm:
+                  seal.cryptographicSignature.algorithm ?? null,
+
+                keyId:
+                  seal.cryptographicSignature.keyId ?? null,
+
+                signedAt:
+                  seal.cryptographicSignature.signedAt ?? null,
+
+                payloadHash:
+                  seal.cryptographicSignature.payloadHash ?? null,
+
+                signature:
+                  seal.cryptographicSignature.signature ?? null,
+              }
+            : null,
       },
 
       inventory: {
-        findings: assessment.findings.length,
-        attestations: assessment.attestations.length,
-        evidence:
-          Array.isArray(snapshot?.evidence)
-            ? snapshot.evidence.length
-            : 0,
-        auditEvents: auditEvents.length,
+        findings: releasedFindings.length,
+        attestations: releasedAttestations.length,
+        evidence: releasedEvidence.length,
+        auditEvents: null,
       },
 
       endpoints: {

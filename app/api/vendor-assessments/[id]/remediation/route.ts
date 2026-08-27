@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireVendorAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { findFirstTruvernRemediationRequest, updateTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
@@ -67,12 +68,45 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     });
 
-    await updateTruvernFrameworkAssessment({
-      where: { id: assessmentId },
-      data: {
-        status: "IN_REVIEW",
-      },
-    });
+    const [
+      pendingRemediation,
+      pendingAttestations,
+    ] = await Promise.all([
+      prisma.truvernRemediationRequest.count({
+        where: {
+          finding: {
+            assessmentId,
+          },
+          status: {
+            in: [
+              "REQUESTED",
+              "IN_PROGRESS",
+            ],
+          },
+        },
+      }),
+
+      prisma.truvernAssessmentAttestation.count({
+        where: {
+          assessmentId,
+          status: "REQUESTED",
+        },
+      }),
+    ]);
+
+    if (
+      pendingRemediation === 0 &&
+      pendingAttestations === 0
+    ) {
+      await updateTruvernFrameworkAssessment({
+        where: {
+          id: assessmentId,
+        },
+        data: {
+          status: "IN_REVIEW",
+        },
+      });
+    }
 
     return NextResponse.json({ ok: true, remediation });
   } catch (error) {

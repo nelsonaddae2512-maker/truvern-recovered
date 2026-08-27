@@ -43,13 +43,205 @@ function labelControl(controlCode: string | null, family: string | null, fallbac
   return parts.length > 0 ? parts.join(" · ") : fallback;
 }
 
+function semanticHasEvidence(
+  value: unknown,
+): boolean {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return false;
+  }
+
+  if (
+    typeof value === "string"
+  ) {
+    return value.trim().length > 0;
+  }
+
+  if (
+    Array.isArray(value)
+  ) {
+    return value.length > 0;
+  }
+
+  if (
+    typeof value === "object"
+  ) {
+    return Object.keys(
+      value as Record<
+        string,
+        unknown
+      >,
+    ).length > 0;
+  }
+
+  return true;
+}
+
+function semanticUnique(
+  values: string[],
+): string[] {
+  return Array.from(
+    new Set(
+      values.filter(
+        (value) =>
+          value.trim().length > 0,
+      ),
+    ),
+  );
+}
+
+function semanticContext(
+  items: TruvernScoringInput[],
+  controlKey: string,
+) {
+  const rows =
+    items.filter(
+      (item) =>
+        String(
+          item.controlId ??
+          item.controlCode ??
+          "unmapped",
+        ) === controlKey,
+    );
+
+  const objectives =
+    semanticUnique(
+      rows.flatMap(
+        (item) =>
+          item
+            .assessmentObjectiveIds ??
+          [],
+      ),
+    );
+
+  const methods =
+    semanticUnique(
+      rows.flatMap(
+        (item) =>
+          item.methodTypes ??
+          [],
+      ),
+    );
+
+  const parameterIds =
+    semanticUnique(
+      rows.flatMap(
+        (item) =>
+          item.parameterIds ??
+          [],
+      ),
+    );
+
+  const objectIds =
+    semanticUnique(
+      rows.flatMap(
+        (item) =>
+          item
+            .assessmentObjectIds ??
+          [],
+      ),
+    );
+
+  const rawEnhancements =
+    rows.flatMap(
+      (item) =>
+        item
+          .conditionalEnhancements ??
+        [],
+    );
+
+  const enhancements =
+    Array.from(
+      new Map(
+        rawEnhancements.map(
+          (
+            enhancement,
+            index,
+          ) => [
+            enhancement
+              .controlId ??
+            `enhancement-${index}`,
+            enhancement,
+          ],
+        ),
+      ).values(),
+    );
+
+  const evidencePresent =
+    rows.some(
+      (item) =>
+        semanticHasEvidence(
+          item.evidence,
+        ),
+    );
+
+  const recommendedEvidence =
+    rows.some(
+      (item) =>
+        item
+          .recommendedEvidence ===
+        true,
+    );
+
+  return {
+    objectives,
+    methods,
+    parameterIds,
+    objectIds,
+    enhancements,
+    evidencePresent,
+    recommendedEvidence,
+  };
+}
+
 export function generateFindings(items: TruvernScoringInput[]): TruvernFindingsResult {
   const score = scoreAssessment(items);
   const findings: TruvernGeneratedFinding[] = [];
 
   for (const control of score.controls) {
+    // An unanswered control is incomplete, not noncompliant.
+    // Findings are generated only after at least one response
+    // for the control has been substantively answered.
+    if (control.answeredQuestions === 0) {
+      continue;
+    }
+
     const severity = severityFromControlPercent(control.percent);
     const label = labelControl(control.controlCode, control.family, control.controlKey);
+
+
+    const semantic =
+      semanticContext(
+        items,
+        control.controlKey,
+      );
+
+    const controlGap =
+      control.percent < 90;
+
+    const semanticEvidenceGap =
+      controlGap &&
+      semantic.recommendedEvidence &&
+      semantic.methods.includes(
+        "EXAMINE",
+      ) &&
+      !semantic.evidencePresent;
+
+    const semanticEnhancements =
+      controlGap
+        ? semantic.enhancements
+            .filter(
+              (enhancement) =>
+                enhancement
+                  .conditionalVendorFollowUp ===
+                  true ||
+                enhancement
+                  .followUpTrigger ===
+                  "REVIEWER_OR_INTELLIGENCE_DETERMINED",
+            )
+        : [];
 
     if (control.percent < 90) {
       findings.push({
@@ -68,24 +260,344 @@ export function generateFindings(items: TruvernScoringInput[]): TruvernFindingsR
         evidenceRequired: control.missingEvidence > 0,
         dueInDays: dueDaysForSeverity(severity),
         metadata: {
-          controlPercent: control.percent,
-          controlScore: control.score,
-          controlMaxScore: control.maxScore,
-          answeredQuestions: control.answeredQuestions,
-          totalQuestions: control.totalQuestions,
-          missingEvidence: control.missingEvidence,
+          controlPercent:
+            control.percent,
+
+          controlScore:
+            control.score,
+
+          controlMaxScore:
+            control.maxScore,
+
+          answeredQuestions:
+            control.answeredQuestions,
+
+          totalQuestions:
+            control.totalQuestions,
+
+          missingEvidence:
+            control.missingEvidence,
+
+          semanticVersion:
+            "TRV-OSCAL-SEMANTIC-FINDINGS-1.0",
+
+          assessmentObjectiveIds:
+            semantic.objectives,
+
+          assessmentMethodTypes:
+            semantic.methods,
+
+          parameterIds:
+            semantic.parameterIds,
+
+          assessmentObjectIds:
+            semantic.objectIds,
+
+          enhancementFollowUpCount:
+            semanticEnhancements.length,
+
+          conditionalEnhancementFollowUps:
+            semanticEnhancements.map(
+              (enhancement) => ({
+                controlId:
+                  enhancement
+                    .controlId ??
+                  null,
+
+                title:
+                  enhancement
+                    .title ??
+                  null,
+
+                objectiveIds:
+                  enhancement
+                    .objectiveIds ??
+                  [],
+
+                methodTypes:
+                  enhancement
+                    .methodTypes ??
+                  [],
+
+                evidenceTrigger:
+                  enhancement
+                    .evidenceTrigger ??
+                  null,
+
+                remediationTrigger:
+                  enhancement
+                    .remediationTrigger ??
+                  null,
+
+                attestationTrigger:
+                  enhancement
+                    .attestationTrigger ??
+                  null,
+
+                status:
+                  "REVIEW_REQUIRED",
+              }),
+            ),
+
+          semanticEvidenceGap,
         },
       });
     }
 
-    if (control.missingEvidence > 0) {
+    if (
+
+      controlGap &&
+
+      (
+
+        semantic.objectives.length > 0 ||
+
+        semanticEnhancements.length > 0
+
+      )
+
+    ) {
+
+      findings.push({
+
+        controlKey:
+
+          control.controlKey,
+
+    
+
+        controlCode:
+
+          control.controlCode,
+
+    
+
+        family:
+
+          control.family,
+
+    
+
+        severity:
+
+          control.percent < 55
+
+            ? "HIGH"
+
+            : "MODERATE",
+
+    
+
+        title:
+
+          `${label} semantic verification required`,
+
+    
+
+        description:
+
+          semanticEnhancements.length > 0
+
+            ? `The parent control response indicates a gap. Truvern identified ${semanticEnhancements.length} conditional enhancement obligation(s) and ${semantic.objectives.length} assessment objective(s) requiring reviewer verification.`
+
+            : `The parent control response indicates a gap and ${semantic.objectives.length} NIST assessment objective(s) require reviewer verification.`,
+
+    
+
+        recommendation:
+
+          semantic.methods.includes(
+
+            "EXAMINE",
+
+          )
+
+            ? "Review the applicable assessment objectives, request supporting evidence where needed, and determine which conditional enhancements require vendor follow-up."
+
+            : "Review the applicable assessment objectives and determine which conditional enhancements require vendor follow-up.",
+
+    
+
+        remediationRequired:
+
+          control.percent < 75,
+
+    
+
+        attestationRequired:
+
+          false,
+
+    
+
+        evidenceRequired:
+
+          semanticEvidenceGap,
+
+    
+
+        dueInDays:
+
+          control.percent < 55
+
+            ? 14
+
+            : 30,
+
+    
+
+        metadata: {
+
+          semanticVersion:
+
+            "TRV-OSCAL-SEMANTIC-FINDINGS-1.0",
+
+    
+
+          findingType:
+
+            "OSCAL_SEMANTIC_VERIFICATION",
+
+    
+
+          assessmentObjectiveIds:
+
+            semantic.objectives,
+
+    
+
+          assessmentMethodTypes:
+
+            semantic.methods,
+
+    
+
+          parameterIds:
+
+            semantic.parameterIds,
+
+    
+
+          assessmentObjectIds:
+
+            semantic.objectIds,
+
+    
+
+          evidenceRecommended:
+
+            semantic.recommendedEvidence,
+
+    
+
+          evidencePresent:
+
+            semantic.evidencePresent,
+
+    
+
+          semanticEvidenceGap,
+
+    
+
+          conditionalEnhancements:
+
+            semanticEnhancements.map(
+
+              (enhancement) => ({
+
+                controlId:
+
+                  enhancement
+
+                    .controlId ??
+
+                  null,
+
+    
+
+                title:
+
+                  enhancement
+
+                    .title ??
+
+                  null,
+
+    
+
+                statementText:
+
+                  enhancement
+
+                    .statementText ??
+
+                  null,
+
+    
+
+                objectiveIds:
+
+                  enhancement
+
+                    .objectiveIds ??
+
+                  [],
+
+    
+
+                methodIds:
+
+                  enhancement
+
+                    .methodIds ??
+
+                  [],
+
+    
+
+                methodTypes:
+
+                  enhancement
+
+                    .methodTypes ??
+
+                  [],
+
+    
+
+                disposition:
+
+                  "REVIEW_REQUIRED",
+
+              }),
+
+            ),
+
+        },
+
+      });
+
+    }
+
+
+    if (
+
+      control.missingEvidence > 0 ||
+
+      semanticEvidenceGap
+
+    ) {
       findings.push({
         controlKey: control.controlKey,
         controlCode: control.controlCode,
         family: control.family,
         severity: control.percent < 75 ? "HIGH" : "MODERATE",
         title: `${label} evidence missing`,
-        description: `${control.missingEvidence} required evidence item(s) are missing for this control.`,
+        description:
+          control.missingEvidence > 0
+            ? `${control.missingEvidence} required evidence item(s) are missing for this control.`
+            : "Supporting evidence is recommended by the canonical NIST assessment methods and is required to verify the identified control gap.",
         recommendation:
           "Request supporting documentation, certification, screenshot, policy, report, or signed attestation from the vendor.",
         remediationRequired: true,
@@ -155,4 +667,5 @@ export function shouldRequestRemediation(result: TruvernFindingsResult): boolean
 export function shouldRequestAttestation(result: TruvernFindingsResult): boolean {
   return result.attestationRequired || result.findings.some((finding) => finding.severity === "CRITICAL");
 }
+
 

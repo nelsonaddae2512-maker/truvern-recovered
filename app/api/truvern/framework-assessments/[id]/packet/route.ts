@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireReleasePacketAccess } from "@/lib/auth/truvern-governance";
 import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
-import { readFrameworkAssessmentAuditTimeline } from "@/lib/repositories/framework-assessment-audit-repository";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -40,20 +38,85 @@ export async function GET(_request: Request, context: RouteContext) {
   if (!assessment) {
     return NextResponse.json({ ok: false, error: "Assessment not found." }, { status: 404 });
   }
-
-  const auditEvents =
-    await readFrameworkAssessmentAuditTimeline(assessmentId);
-
   const metadata = assessment.metadata && typeof assessment.metadata === "object" ? assessment.metadata as any : {};
   const seal = metadata.governanceSeal ?? null;
   const snapshot = metadata.governanceReleaseSnapshot ?? null;
   const evidence = Array.isArray(snapshot?.evidence) ? snapshot.evidence : [];
 
+  /*
+   * Immutable released-packet projection.
+   *
+   * A released governance packet must render historical
+   * release facts from the persisted snapshot and seal,
+   * never from mutable live workflow state.
+   */
+  const releasedAssessment =
+    snapshot?.assessment &&
+    typeof snapshot.assessment === "object"
+      ? snapshot.assessment as any
+      : {};
+
+  const releasedFramework =
+    snapshot?.framework &&
+    typeof snapshot.framework === "object"
+      ? snapshot.framework as any
+      : {};
+
+  const releasedFindings =
+    Array.isArray(snapshot?.findings)
+      ? snapshot.findings
+      : [];
+  const releasedAttestations =
+    Array.isArray(snapshot?.attestations)
+      ? snapshot.attestations
+      : [];
+
+  const packetTitle =
+    String(
+      releasedAssessment.title ??
+      "Framework assessment release"
+    );
+
+  const packetStatus =
+    String(
+      releasedAssessment.status ??
+      "RELEASED"
+    );
+
+  const packetRisk =
+    releasedAssessment.riskLevel ??
+    "Unscored";
+
+  const packetScore =
+    releasedAssessment.score ??
+    "N/A";
+
+  const packetMaxScore =
+    releasedAssessment.maxScore ??
+    "N/A";
+
+  const packetFrameworkName =
+    String(
+      releasedFramework.name ??
+      "Framework"
+    );
+
+  const packetFrameworkVersion =
+    releasedFramework.version
+      ? String(releasedFramework.version)
+      : "";
+
+  const packetReleasedAt =
+    seal?.sealedAt ??
+    releasedAssessment.releasedAt ??
+    snapshot?.generatedAt ??
+    null;
+
   const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${assessment.title}</title>
+  <title>${packetTitle}</title>
   <style>
     body { font-family: Arial, sans-serif; background: #020617; color: #e5e7eb; margin: 0; padding: 40px; }
     .card { border: 1px solid rgba(255,255,255,.12); border-radius: 24px; padding: 24px; background: rgba(255,255,255,.04); margin-bottom: 20px; }
@@ -74,13 +137,13 @@ export async function GET(_request: Request, context: RouteContext) {
 <body>
   <section class="card">
     <div class="eyebrow">Truvern framework assessment release packet</div>
-    <h1>${assessment.title}</h1>
-    <p class="muted">${assessment.framework.name}${assessment.framework.version ? ` Â· ${assessment.framework.version}` : ""}</p>
+    <h1>${packetTitle}</h1>
+    <p class="muted">${packetFrameworkName}${packetFrameworkVersion ? `  -  ${packetFrameworkVersion}` : ""}</p>
     <div class="grid">
-      <div class="metric"><strong>Status</strong><br/>${assessment.status}</div>
-      <div class="metric"><strong>Risk</strong><br/>${assessment.riskLevel ?? "Unscored"}</div>
-      <div class="metric"><strong>Score</strong><br/>${assessment.score ?? "â€”"} / ${assessment.maxScore ?? "â€”"}</div>
-      <div class="metric"><strong>Released</strong><br/>${assessment.releasedAt ? new Date(assessment.releasedAt).toISOString() : "Not released"}</div>
+      <div class="metric"><strong>Status</strong><br/>${packetStatus}</div>
+      <div class="metric"><strong>Risk</strong><br/>${packetRisk}</div>
+      <div class="metric"><strong>Score</strong><br/>${packetScore} / ${packetMaxScore}</div>
+      <div class="metric"><strong>Released</strong><br/>${packetReleasedAt ?? "Not released"}</div>
     </div>
   </section>
 
@@ -90,14 +153,40 @@ export async function GET(_request: Request, context: RouteContext) {
     <p><strong>Checksum:</strong></p>
     <p class="seal">${seal?.checksum ?? "Not available"}</p>
     <p><strong>Sealed at:</strong> ${seal?.sealedAt ?? "Not sealed"}</p>
+    <h2>Cryptographic signature</h2>
+
+    <p>
+      <strong>Algorithm:</strong>
+      ${seal?.cryptographicSignature?.algorithm ?? "Not signed"}
+    </p>
+
+    <p>
+      <strong>Key ID:</strong>
+      ${seal?.cryptographicSignature?.keyId ?? "Not available"}
+    </p>
+
+    <p>
+      <strong>Signed at:</strong>
+      ${seal?.cryptographicSignature?.signedAt ?? "Not available"}
+    </p>
+
+    <p><strong>Payload hash:</strong></p>
+    <p class="seal">
+      ${seal?.cryptographicSignature?.payloadHash ?? "Not available"}
+    </p>
+
+    <p><strong>Detached signature:</strong></p>
+    <p class="seal">
+      ${seal?.cryptographicSignature?.signature ?? "Not available"}
+    </p>
   </section>
 
   <section class="card">
     <h2>Findings</h2>
-    <p class="muted">${assessment.findings.length} finding(s) recorded.</p>
-    ${assessment.findings.map((finding) => `
+    <p class="muted">${releasedFindings.length} finding(s) sealed into this release.</p>
+    ${releasedFindings.map((finding: any) => `
       <div class="metric">
-        <strong>${finding.severity} Â· ${finding.status}</strong><br/>
+        <strong>${finding.severity}  -  ${finding.status}</strong><br/>
         ${finding.title}<br/>
         <span class="muted">${finding.description}</span>
       </div>
@@ -106,8 +195,8 @@ export async function GET(_request: Request, context: RouteContext) {
 
   <section class="card">
     <h2>Attestations</h2>
-    <p class="muted">${assessment.attestations.length} attestation(s) recorded.</p>
-    ${assessment.attestations.map((attestation) => `
+    <p class="muted">${releasedAttestations.length} attestation(s) sealed into this release.</p>
+    ${releasedAttestations.map((attestation: any) => `
       <div class="metric">
         <strong>${attestation.status}</strong><br/>
         ${attestation.title}<br/>
@@ -117,17 +206,26 @@ export async function GET(_request: Request, context: RouteContext) {
   </section>
 
   <section class="card">
-    <h2>Governance audit timeline</h2>
-    <p class="muted">${auditEvents.length} governance event(s) recorded for this assessment.</p>
-    <div class="timeline">
-      ${auditEvents.length ? auditEvents.map((event) => `
-        <div class="event">
-          <div class="event-title">${event.action.replaceAll("_", " ").toLowerCase()}</div>
-          <div class="muted">${event.message ?? ""}</div>
-          <div class="muted">${new Date(event.createdAt).toISOString()}</div>
-          ${event.actorUserId ? `<div class="muted">Actor: ${event.actorUserId}</div>` : ""}
-        </div>
-      `).join("") : `<p class="muted">No audit events were recorded before this packet was generated.</p>`}
+    <h2>Release provenance</h2>
+
+    <div class="metric">
+      <strong>Snapshot schema</strong><br/>
+      ${snapshot?.schema ?? "Not available"}
+    </div>
+
+    <div class="metric">
+      <strong>Snapshot generated</strong><br/>
+      ${snapshot?.generatedAt ?? "Not available"}
+    </div>
+
+    <div class="metric">
+      <strong>Sealed at</strong><br/>
+      ${seal?.sealedAt ?? "Not available"}
+    </div>
+
+    <div class="metric">
+      <strong>Seal version</strong><br/>
+      ${seal?.version ?? "Not available"}
     </div>
   </section>
 
@@ -139,10 +237,10 @@ export async function GET(_request: Request, context: RouteContext) {
         <span class="pill">${file.scope ?? "evidence"}</span>
         ${file.controlId ? `<span class="pill">${file.controlId}</span>` : ""}
         <strong>${file.filename ?? "Evidence file"}</strong><br/>
-        <span class="muted">Evidence ID: ${file.evidenceId ?? "â€”"}</span><br/>
-        <span class="muted">Content type: ${file.contentType ?? "â€”"} Â· Size: ${file.sizeBytes ?? "â€”"} bytes</span><br/>
+        <span class="muted">Evidence ID: ${file.evidenceId ?? "N/A"}</span><br/>
+        <span class="muted">Content type: ${file.contentType ?? "N/A"}  -  Size: ${file.sizeBytes ?? "N/A"} bytes</span><br/>
         <span class="muted">S3 key:</span>
-        <div class="seal">${file.key ?? "â€”"}</div>
+        <div class="seal">${file.key ?? "N/A"}</div>
       </div>
     `).join("") : `<p class="muted">No evidence files were sealed with this release.</p>`}
   </section>

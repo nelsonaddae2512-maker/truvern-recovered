@@ -6,6 +6,8 @@ import {
   buildFrameworkReleaseSnapshot,
   checksumSnapshot,
 } from "@/lib/governance/framework-release";
+import { verifyGovernanceSignature } from "@/lib/governance-signature";
+import { stableJson } from "@/lib/governance/framework-release";
 import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
@@ -76,13 +78,193 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
-    const recalculatedFromStored = checksumSnapshot(storedSnapshot);
+    const recalculatedFromStored =
+      checksumSnapshot(
+        storedSnapshot
+      );
+
+    const checksumVerified =
+      recalculatedFromStored ===
+      seal.checksum;
+
+    const sealRecord =
+      seal &&
+      typeof seal === "object" &&
+      !Array.isArray(seal)
+        ? seal as Record<string, unknown>
+        : null;
+
+    const signatureCandidate =
+      sealRecord
+        ?.cryptographicSignature;
+
+    const cryptographicSignature =
+      signatureCandidate &&
+      typeof signatureCandidate === "object" &&
+      !Array.isArray(
+        signatureCandidate
+      )
+        ? signatureCandidate as Record<string, unknown>
+        : null;
+
+    const signatureValue =
+      typeof cryptographicSignature
+        ?.signature === "string"
+        ? cryptographicSignature.signature
+        : null;
+
+    const signingKeyId =
+      typeof cryptographicSignature
+        ?.keyId === "string"
+        ? cryptographicSignature.keyId
+        : null;
+
+    /*
+     * Backward compatibility:
+     *
+     * Releases created before E7-K have no detached
+     * signature and remain checksum-verifiable.
+     *
+     * New releases require both the historical checksum
+     * and RSA signature to verify.
+     */
+    /*
+     * Reconstruct the same canonical payload that was signed.
+     *
+     * This makes verification invariant to JSON/JSONB
+     * property ordering after persistence.
+     */
+    const canonicalStoredSnapshot =
+      JSON.parse(
+        stableJson(
+          storedSnapshot
+        )
+      );
+
+    const cryptographicVerified =
+      signatureValue &&
+      signingKeyId
+        ? verifyGovernanceSignature(
+            canonicalStoredSnapshot,
+            signatureValue,
+            signingKeyId,
+          )
+        : null;
     const currentSnapshot = buildFrameworkReleaseSnapshot(assessment);
-    const recalculatedFromCurrent = checksumSnapshot(currentSnapshot);
+    /*
+     * Historical authenticity and current-state drift are
+     * independent verification concerns.
+     *
+     * Release mechanics may change generatedAt and lifecycle
+     * fields. Normalize only those fields to their sealed values
+     * before checking for substantive post-release drift.
+     */
+    const storedAssessment =
+      storedSnapshot.assessment &&
+      typeof storedSnapshot.assessment === "object" &&
+      !Array.isArray(storedSnapshot.assessment)
+        ? storedSnapshot.assessment as Record<string, unknown>
+        : null;
+
+    const currentAssessment =
+      currentSnapshot.assessment &&
+      typeof currentSnapshot.assessment === "object" &&
+      !Array.isArray(currentSnapshot.assessment)
+        ? currentSnapshot.assessment as Record<string, unknown>
+        : null;
+
+    if (
+      !storedAssessment ||
+      !currentAssessment
+    ) {
+      return NextResponse.json(
+        {
+          verified: false,
+          reason: "INVALID_RELEASE_SNAPSHOT_ASSESSMENT",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    const comparableCurrentSnapshot = {
+      ...currentSnapshot,
+
+      generatedAt:
+        storedSnapshot.generatedAt,
+
+      assessment: {
+        ...currentAssessment,
+
+        /*
+         * These fields change only because confirm-release
+         * transitions/persists the assessment.
+         *
+         * Use the sealed values exactly. In particular,
+         * releasedAt=null is meaningful and MUST NOT use ??
+         * because null is the expected pre-release value.
+         */
+        status:
+          storedAssessment.status,
+
+        releasedAt:
+          storedAssessment.releasedAt,
+
+        updatedAt:
+          storedAssessment.updatedAt,
+      },
+    };
+
+    const recalculatedFromCurrent =
+      checksumSnapshot(
+        comparableCurrentSnapshot
+      );
 
     return NextResponse.json({
       ok: true,
-      verified: recalculatedFromStored === seal.checksum,
+      verified:
+        checksumVerified &&
+        (
+          cryptographicVerified ===
+            null ||
+          cryptographicVerified ===
+            true
+        ),
+
+      checksumVerified,
+
+      cryptographicallySigned:
+        cryptographicSignature !==
+        null,
+
+      cryptographicVerified,
+
+      signature:
+        cryptographicSignature
+          ? {
+              algorithm:
+                typeof cryptographicSignature.algorithm ===
+                "string"
+                  ? cryptographicSignature.algorithm
+                  : null,
+
+              keyId:
+                signingKeyId,
+
+              signedAt:
+                typeof cryptographicSignature.signedAt ===
+                "string"
+                  ? cryptographicSignature.signedAt
+                  : null,
+
+              payloadHash:
+                typeof cryptographicSignature.payloadHash ===
+                "string"
+                  ? cryptographicSignature.payloadHash
+                  : null,
+            }
+          : null,
       storedChecksum: seal.checksum,
       recalculatedFromStored,
       currentChecksum: recalculatedFromCurrent,

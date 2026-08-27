@@ -15,6 +15,10 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
 
+  // Public cryptographic verification surfaces.
+  // No customer-private assessment data is exposed by this page.
+  "/verify(.*)",
+
   // Board packet supports public token mode
   "/board-packet(.*)",
 
@@ -42,10 +46,10 @@ const isApiNoRedirectRoute = createRouteMatcher([
   // Authenticated by Svix/Resend signature verification,
   // not by a Clerk browser session.
   "/api/webhooks/resend",
-  // Ã¢Å“â€¦ canonical trust network export route
+  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ canonical trust network export route
   "/api/trust-network-export(.*)",
 
-  // Ã¢Å“â€¦ legacy shim route must also not redirect (so it can 307 Ã¢â€ â€™ canonical)
+  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ legacy shim route must also not redirect (so it can 307 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ canonical)
   "/api/trust-network/export(.*)",
 
   "/api/auth/(.*)",
@@ -54,7 +58,7 @@ const isApiNoRedirectRoute = createRouteMatcher([
 export default clerkMiddleware(async (authFn, req) => {
   const res = NextResponse.next();
 
-  // Ã¢Å“â€¦ CRITICAL: always call authFn() so Clerk can hydrate request auth
+  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ CRITICAL: always call authFn() so Clerk can hydrate request auth
   const a = await authFn();
 
   // Optional: lightweight dev-only marker (no identifiers)

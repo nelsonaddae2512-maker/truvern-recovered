@@ -3,7 +3,8 @@ import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
-import { countTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { countTruvernRemediationRequests } from "@/lib/repositories/truvern-remediation-request-repository";
+import { countTruvernAssessmentAttestations } from "@/lib/repositories/truvern-assessment-attestation-repository";
 import { updateTruvernAssessmentFinding } from "@/lib/repositories/truvern-assessment-finding-repository";
 import { findFirstTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
 import { updateTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
@@ -30,6 +31,9 @@ export async function POST(request: Request, context: RouteContext) {
     if (!assessmentId || !remediationId) {
       return NextResponse.json({ ok: false, error: "Invalid id." }, { status: 400 });
     }
+
+    await requireReviewerAccess();
+    await requireFrameworkAssessmentAccess(assessmentId);
 
     const body = await request.json().catch(() => ({}));
     const decision = String(body.decision ?? "").trim().toLowerCase();
@@ -80,31 +84,72 @@ export async function POST(request: Request, context: RouteContext) {
         },
       }, tx);
 
-      const unresolvedRequired = await countTruvernAssessmentFindings({
-        where: {
-          assessmentId,
-          OR: [
-            {
-              remediationRequired: true,
-              status: { in: ["OPEN", "REMEDIATION_REQUESTED"] },
+      /*
+       * Release readiness must be based on the actual durable
+       * vendor-work queues, not only finding status projection.
+       *
+       * This mirrors the attestation reviewer route and prevents
+       * READY_FOR_RELEASE while any attestation or remediation
+       * request remains unresolved.
+       */
+      const unresolvedAttestations =
+        await countTruvernAssessmentAttestations({
+          where: {
+            assessmentId,
+            status: {
+              in: [
+                "REQUESTED",
+                "SUBMITTED",
+                "REJECTED",
+              ],
             },
-            {
-              attestationRequired: true,
-              status: { in: ["OPEN", "REMEDIATION_REQUESTED"] },
+          },
+        }, tx);
+
+      const unresolvedRemediation =
+        await countTruvernRemediationRequests({
+          where: {
+            finding: {
+              assessmentId,
             },
-          ],
-        },
-      }, tx);
+            status: {
+              in: [
+                "REQUESTED",
+                "IN_PROGRESS",
+                "SUBMITTED",
+                "REJECTED",
+              ],
+            },
+          },
+        }, tx);
+
+      const readyForRelease =
+        unresolvedAttestations === 0 &&
+        unresolvedRemediation === 0;
 
       await updateTruvernFrameworkAssessment({
-        where: { id: assessmentId },
+        where: {
+          id: assessmentId,
+        },
         data: {
-          status: unresolvedRequired === 0 ? "READY_FOR_RELEASE" : "IN_REVIEW",
-          readyForReleaseAt: unresolvedRequired === 0 ? new Date() : null,
+          status:
+            readyForRelease
+              ? "READY_FOR_RELEASE"
+              : "IN_REVIEW",
+
+          readyForReleaseAt:
+            readyForRelease
+              ? new Date()
+              : null,
         },
       }, tx);
 
-      return { remediation, finding, unresolvedRequired };
+      return {
+        remediation,
+        finding,
+        unresolvedAttestations,
+        unresolvedRemediation,
+      };
     });
 
     return NextResponse.json({ ok: true, ...result });
@@ -121,6 +166,5 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
-
 
 

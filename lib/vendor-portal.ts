@@ -1,51 +1,121 @@
-﻿// lib/vendor-portal.ts
 import prisma from "@/lib/prisma";
 
-/**
- * Ensures a VendorPortalUser exists for this Clerk user.
- *
- * Dev-friendly behavior:
- * - Uses the first organization.
- * - Uses the first vendor in that organization.
- * - Creates the portal user linked to both required relations.
- */
-export async function ensureVendorPortalUser(clerkUserId: string) {
-  const existing = await prisma.vendorPortalUser.findUnique({
-    where: { clerkUserId },
-  });
+export type VendorPortalBindingInput = {
+  clerkUserId: string;
+  organizationId: number;
+  vendorId: number;
+};
 
-  if (existing) return existing;
+export async function bindVendorPortalUser(
+  input: VendorPortalBindingInput,
+) {
+  const clerkUserId =
+    String(
+      input.clerkUserId ?? "",
+    ).trim();
 
-  const defaultOrg = await prisma.organization.findFirst({
-    orderBy: { id: "asc" },
-    select: { id: true },
-  });
+  const organizationId =
+    Number(
+      input.organizationId,
+    );
 
-  if (!defaultOrg) {
+  const vendorId =
+    Number(
+      input.vendorId,
+    );
+
+  if (!clerkUserId) {
     throw new Error(
-      "No Organization exists. Seed an organization first before provisioning vendor portal users.",
+      "A Clerk user id is required.",
     );
   }
 
-  const defaultVendor = await prisma.vendor.findFirst({
-    where: { organizationId: defaultOrg.id },
-    orderBy: { id: "asc" },
-    select: { id: true },
-  });
-
-  if (!defaultVendor) {
+  if (
+    !Number.isInteger(
+      organizationId,
+    ) ||
+    organizationId <= 0
+  ) {
     throw new Error(
-      "No Vendor exists for the default organization. Seed a vendor first before provisioning vendor portal users.",
+      "A valid organization id is required.",
+    );
+  }
+
+  if (
+    !Number.isInteger(
+      vendorId,
+    ) ||
+    vendorId <= 0
+  ) {
+    throw new Error(
+      "A valid vendor id is required.",
+    );
+  }
+
+  const existing =
+    await prisma.vendorPortalUser.findUnique({
+      where: {
+        clerkUserId,
+      },
+    });
+
+  if (existing) {
+
+    if (
+      existing.organizationId !==
+        organizationId ||
+      existing.vendorId !==
+        vendorId
+    ) {
+      throw new Error(
+        "This Clerk user is already bound to another vendor identity.",
+      );
+    }
+
+    return existing;
+  }
+
+  const vendor =
+    await prisma.vendor.findFirst({
+      where: {
+        id:
+          vendorId,
+
+        organizationId,
+      },
+
+      select: {
+        id:
+          true,
+
+        organizationId:
+          true,
+      },
+    });
+
+  if (!vendor) {
+    throw new Error(
+      "Vendor does not belong to the requested organization.",
     );
   }
 
   return prisma.vendorPortalUser.create({
     data: {
       clerkUserId,
-      organization: { connect: { id: defaultOrg.id } },
-      vendor: { connect: { id: defaultVendor.id } },
+
+      organization: {
+        connect: {
+          id:
+            organizationId,
+        },
+      },
+
+      vendor: {
+        connect: {
+          id:
+            vendorId,
+        },
+      },
     },
   });
 }
-
-

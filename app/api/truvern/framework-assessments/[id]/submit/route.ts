@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
+import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
 import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
@@ -39,6 +40,9 @@ export async function POST(request: Request, context: RouteContext) {
         { status: 400 },
       );
     }
+
+    await requireReviewerAccess();
+    await requireFrameworkAssessmentAccess(id);
 
     const existing = await findTruvernFrameworkAssessment({
       where: { id },

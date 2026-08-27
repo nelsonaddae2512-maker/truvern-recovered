@@ -1,4 +1,4 @@
-﻿// app/api/uploads/route.ts
+// app/api/uploads/route.ts
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import path from "path";
@@ -13,8 +13,20 @@ function json(data: any, status = 200) {
 }
 
 function isDevBypass(req: Request) {
-  const b = req.headers.get("x-dev-bypass");
-  return b === "1" || b?.toLowerCase() === "true";
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
+  if (process.env.TRUVERN_DEV_BYPASS_AUTH !== "1") {
+    return false;
+  }
+
+  const value = req.headers.get("x-dev-bypass");
+
+  return (
+    value === "1" ||
+    value?.toLowerCase() === "true"
+  );
 }
 
 async function ensureDir(dir: string) {

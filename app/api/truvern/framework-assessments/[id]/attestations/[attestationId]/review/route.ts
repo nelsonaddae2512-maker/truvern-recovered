@@ -31,6 +31,9 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "Invalid id." }, { status: 400 });
     }
 
+    await requireReviewerAccess();
+    await requireFrameworkAssessmentAccess(assessmentId);
+
     const body = await request.json().catch(() => ({}));
     const decision = String(body.decision ?? "").trim().toLowerCase();
 
@@ -109,6 +112,5 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
-
 
 

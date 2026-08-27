@@ -1,4 +1,4 @@
-﻿import fs from "fs";
+import fs from "fs";
 import path from "path";
 
 export const TRUVERN_GOVERNANCE_RSA_V1_KEY_ID =
@@ -98,6 +98,21 @@ export function getActiveGovernanceSigningKey() {
   ];
 }
 
+export function listGovernanceSigningKeys() {
+  return Object.values(
+    signingKeys,
+  ).map((key) => ({
+    keyId:
+      key.keyId,
+
+    algorithm:
+      key.algorithm,
+
+    active:
+      key.keyId ===
+      ACTIVE_TRUVERN_GOVERNANCE_SIGNING_KEY_ID,
+  }));
+}
 export function getGovernanceSigningKey(
   keyId: string,
 ) {

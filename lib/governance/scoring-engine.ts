@@ -20,6 +20,32 @@ export type TruvernScoringInput = {
   requiresEvidence?: boolean | null;
   requiresAttestation?: boolean | null;
   evidence?: unknown;
+
+  // Canonical OSCAL semantic context.
+  recommendedEvidence?: boolean | null;
+  parameterIds?: string[];
+  assessmentObjectiveIds?: string[];
+  assessmentMethodIds?: string[];
+  assessmentObjectIds?: string[];
+  methodTypes?: string[];
+
+  conditionalEnhancements?: Array<{
+    controlId?: string | null;
+    title?: string | null;
+    statementText?: string | null;
+
+    parameterIds?: string[];
+    objectiveIds?: string[];
+    methodIds?: string[];
+    objectIds?: string[];
+    methodTypes?: string[];
+
+    conditionalVendorFollowUp?: boolean | null;
+    followUpTrigger?: string | null;
+    evidenceTrigger?: string | null;
+    remediationTrigger?: string | null;
+    attestationTrigger?: string | null;
+  }>;
 };
 
 export type TruvernControlScore = {

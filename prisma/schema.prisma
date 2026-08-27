@@ -384,6 +384,27 @@ model VendorRiskAlert {
   @@index([vendorId, type, resolvedAt])
 }
 
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  organizationId Int?
+  actorUserId    String?
+
+  entityType String
+  entityId   String
+
+  action  String
+  message String?
+
+  metadata Json @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+}
 model GovernanceTransparencyLog {
   id Int @id @default(autoincrement())
 
@@ -1236,10 +1257,143 @@ model TruvernControl {
   questions TruvernControlQuestion[]
   findings  TruvernAssessmentFinding[]
 
+  // OSCAL canonical control hierarchy.
+  // Base controls and enhancements remain TruvernControl records.
+  parentControlId Int?
+  parentControl   TruvernControl?  @relation("TruvernControlHierarchy", fields: [parentControlId], references: [id], onDelete: Cascade)
+  childControls   TruvernControl[] @relation("TruvernControlHierarchy")
+
+  // Authoritative OSCAL semantic structures.
+  parameters TruvernControlParameter[]
+  parts      TruvernControlPart[]
+  properties TruvernControlProperty[]
+  links      TruvernControlLink[]
+
   @@unique([frameworkId, controlId])
   @@index([frameworkId])
   @@index([family])
   @@index([controlId])
+  @@index([parentControlId])
+}
+
+// ------------------------------------------------------------
+// OSCAL CANONICAL SEMANTICS
+// ------------------------------------------------------------
+
+model TruvernControlParameter {
+  id        Int @id @default(autoincrement())
+  controlId Int
+
+  oscalId String
+  label   String? @db.Text
+  usage   String? @db.Text
+
+  props       Json?
+  guidelines  Json?
+  constraints Json?
+  selection   Json?
+  values      Json?
+  remarks     String? @db.Text
+
+  sortOrder Int   @default(0)
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  control TruvernControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, oscalId])
+  @@index([controlId])
+  @@index([oscalId])
+}
+
+model TruvernControlPart {
+  id        Int @id @default(autoincrement())
+  controlId Int
+
+  oscalId   String?
+  name      String
+  namespace String?
+  prose     String? @db.Text
+
+  parentPartId Int?
+  parentPart   TruvernControlPart?  @relation("TruvernControlPartHierarchy", fields: [parentPartId], references: [id], onDelete: Cascade)
+  childParts   TruvernControlPart[] @relation("TruvernControlPartHierarchy")
+
+  props Json?
+  links Json?
+
+  sortOrder Int   @default(0)
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  control TruvernControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  properties    TruvernControlProperty[]
+  semanticLinks TruvernControlLink[]
+
+  @@index([controlId])
+  @@index([parentPartId])
+  @@index([name])
+  @@index([oscalId])
+}
+
+model TruvernControlProperty {
+  id Int @id @default(autoincrement())
+
+  controlId Int?
+  partId    Int?
+
+  name      String
+  value     String? @db.Text
+  className String?
+  namespace String?
+  uuid      String?
+
+  sortOrder Int   @default(0)
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  control TruvernControl?     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  part    TruvernControlPart? @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([controlId])
+  @@index([partId])
+  @@index([name])
+  @@index([namespace])
+}
+
+model TruvernControlLink {
+  id Int @id @default(autoincrement())
+
+  controlId Int?
+  partId    Int?
+
+  href String
+  rel  String?
+  text String? @db.Text
+
+  mediaType        String?
+  resourceFragment String?
+
+  sortOrder Int   @default(0)
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  control TruvernControl?     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  part    TruvernControlPart? @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([controlId])
+  @@index([partId])
+  @@index([rel])
+  @@index([href])
 }
 
 model TruvernControlQuestion {

@@ -32,6 +32,9 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "Invalid assessment id." }, { status: 400 });
     }
 
+    await requireReviewerAccess();
+    await requireFrameworkAssessmentAccess(id);
+
     const findings = await findTruvernAssessmentFindings({
       where: {
         assessmentId: id,
@@ -127,7 +130,6 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
-
 
 
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
 
@@ -98,6 +98,12 @@ export default function FrameworkAssessmentActions({ assessmentId }: Props) {
         >
           Manifest
         </a>
+      <a
+        href={`/api/truvern/framework-assessments/${assessmentId}/verification-bundle`}
+        className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/15"
+      >
+        Download verification bundle
+      </a>
       </div>
 
       {message ? <p className="mt-3 text-sm text-emerald-300">{message}</p> : null}

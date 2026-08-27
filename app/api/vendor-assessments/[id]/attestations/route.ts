@@ -70,12 +70,45 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     });
 
-    await updateTruvernFrameworkAssessment({
-      where: { id: assessmentId },
-      data: {
-        status: "IN_REVIEW",
-      },
-    });
+    const [
+      pendingRemediation,
+      pendingAttestations,
+    ] = await Promise.all([
+      prisma.truvernRemediationRequest.count({
+        where: {
+          finding: {
+            assessmentId,
+          },
+          status: {
+            in: [
+              "REQUESTED",
+              "IN_PROGRESS",
+            ],
+          },
+        },
+      }),
+
+      prisma.truvernAssessmentAttestation.count({
+        where: {
+          assessmentId,
+          status: "REQUESTED",
+        },
+      }),
+    ]);
+
+    if (
+      pendingRemediation === 0 &&
+      pendingAttestations === 0
+    ) {
+      await updateTruvernFrameworkAssessment({
+        where: {
+          id: assessmentId,
+        },
+        data: {
+          status: "IN_REVIEW",
+        },
+      });
+    }
 
     return NextResponse.json({ ok: true, attestation });
   } catch (error) {

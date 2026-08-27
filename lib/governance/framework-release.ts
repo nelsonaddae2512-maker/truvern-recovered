@@ -1,4 +1,4 @@
-﻿import crypto from "node:crypto";
+import crypto from "node:crypto";
 
 export type FrameworkReleaseSnapshot = {
   schema: "truvern.frameworkAssessment.release.v1";
@@ -17,6 +17,10 @@ export function stableJson(value: unknown): string {
 }
 
 function sortJson(value: unknown): unknown {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
   if (Array.isArray(value)) return value.map(sortJson);
 
   if (value && typeof value === "object") {

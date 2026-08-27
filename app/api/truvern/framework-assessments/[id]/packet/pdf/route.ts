@@ -69,6 +69,17 @@ export async function GET(request: Request, context: RouteContext) {
       );
     }
 
+    const releasedAssessment =
+      metadata.governanceReleaseSnapshot?.assessment &&
+      typeof metadata.governanceReleaseSnapshot.assessment === "object"
+        ? metadata.governanceReleaseSnapshot.assessment as any
+        : {};
+
+    const pdfTitle =
+      String(
+        releasedAssessment.title ??
+        ("framework-assessment-" + assessmentId)
+      );
     const origin = new URL(request.url).origin;
     const packetUrl = `${origin}/api/truvern/framework-assessments/${assessmentId}/packet`;
 
@@ -111,7 +122,7 @@ export async function GET(request: Request, context: RouteContext) {
     await browser.close();
     browser = null;
 
-    const filename = `${safeFilename(assessment.title || `framework-assessment-${assessment.id}`)}.pdf`;
+    const filename = `${safeFilename(pdfTitle)}.pdf`;
 
     return new NextResponse(Buffer.from(pdf), {
       headers: {

@@ -1,80 +1,389 @@
-﻿// app/vendor-portal/bootstrap/route.ts
-import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
+import {
+  auth,
+  currentUser,
+} from "@clerk/nextjs/server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import {
+  NextResponse,
+} from "next/server";
 
-function json(data: any, status = 200) {
-  return NextResponse.json(data, { status });
+import prisma
+  from "@/lib/prisma";
+
+import {
+  bindVendorPortalUser,
+} from "@/lib/vendor-portal";
+
+export const runtime =
+  "nodejs";
+
+export const dynamic =
+  "force-dynamic";
+
+export const revalidate =
+  0;
+
+function json(
+  status: number,
+  body: unknown,
+) {
+  return NextResponse.json(
+    body,
+    {
+      status,
+    },
+  );
 }
 
-function isDevBypass(req: Request) {
-  return req.headers.get("x-dev-bypass") === "1";
+function parsePositiveInt(
+  value: unknown,
+) {
+  const parsed =
+    Number(
+      String(
+        value ?? "",
+      ).trim(),
+    );
+
+  if (
+    !Number.isInteger(
+      parsed,
+    ) ||
+    parsed <= 0
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
-export async function GET(req: Request) {
+function normalizeEmail(
+  value: unknown,
+) {
+  return String(
+    value ?? "",
+  )
+    .trim()
+    .toLowerCase();
+}
+
+export async function POST(
+  request: Request,
+) {
   try {
-    if (isDevBypass(req)) {
-      const rawVendorId = req.headers.get("x-dev-vendor-id");
-      const vendorId = rawVendorId ? Number(rawVendorId) : null;
 
-      const link = await prisma.vendorPortalUser.findFirst({
-        where: vendorId && Number.isFinite(vendorId) ? { vendorId } : {},
-        orderBy: { id: "asc" },
-        select: { id: true, vendorId: true },
-      });
+    const session =
+      await auth();
 
-      if (!link?.vendorId) {
-        return json({
-          ok: true,
-          linked: false,
-          vendorId: null,
-          mode: "dev-bypass",
-        });
-      }
+    const clerkUserId =
+      session.userId;
 
-      return json({
-        ok: true,
-        linked: true,
-        vendorId: link.vendorId,
-        mode: "dev-bypass",
-      });
-    }
-
-    const a = await auth();
-
-    if (!a?.userId) {
+    if (!clerkUserId) {
       return json(
-        {
-          ok: false,
-          reason: "UNAUTHORIZED",
-          redirect: `/sign-in?redirect_url=${encodeURIComponent("/vendor-portal")}`,
-        },
         401,
+        {
+          ok:
+            false,
+
+          error:
+            "Authentication required.",
+        },
       );
     }
 
-    const link = await prisma.vendorPortalUser.findFirst({
-      where: { clerkUserId: a.userId },
-      select: { id: true, vendorId: true },
-    });
+    const body =
+      await request
+        .json()
+        .catch(
+          () => ({}),
+        );
 
-    if (!link?.vendorId) {
-      return json({ ok: true, linked: false, vendorId: null });
+    const assessmentId =
+      parsePositiveInt(
+        (
+          body as {
+            assessmentId?: unknown;
+          }
+        ).assessmentId,
+      );
+
+    if (!assessmentId) {
+      return json(
+        400,
+        {
+          ok:
+            false,
+
+          error:
+            "A valid assessment id is required.",
+        },
+      );
     }
 
-    return json({ ok: true, linked: true, vendorId: link.vendorId });
-  } catch (err: any) {
+    /*
+     * Trusted identity source #1:
+     * framework assessment determines organizationId + vendorId.
+     */
+    const assessment =
+      await prisma
+        .truvernFrameworkAssessment
+        .findUnique({
+          where: {
+            id:
+              assessmentId,
+          },
+
+          select: {
+            id:
+              true,
+
+            organizationId:
+              true,
+
+            vendorId:
+              true,
+          },
+        });
+
+    if (
+      !assessment ||
+      !assessment.organizationId ||
+      !assessment.vendorId
+    ) {
+      return json(
+        404,
+        {
+          ok:
+            false,
+
+          error:
+            "Framework assessment not found.",
+        },
+      );
+    }
+
+    /*
+     * Trusted identity source #2:
+     * load the exact vendor separately because
+     * TruvernFrameworkAssessment exposes vendorId but
+     * does not currently expose a Prisma vendor relation.
+     */
+    const vendor =
+      await prisma.vendor.findFirst({
+        where: {
+          id:
+            assessment.vendorId,
+
+          organizationId:
+            assessment.organizationId,
+        },
+
+        select: {
+          id:
+            true,
+
+          organizationId:
+            true,
+
+          contactEmail:
+            true,
+
+          contacts: {
+            select: {
+              email:
+                true,
+            },
+          },
+        },
+      });
+
+    if (!vendor) {
+      return json(
+        404,
+        {
+          ok:
+            false,
+
+          error:
+            "Assessment vendor could not be resolved.",
+        },
+      );
+    }
+
+    const user =
+      await currentUser();
+
+    if (!user) {
+      return json(
+        401,
+        {
+          ok:
+            false,
+
+          error:
+            "Authenticated Clerk user could not be resolved.",
+        },
+      );
+    }
+
+    /*
+     * Only verified Clerk email addresses may establish
+     * a vendor identity binding.
+     */
+    const authenticatedEmails =
+      new Set(
+        (
+          user.emailAddresses ??
+          []
+        )
+          .filter(
+            (entry) =>
+              entry.verification
+                ?.status ===
+              "verified",
+          )
+          .map(
+            (entry) =>
+              normalizeEmail(
+                entry.emailAddress,
+              ),
+          )
+          .filter(Boolean),
+      );
+
+    if (
+      authenticatedEmails.size ===
+      0
+    ) {
+      return json(
+        403,
+        {
+          ok:
+            false,
+
+          error:
+            "Authenticated user has no verified vendor email identity.",
+        },
+      );
+    }
+
+    const permittedEmails =
+      new Set<string>();
+
+    const primaryEmail =
+      normalizeEmail(
+        vendor.contactEmail,
+      );
+
+    if (primaryEmail) {
+      permittedEmails.add(
+        primaryEmail,
+      );
+    }
+
+    for (
+      const contact
+      of vendor.contacts
+    ) {
+
+      const email =
+        normalizeEmail(
+          contact.email,
+        );
+
+      if (email) {
+        permittedEmails.add(
+          email,
+        );
+      }
+    }
+
+    if (
+      permittedEmails.size ===
+      0
+    ) {
+      return json(
+        409,
+        {
+          ok:
+            false,
+
+          error:
+            "This vendor has no configured contact email eligible for portal access.",
+        },
+      );
+    }
+
+    const matchedEmail =
+      Array.from(
+        authenticatedEmails,
+      ).find(
+        (email) =>
+          permittedEmails.has(
+            email,
+          ),
+      ) ??
+      null;
+
+    if (!matchedEmail) {
+      return json(
+        403,
+        {
+          ok:
+            false,
+
+          error:
+            "Authenticated identity does not match an authorized contact for this vendor.",
+        },
+      );
+    }
+
+    const portalUser =
+      await bindVendorPortalUser({
+        clerkUserId,
+
+        organizationId:
+          assessment.organizationId,
+
+        vendorId:
+          assessment.vendorId,
+      });
+
     return json(
-      { ok: false, reason: "SERVER_ERROR", message: String(err?.message || err) },
+      200,
+      {
+        ok:
+          true,
+
+        assessmentId:
+          assessment.id,
+
+        vendorId:
+          portalUser.vendorId,
+
+        organizationId:
+          portalUser.organizationId,
+
+        matchedEmail,
+      },
+    );
+  }
+  catch (error) {
+
+    console.error(
+      "Vendor portal bootstrap failed:",
+      error,
+    );
+
+    return json(
       500,
+      {
+        ok:
+          false,
+
+        error:
+          "Unable to establish vendor portal identity.",
+      },
     );
   }
 }
-
-
-
-
