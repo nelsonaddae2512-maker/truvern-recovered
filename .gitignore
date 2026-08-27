@@ -542,3 +542,6 @@ RC33-*.txt
 RS-*.txt
 RS-*.ps1
 RC33*.txt
+
+# Local authenticated export test - may contain session material
+/test-export.ps1
