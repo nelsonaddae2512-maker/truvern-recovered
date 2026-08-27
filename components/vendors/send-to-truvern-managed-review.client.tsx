@@ -331,7 +331,7 @@ export default function SendToTruvernManagedReview({
               <button
                 type="button"
                 onClick={closeModal}
-                disabled={submitting || !acceptedAcknowledgement}
+                disabled={submitting}
                 className="rounded-2xl border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
               >
                 Cancel

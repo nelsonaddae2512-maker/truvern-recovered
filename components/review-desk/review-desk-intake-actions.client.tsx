@@ -65,6 +65,8 @@ export default function ReviewDeskSubmissionActions({
         body: JSON.stringify({
           vendorId,
           mode,
+          acceptedAcknowledgement:
+            mode === "truvern" ? acceptedAcknowledgement : false,
           reviewerUserId: mode === "internal" ? selectedAnalystId : "",
           assignedReviewerName:
             mode === "internal"
