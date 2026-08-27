@@ -10,23 +10,23 @@ export const revalidate = 0;
 
 function riskTone(score: number | null) {
   if (score === null) return "border-white/10 bg-white/5 text-slate-300";
-  if (score >= 75) return "border-rose-400/30 bg-rose-400/10 text-rose-200";
+  if (score >= 75) return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
   if (score >= 45) return "border-amber-400/30 bg-amber-400/10 text-amber-200";
-  return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+  return "border-rose-400/30 bg-rose-400/10 text-rose-200";
 }
 
 function riskLabel(score: number | null) {
   if (score === null) return "Unscored";
-  if (score >= 75) return "High risk";
+  if (score >= 75) return "Low risk";
   if (score >= 45) return "Medium risk";
-  return "Low risk";
+  return "High risk";
 }
 
 function rowAccent(score: number | null) {
   if (score === null) return "before:bg-slate-500/40";
-  if (score >= 75) return "before:bg-rose-400";
+  if (score >= 75) return "before:bg-emerald-400";
   if (score >= 45) return "before:bg-amber-400";
-  return "before:bg-emerald-400";
+  return "before:bg-rose-400";
 }
 
 function tierLabel(category: string | null) {

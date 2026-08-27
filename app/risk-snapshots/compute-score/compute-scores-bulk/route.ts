@@ -154,12 +154,8 @@ export async function POST(req: Request) {
     }
 
     if (!dryRun) {
-      // Update vendor.riskScore (exists in your schema)
-      await prisma.vendor.update({
-        where: { id: vendorId },
-        data: { riskScore: computed.score },
-      });
-
+      // Vendor.riskScore is assessment-derived posture (higher is better).
+      // Snapshot score is risk exposure (higher is worse).
       // Optional: if VendorRiskSnapshot exists, write a snapshot (safe runtime check)
       const prismaAny = prisma as any;
       if (prismaAny?.vendorRiskSnapshot?.create) {

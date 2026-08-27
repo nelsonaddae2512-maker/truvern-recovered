@@ -80,9 +80,11 @@ function inferRiskLevel(vendor: any, assessmentRun: any) {
   const score = Number(vendor?.riskScore ?? assessmentRun?.score ?? 0);
   const criticality = upper(vendor?.criticality);
 
-  if (criticality === "CRITICAL" || score >= 80) return "HIGH";
-  if (criticality === "HIGH" || score >= 60) return "MEDIUM";
-  if (score > 0 && score < 35) return "LOW";
+  // Canonical posture semantics: higher assessment score is better.
+  // Criticality may elevate governance risk independently of posture.
+  if (criticality === "CRITICAL" || (score > 0 && score < 45)) return "HIGH";
+  if (criticality === "HIGH" || (score > 0 && score < 75)) return "MEDIUM";
+  if (score >= 75) return "LOW";
 
   return "MEDIUM";
 }

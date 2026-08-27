@@ -108,11 +108,8 @@ export async function POST(req: Request) {
         await tx.vendorRiskSnapshot.delete({ where: { id: latest.id } });
       }
 
-      await tx.vendor.update({
-        where: { id: vendor.id },
-        data: { riskScore: score },
-      });
-
+      // Vendor.riskScore remains assessment-derived posture.
+      // Regeneration changes only the risk exposure snapshot.
       const created = await tx.vendorRiskSnapshot.create({
         data: {
           vendorId: vendor.id,

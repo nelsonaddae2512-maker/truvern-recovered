@@ -169,14 +169,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Vendor not found" }, { status: 404 });
   }
 
-  // Update vendor riskScore (exists in your schema)
-  if (!dryRun) {
-    await prisma.vendor.update({
-      where: { id: vendorId },
-      data: { riskScore: computed.score },
-    });
-  }
-
+  // Vendor.riskScore is assessment-derived posture (higher is better).
+  // Snapshot score is risk exposure (higher is worse).
+  // Never overwrite posture with exposure here.
   // Snapshot create (or reuse latest)
   let snapshot: { id: number; vendorId: number } | null = null;
   let snapshotCreated = false;
