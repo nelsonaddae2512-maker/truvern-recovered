@@ -7,7 +7,7 @@ import { isTruvernOperator } from "@/lib/truvern-ops-access";
 import { deriveCanonicalGovernanceOutcome, runGovernanceIntelligence } from "@/lib/governance/intelligence/governance-intelligence-engine";
 import { buildCanonicalGovernanceArtifact } from "@/lib/governance/canonical-governance-artifact";
 import type { TruvernScoringInput } from "@/lib/governance/scoring-engine";
-import { findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
+import { createReviewResponse, findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findReviewAssignment, updateReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 import { findVendor } from "@/lib/repositories/vendor-repository";
 import { findReviewRequest } from "@/lib/repositories/review-request-repository";
@@ -611,6 +611,19 @@ export async function POST(_request: Request, props: Props) {
             id: row.responseId,
             data: {
               responses: mergedResponsesJson,
+            },
+          },
+          tx,
+        );
+      } else {
+        await createReviewResponse(
+          {
+            data: {
+              organizationId: assignment.organizationId,
+              reviewRequestId: row.reviewRequestId ?? null,
+              reviewAssignmentId: assignmentId,
+              responses: mergedResponsesJson,
+              draftSavedAt: new Date(),
             },
           },
           tx,
