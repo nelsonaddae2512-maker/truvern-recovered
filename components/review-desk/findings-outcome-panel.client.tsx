@@ -936,7 +936,7 @@ const reviewerFollowUps = resolveReviewerFollowUps(responses);
                     ))
                   ) : (
                     <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-200">
-                      No open governance follow-ups. All remediation requirements have been completed and validated.
+                      No governance follow-ups have been recorded.
                     </div>
                   )}
                 </div>

@@ -2,6 +2,8 @@ import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
+import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
+import { isTruvernOperator } from "@/lib/truvern-ops-access";
 import { deriveCanonicalGovernanceOutcome, runGovernanceIntelligence } from "@/lib/governance/intelligence/governance-intelligence-engine";
 import { buildCanonicalGovernanceArtifact } from "@/lib/governance/canonical-governance-artifact";
 import type { TruvernScoringInput } from "@/lib/governance/scoring-engine";
@@ -267,7 +269,7 @@ function extractResponses(payload: any): TruvernScoringInput[] {
 
 export async function POST(_request: Request, props: Props) {
   try {
-    await requireReviewerAccess();
+    const actor = await requireReviewerAccess();
     const resolved = await props.params;
     const assignmentId = Number(resolved.id);
 
@@ -283,8 +285,75 @@ export async function POST(_request: Request, props: Props) {
         organizationId: true,
         vendorId: true,
         reviewRequestId: true,
+        assignmentType: true,
       },
     });
+    if (!assignment) {
+      return NextResponse.json(
+        { ok: false, error: "Review assignment not found." },
+        { status: 404 },
+      );
+    }
+
+    if (
+      actor.role !== "OPS" &&
+      actor.organizationId !== assignment.organizationId
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "You do not have access to this review assignment.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const canManageTruvernReview =
+      await isTruvernOperator();
+
+    const orgTier =
+      await resolveOrganizationPlanTier(
+        Number(assignment.organizationId),
+      );
+
+    const canUseFindingsEngine =
+      canManageTruvernReview ||
+      orgTier === "PRO" ||
+      orgTier === "ENTERPRISE";
+
+    if (!canUseFindingsEngine) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "UPGRADE_REQUIRED",
+          error:
+            "Automated findings generation is available on Truvern Pro and Enterprise plans.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const assignmentType =
+      String(assignment.assignmentType || "")
+        .trim()
+        .toUpperCase();
+
+    const isTruvernReview =
+      assignmentType === "TRUVERN";
+
+    const isInternalReview =
+      assignmentType === "INTERNAL";
+
+    if (!isTruvernReview && !isInternalReview) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Findings generation is available for Truvern expert reviews and Pro internal governance reviews.",
+        },
+        { status: 409 },
+      );
+    }
 
     const latestResponse = assignment
       ? await findLatestReviewResponse(assignmentId)
