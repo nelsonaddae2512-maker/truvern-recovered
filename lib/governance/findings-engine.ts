@@ -98,12 +98,24 @@ function semanticContext(
 ) {
   const rows =
     items.filter(
-      (item) =>
-        String(
-          item.controlId ??
-          item.controlCode ??
-          "unmapped",
-        ) === controlKey,
+      (item) => {
+        const itemControlKey =
+          item.controlId !== null &&
+          item.controlId !== undefined &&
+          String(item.controlId).trim().length > 0
+            ? String(item.controlId)
+            : item.controlCode !== null &&
+                item.controlCode !== undefined &&
+                String(item.controlCode).trim().length > 0
+              ? String(item.controlCode)
+              : item.questionId !== null &&
+                  item.questionId !== undefined &&
+                  String(item.questionId).trim().length > 0
+                ? `question:${String(item.questionId)}`
+                : "unmapped";
+
+        return itemControlKey === controlKey;
+      },
     );
 
   const objectives =
@@ -185,6 +197,16 @@ function semanticContext(
         true,
     );
 
+  const prompt =
+    rows
+      .map((item) =>
+        typeof item.prompt === "string"
+          ? item.prompt.trim()
+          : "",
+      )
+      .find((value) => value.length > 0) ??
+    null;
+
   return {
     objectives,
     methods,
@@ -193,6 +215,7 @@ function semanticContext(
     enhancements,
     evidencePresent,
     recommendedEvidence,
+    prompt,
   };
 }
 
@@ -209,13 +232,19 @@ export function generateFindings(items: TruvernScoringInput[]): TruvernFindingsR
     }
 
     const severity = severityFromControlPercent(control.percent);
-    const label = labelControl(control.controlCode, control.family, control.controlKey);
-
 
     const semantic =
       semanticContext(
         items,
         control.controlKey,
+      );
+
+    const label =
+      labelControl(
+        control.controlCode,
+        control.family,
+        semantic.prompt ??
+          control.controlKey,
       );
 
     const controlGap =

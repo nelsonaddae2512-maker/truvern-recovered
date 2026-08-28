@@ -209,6 +209,36 @@ export function calculateRiskLevel(percent: number): TruvernAssessmentScore["ris
   return "CRITICAL";
 }
 
+function scoringControlKey(
+  item: TruvernScoringInput,
+): string {
+  if (
+    item.controlId !== null &&
+    item.controlId !== undefined &&
+    String(item.controlId).trim().length > 0
+  ) {
+    return String(item.controlId);
+  }
+
+  if (
+    item.controlCode !== null &&
+    item.controlCode !== undefined &&
+    String(item.controlCode).trim().length > 0
+  ) {
+    return String(item.controlCode);
+  }
+
+  if (
+    item.questionId !== null &&
+    item.questionId !== undefined &&
+    String(item.questionId).trim().length > 0
+  ) {
+    return `question:${String(item.questionId)}`;
+  }
+
+  return "unmapped";
+}
+
 export function scoreAssessment(items: TruvernScoringInput[]): TruvernAssessmentScore {
   const controlMap = new Map<string, TruvernControlScore>();
 
@@ -219,7 +249,7 @@ export function scoreAssessment(items: TruvernScoringInput[]): TruvernAssessment
 
   for (const item of items) {
     const normalized = normalizeAnswerScore(item);
-    const controlKey = String(item.controlId ?? item.controlCode ?? "unmapped");
+    const controlKey = scoringControlKey(item);
     const existing =
       controlMap.get(controlKey) ??
       ({
