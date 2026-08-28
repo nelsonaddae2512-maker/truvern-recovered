@@ -340,6 +340,102 @@ export async function POST(req: Request) {
         }
       }
 
+      if (mode === "internal") {
+        const activeInternalAssignment =
+          await findFirstReviewAssignment({
+            where: {
+              status: {
+                in: ["PENDING", "IN_PROGRESS"],
+              },
+              assignmentType: "INTERNAL",
+              reviewRequest: {
+                is: {
+                  vendorId: vendor.id,
+                  organizationId: vendor.organizationId,
+                  assessmentId,
+                },
+              },
+            },
+            select: {
+              id: true,
+              status: true,
+              reviewRequestId: true,
+            },
+            orderBy: [
+              { updatedAt: "desc" },
+              { id: "desc" },
+            ],
+          }, tx);
+
+        if (
+          activeInternalAssignment?.id &&
+          activeInternalAssignment.reviewRequestId
+        ) {
+          const internalAssessmentRows =
+            await tx.$queryRaw<
+              Array<{
+                id: number;
+                reviewAssignmentId: number | null;
+              }>
+            >`
+              select
+                id,
+                "reviewAssignmentId"
+              from "Assessment"
+              where id = ${assessmentId}
+                and "organizationId" = ${vendor.organizationId}
+                and "vendorId" = ${vendor.id}
+              limit 1
+            `;
+
+          const internalExistingAssessment =
+            internalAssessmentRows[0] ?? null;
+
+          if (!internalExistingAssessment) {
+            throw new Error(
+              "The selected assessment could not be resolved for this vendor.",
+            );
+          }
+
+          if (
+            internalExistingAssessment.reviewAssignmentId &&
+            internalExistingAssessment.reviewAssignmentId !==
+              activeInternalAssignment.id
+          ) {
+            throw new Error(
+              "The selected assessment is already linked to another review assignment.",
+            );
+          }
+
+          if (!internalExistingAssessment.reviewAssignmentId) {
+            await tx.$executeRaw`
+              update "Assessment"
+              set
+                "reviewAssignmentId" = ${activeInternalAssignment.id},
+                "updatedAt" = now()
+              where id = ${assessmentId}
+                and "organizationId" = ${vendor.organizationId}
+                and "vendorId" = ${vendor.id}
+            `;
+          }
+
+          return {
+            status: 200,
+            body: {
+              ok: true,
+              alreadyExists: true,
+              requestId:
+                activeInternalAssignment.reviewRequestId,
+              assignmentId:
+                activeInternalAssignment.id,
+              mode,
+              redirectUrl:
+                `/review-desk/${activeInternalAssignment.id}`,
+            },
+          };
+        }
+      }
+
       let entitlement: TruvernEntitlement | null = null;
       if (mode === "truvern") {
         const activeAssignment =
