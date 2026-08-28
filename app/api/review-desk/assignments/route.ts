@@ -640,6 +640,58 @@ export async function POST(req: Request) {
           body: { ok: false, error: "Failed to create review assignment" },
         };
       }
+      // INTERNAL_ASSESSMENT_ASSIGNMENT_LINKAGE
+      // A newly created Self-Managed Review owns its submitted
+      // assessment immediately. Truvern Review retains its
+      // questionnaire-specific linkage path below.
+      if (mode === "internal") {
+        const internalAssessmentRows =
+          await tx.$queryRaw<
+            Array<{
+              id: number;
+              reviewAssignmentId: number | null;
+            }>
+          >`
+            select
+              id,
+              "reviewAssignmentId"
+            from "Assessment"
+            where id = ${assessmentId}
+              and "organizationId" = ${vendor.organizationId}
+              and "vendorId" = ${vendor.id}
+            limit 1
+          `;
+
+        const internalAssessment =
+          internalAssessmentRows[0] ?? null;
+
+        if (!internalAssessment) {
+          throw new Error(
+            "The selected assessment could not be resolved for this vendor.",
+          );
+        }
+
+        if (
+          internalAssessment.reviewAssignmentId &&
+          internalAssessment.reviewAssignmentId !== assignment.id
+        ) {
+          throw new Error(
+            "The selected assessment is already linked to another review assignment.",
+          );
+        }
+
+        if (!internalAssessment.reviewAssignmentId) {
+          await tx.$executeRaw`
+            update "Assessment"
+            set
+              "reviewAssignmentId" = ${assignment.id},
+              "updatedAt" = now()
+            where id = ${assessmentId}
+              and "organizationId" = ${vendor.organizationId}
+              and "vendorId" = ${vendor.id}
+          `;
+        }
+      }
 
       let reservation: Record<string, unknown> | null = null;
 
