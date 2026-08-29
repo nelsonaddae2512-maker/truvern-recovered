@@ -2,7 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
-import { readLatestVendorReviewStates } from "@/lib/repositories/vendor-list-review-state-repository";
+import {
+  readLatestVendorReviewStates,
+  readVendorPortfolioPage,
+  readVendorPortfolioStageCounts,
+  vendorWorkflowStages,
+  type VendorWorkflowStage,
+} from "@/lib/repositories/vendor-list-review-state-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,15 +90,7 @@ function agingStatus(updatedAt: Date) {
   };
 }
 
-function workflowStage(assessments: number, issues: number, evidence: number, submitted = false) {
-  if (issues > 0) return "Remediation";
-  if (assessments > 0 && submitted) return "Review";
-  if (assessments > 0 && evidence <= 0) return "Submission";
-  if (assessments > 0 && evidence > 0) return "Review";
-  return "Intake";
-}
 
-const workflowStages = ["Intake", "Submission", "Review", "Remediation", "Release"];
 
 function reviewProgress(assessments: number, issues: number, evidence = 0, submitted = false) {
   if (issues > 0) return 65;
@@ -142,7 +140,79 @@ function governanceStatus(
   };
 }
 
-export default async function VendorsPage() {
+type VendorsPageSearchParams = {
+  q?: string | string[];
+  stage?: string | string[];
+  page?: string | string[];
+};
+
+function firstSearchValue(
+  value: string | string[] | undefined,
+) {
+  return Array.isArray(value)
+    ? value[0] ?? ""
+    : value ?? "";
+}
+
+function parseVendorStage(
+  value: string,
+): VendorWorkflowStage | null {
+  return vendorWorkflowStages.includes(
+    value as VendorWorkflowStage,
+  )
+    ? (value as VendorWorkflowStage)
+    : null;
+}
+
+function vendorListHref(input: {
+  q?: string;
+  stage?: VendorWorkflowStage | null;
+  page?: number;
+}) {
+  const params =
+    new URLSearchParams();
+
+  const q =
+    String(input.q ?? "")
+      .trim();
+
+  if (q) {
+    params.set(
+      "q",
+      q,
+    );
+  }
+
+  if (input.stage) {
+    params.set(
+      "stage",
+      input.stage,
+    );
+  }
+
+  if (
+    input.page &&
+    input.page > 1
+  ) {
+    params.set(
+      "page",
+      String(input.page),
+    );
+  }
+
+  const query =
+    params.toString();
+
+  return query
+    ? `/vendors?${query}`
+    : "/vendors";
+}
+
+export default async function VendorsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<VendorsPageSearchParams>;
+}) {
   const org = await requireDbOrganization();
 
   let organizationId: number;
@@ -153,83 +223,219 @@ export default async function VendorsPage() {
     organizationId = org.id;
   }
 
-  const vendors = await prisma.vendor.findMany({
-    where: {
-      organizationId,
-    },
-    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-    take: 50,
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      category: true,
-      riskScore: true,
-      updatedAt: true,
-      tier: true,
-      criticality: true,
-      lastAssessmentCompletedAt: true,
-      nextReviewDueAt: true,
-      reviewCadenceDays: true,
-      assessments: {
-        where: {
-          status: {
-            notIn: ["ARCHIVED", "RELEASED", "COMPLETED"],
+  const resolvedSearchParams =
+    (await searchParams) ?? {};
+
+  const q =
+    firstSearchValue(
+      resolvedSearchParams.q,
+    )
+      .trim()
+      .slice(0, 200);
+
+  const selectedStage =
+    parseVendorStage(
+      firstSearchValue(
+        resolvedSearchParams.stage,
+      ),
+    );
+
+  const requestedPage =
+    Number.parseInt(
+      firstSearchValue(
+        resolvedSearchParams.page,
+      ),
+      10,
+    );
+
+  const pageNumber =
+    Number.isFinite(
+      requestedPage,
+    ) &&
+    requestedPage > 0
+      ? requestedPage
+      : 1;
+
+  const pageSize = 50;
+
+  const [
+    portfolio,
+    stageCounts,
+  ] =
+    await Promise.all([
+      readVendorPortfolioPage({
+        organizationId,
+        q,
+        stage: selectedStage,
+        page: pageNumber,
+        pageSize,
+      }),
+
+      readVendorPortfolioStageCounts(
+        organizationId,
+      ),
+    ]);
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        portfolio.total /
+          pageSize,
+      ),
+    );
+
+  if (
+    portfolio.total > 0 &&
+    pageNumber > totalPages
+  ) {
+    redirect(
+      vendorListHref({
+        q,
+        stage: selectedStage,
+        page: totalPages,
+      }),
+    );
+  }
+
+  const vendorIds =
+    portfolio.rows.map(
+      (row) =>
+        row.vendorId,
+    );
+
+  const vendors =
+    vendorIds.length > 0
+      ? await prisma.vendor.findMany({
+          where: {
+            organizationId,
+            id: {
+              in: vendorIds,
+            },
           },
-        },
-        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-        take: 1,
-        select: {
-          id: true,
-          status: true,
-          isVendorSubmitted: true,
-          submittedAt: true,
-        },
-      },
-      _count: {
-        select: {
-          evidence: true,
-          assessments: {
-            where: {
-              status: {
-                notIn: ["ARCHIVED", "RELEASED", "COMPLETED"],
+
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            category: true,
+            riskScore: true,
+            updatedAt: true,
+            tier: true,
+            criticality: true,
+            lastAssessmentCompletedAt: true,
+            nextReviewDueAt: true,
+            reviewCadenceDays: true,
+
+            assessments: {
+              where: {
+                status: {
+                  notIn: [
+                    "ARCHIVED",
+                    "RELEASED",
+                    "COMPLETED",
+                  ],
+                },
+              },
+
+              orderBy: [
+                {
+                  updatedAt: "desc",
+                },
+                {
+                  id: "desc",
+                },
+              ],
+
+              take: 1,
+
+              select: {
+                id: true,
+                status: true,
+                isVendorSubmitted: true,
+                submittedAt: true,
+              },
+            },
+
+            _count: {
+              select: {
+                evidence: true,
+
+                assessments: {
+                  where: {
+                    status: {
+                      notIn: [
+                        "ARCHIVED",
+                        "RELEASED",
+                        "COMPLETED",
+                      ],
+                    },
+                  },
+                },
+
+                issues: true,
+                evidenceRequests: true,
               },
             },
           },
-          issues: true,
-          evidenceRequests: true,
-        },
-      },
-    },
-  });
+        })
+      : [];
 
-  const reviewStateRows = await readLatestVendorReviewStates(
-    organizationId,
-  );
+  const vendorById =
+    new Map(
+      vendors.map(
+        (vendor) => [
+          vendor.id,
+          vendor,
+        ] as const,
+      ),
+    );
+
+  const orderedVendors =
+    vendorIds.flatMap(
+      (vendorId) => {
+        const vendor =
+          vendorById.get(
+            vendorId,
+          );
+
+        return vendor
+          ? [vendor]
+          : [];
+      },
+    );
+
+  const reviewStateRows =
+    await readLatestVendorReviewStates(
+      organizationId,
+      vendorIds,
+    );
 
   const reviewStateByVendorId = new Map(
     reviewStateRows.map((row) => [Number(row.vendorId), row]),
   );
 
-  const totalVendors = vendors.length;
-  const inReview = vendors.filter((vendor) => {
-    const reviewState = reviewStateByVendorId.get(vendor.id);
+  const totalVendors =
+    vendorWorkflowStages.reduce(
+      (sum, stage) =>
+        sum +
+        stageCounts[stage],
+      0,
+    );
 
-    if (!reviewState) {
-      return false;
-    }
+  const firstResult =
+    portfolio.total === 0
+      ? 0
+      : (
+          (pageNumber - 1) *
+            pageSize
+        ) + 1;
 
-    const releaseState = String(reviewState.releaseState ?? "").toUpperCase();
-    const assignmentStatus = String(reviewState.assignmentStatus ?? "").toUpperCase();
-
-    if (["RELEASED", "COMPLETED", "READY_FOR_RELEASE", "ARCHIVED", "CANCELLED", "CANCELED"].includes(releaseState)) {
-      return false;
-    }
-
-    return ["IN_PROGRESS", "CLAIMED"].includes(assignmentStatus);
-  }).length;
-  const evidenceShared = vendors.filter((vendor) => vendor._count.evidence > 0).length;
-  const openIssues = vendors.reduce((sum, vendor) => sum + vendor._count.issues, 0);
+  const lastResult =
+    Math.min(
+      portfolio.total,
+      pageNumber * pageSize,
+    );
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-12 text-white">
@@ -299,14 +505,147 @@ export default async function VendorsPage() {
         </div>
       </section>
 
-      <section className="mt-10 grid gap-4 md:grid-cols-4">
-        <SummaryCard label="Total vendors" value={totalVendors.toString()} />
-        <SummaryCard label="Evidence shared" value={evidenceShared.toString()} />
-        <SummaryCard label="In review" value={inReview.toString()} />
-        <SummaryCard label="Open issues" value={openIssues.toString()} />
+      <section className="mt-10">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200">
+              Governance portfolio
+            </p>
+
+            <h2 className="mt-2 text-2xl font-semibold text-white">
+              Vendor lifecycle at a glance
+            </h2>
+          </div>
+
+          <Link
+            href={vendorListHref({
+              q,
+            })}
+            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+              selectedStage === null
+                ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"
+                : "border-white/10 text-slate-300 hover:bg-white/5"
+            }`}
+          >
+            All vendors Â· {totalVendors}
+          </Link>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {vendorWorkflowStages.map(
+            (stage) => (
+              <Link
+                key={stage}
+                href={vendorListHref({
+                  q,
+                  stage,
+                })}
+                className="block"
+              >
+                <SummaryCard
+                  label={stage}
+                  value={
+                    stageCounts[
+                      stage
+                    ].toString()
+                  }
+                  active={
+                    selectedStage ===
+                    stage
+                  }
+                />
+              </Link>
+            ),
+          )}
+        </div>
       </section>
 
-      <section className="mt-8 rounded-[2rem] border border-cyan-400/20 bg-white/[0.05] shadow-2xl shadow-cyan-950/30">
+      <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.035] p-5">
+        <form
+          action="/vendors"
+          method="get"
+          className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto_auto] lg:items-end"
+        >
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Search vendors
+            </span>
+
+            <input
+              name="q"
+              type="search"
+              defaultValue={q}
+              placeholder="Search vendor, contact, email, or website"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/50"
+            />
+          </label>
+
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Governance stage
+            </span>
+
+            <select
+              name="stage"
+              defaultValue={
+                selectedStage ?? ""
+              }
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50"
+            >
+              <option value="">
+                All stages
+              </option>
+
+              {vendorWorkflowStages.map(
+                (stage) => (
+                  <option
+                    key={stage}
+                    value={stage}
+                  >
+                    {stage}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+
+          <button
+            type="submit"
+            className="rounded-2xl bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+          >
+            Search
+          </button>
+
+          <Link
+            href="/vendors"
+            className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+          >
+            Clear
+          </Link>
+        </form>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+          <span>
+            Showing{" "}
+            <strong className="font-semibold text-white">
+              {firstResult}-{lastResult}
+            </strong>{" "}
+            of{" "}
+            <strong className="font-semibold text-white">
+              {portfolio.total}
+            </strong>{" "}
+            matching vendors
+          </span>
+
+          {q ? (
+            <span>
+              Search: â€œ{q}â€
+            </span>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-[2rem] border border-cyan-400/20 bg-white/[0.05] shadow-2xl shadow-cyan-950/30">
         <div className="flex flex-col gap-4 border-b border-white/10 p-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
@@ -334,13 +673,17 @@ export default async function VendorsPage() {
           </div>
         </div>
 
-        {vendors.length === 0 ? (
+        {orderedVendors.length === 0 ? (
           <div className="p-8">
             <h2 className="text-xl font-semibold text-white">
-              No vendors yet
+              {q || selectedStage
+                ? "No vendors match this search"
+                : "No vendors yet"}
             </h2>
             <p className="mt-2 text-slate-300">
-              Add your first vendor to request a Truvern Review, track evidence, findings, remediation, and release-ready governance outputs.
+              {q || selectedStage
+                ? "Try another search or clear the current filters."
+                : "Add your first vendor to request a Truvern Review, track evidence, findings, remediation, and release-ready governance outputs."}
             </p>
 
             <Link
@@ -352,7 +695,7 @@ export default async function VendorsPage() {
           </div>
         ) : (
           <div className="divide-y divide-cyan-400/15">
-            {vendors.map((vendor) => {
+            {orderedVendors.map((vendor) => {
               const score = typeof vendor.riskScore === "number" ? vendor.riskScore : null;
               const evidenceCount = vendor._count.evidence;
               const assessmentsCount = vendor.assessments.length;
@@ -433,22 +776,12 @@ export default async function VendorsPage() {
                 : reviewProgress(assessmentsCount, issuesCount, evidenceCount, vendorSubmitted);
 
               const aging = agingStatus(vendor.updatedAt);
-              let activeStage;
-
-              if (reviewReleased) {
-                activeStage = "Release";
-              } else if (reviewReady) {
-                activeStage = "Remediation";
-              } else if (reviewActive) {
-                activeStage = "Review";
-              } else {
-                activeStage = workflowStage(
-                  assessmentsCount,
-                  issuesCount,
-                  evidenceCount,
-                  vendorSubmitted,
-                );
-              }
+              const activeStage =
+                portfolio.rows.find(
+                  (row) =>
+                    row.vendorId ===
+                    vendor.id,
+                )?.stage ?? "Intake";
 
               return (
                 <div
@@ -478,11 +811,11 @@ export default async function VendorsPage() {
                         </span>
                       ) : null}
                       <span>#{vendor.id}</span>
-                      <span>• Tier: {tierLabel(vendor.tier ?? vendor.category)}</span>
-                      <span>• Updated {vendor.updatedAt.toLocaleDateString()}</span>
+                      <span>â€¢ Tier: {tierLabel(vendor.tier ?? vendor.category)}</span>
+                      <span>â€¢ Updated {vendor.updatedAt.toLocaleDateString()}</span>
                       {vendor.nextReviewDueAt ? (
                         <span className="text-cyan-200">
-                          • Reassessment due{" "}
+                          â€¢ Reassessment due{" "}
                           {vendor.nextReviewDueAt.toLocaleDateString()}
                         </span>
                       ) : null}
@@ -543,14 +876,84 @@ export default async function VendorsPage() {
             })}
           </div>
         )}
+
+        {totalPages > 1 ? (
+          <div className="flex flex-col gap-3 border-t border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-400">
+              Page{" "}
+              <span className="font-semibold text-white">
+                {pageNumber}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-white">
+                {totalPages}
+              </span>
+            </p>
+
+            <div className="flex gap-2">
+              {pageNumber > 1 ? (
+                <Link
+                  href={vendorListHref({
+                    q,
+                    stage:
+                      selectedStage,
+                    page:
+                      pageNumber - 1,
+                  })}
+                  className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                >
+                  Previous
+                </Link>
+              ) : (
+                <span className="rounded-full border border-white/5 px-4 py-2 text-sm text-slate-600">
+                  Previous
+                </span>
+              )}
+
+              {pageNumber <
+              totalPages ? (
+                <Link
+                  href={vendorListHref({
+                    q,
+                    stage:
+                      selectedStage,
+                    page:
+                      pageNumber + 1,
+                  })}
+                  className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+                >
+                  Next
+                </Link>
+              ) : (
+                <span className="rounded-full border border-white/5 px-4 py-2 text-sm text-slate-600">
+                  Next
+                </span>
+              )}
+            </div>
+          </div>
+        ) : null}
       </section>
     </main>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({
+  label,
+  value,
+  active = false,
+}: {
+  label: string;
+  value: string;
+  active?: boolean;
+}) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+    <div
+      className={`rounded-3xl border p-5 transition ${
+        active
+          ? "border-cyan-300/40 bg-cyan-300/10 shadow-lg shadow-cyan-950/20"
+          : "border-white/10 bg-white/[0.04] hover:border-cyan-300/20 hover:bg-white/[0.06]"
+      }`}
+    >
       <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
         {label}
       </p>
@@ -563,7 +966,7 @@ function WorkflowRail({ activeStage }: { activeStage: string }) {
   return (
     <div className="w-full max-w-sm">
       <div className="flex items-center justify-between gap-1">
-        {workflowStages.map((stage) => {
+        {vendorWorkflowStages.map((stage) => {
           const active = stage === activeStage;
 
           return (
