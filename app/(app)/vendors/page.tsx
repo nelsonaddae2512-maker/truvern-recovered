@@ -639,7 +639,7 @@ export default async function VendorsPage({
 
           {q ? (
             <span>
-              Search: â€œ{q}â€
+              Search: {"\u201C"}{q}{"\u201D"}
             </span>
           ) : null}
         </div>
@@ -811,11 +811,11 @@ export default async function VendorsPage({
                         </span>
                       ) : null}
                       <span>#{vendor.id}</span>
-                      <span>â€¢ Tier: {tierLabel(vendor.tier ?? vendor.category)}</span>
-                      <span>â€¢ Updated {vendor.updatedAt.toLocaleDateString()}</span>
+                      <span>{"\u2022"} Tier: {tierLabel(vendor.tier ?? vendor.category)}</span>
+                      <span>{"\u2022"} Updated {vendor.updatedAt.toLocaleDateString()}</span>
                       {vendor.nextReviewDueAt ? (
                         <span className="text-cyan-200">
-                          â€¢ Reassessment due{" "}
+                          {"\u2022"} Reassessment due{" "}
                           {vendor.nextReviewDueAt.toLocaleDateString()}
                         </span>
                       ) : null}
