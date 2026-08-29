@@ -29,6 +29,7 @@ async function updateVendor(formData: FormData) {
   const tier = String(formData.get("tier") || "").trim();
   const criticality = String(formData.get("criticality") || "").trim();
   const contactName = String(formData.get("contactName") || "").trim();
+  const contactTitle = String(formData.get("contactTitle") || "").trim();
   const contactEmail = String(formData.get("contactEmail") || "").trim();
 
   if (!name) throw new Error("Vendor name is required.");
@@ -41,6 +42,7 @@ async function updateVendor(formData: FormData) {
       tier: tier ? (tier as any) : null,
       criticality: criticality ? (criticality as any) : null,
       contactName: contactName || null,
+      contactTitle: contactTitle || null,
       contactEmail: contactEmail || null,
     },
     select: { id: true },
@@ -97,6 +99,7 @@ export default async function EditVendorPage({ params }: Props) {
       tier: true,
       criticality: true,
       contactName: true,
+      contactTitle: true,
       contactEmail: true,
       _count: {
         select: {
@@ -203,6 +206,18 @@ export default async function EditVendorPage({ params }: Props) {
             <input
               name="contactName"
               defaultValue={vendor.contactName || ""}
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4 text-white outline-none focus:border-cyan-400/40"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-200">
+              Primary contact title
+            </label>
+            <input
+              name="contactTitle"
+              defaultValue={vendor.contactTitle || ""}
+              placeholder="Chief Information Security Officer"
               className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4 text-white outline-none focus:border-cyan-400/40"
             />
           </div>

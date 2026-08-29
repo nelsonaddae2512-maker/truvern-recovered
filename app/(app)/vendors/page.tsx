@@ -527,7 +527,7 @@ export default async function VendorsPage({
                 : "border-white/10 text-slate-300 hover:bg-white/5"
             }`}
           >
-            All vendors Â· {totalVendors}
+            All vendors {"\u00B7"} {totalVendors}
           </Link>
         </div>
 
