@@ -119,8 +119,18 @@ export async function POST(req: Request) {
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        if (session.payment_status !== "paid") {
+          return NextResponse.json({
+            ok: true,
+            skipped: true,
+            reason: "Checkout payment is not paid.",
+          });
+        }
+
         const metadata = session.metadata || {};
 
         const organizationId = safeInt(
