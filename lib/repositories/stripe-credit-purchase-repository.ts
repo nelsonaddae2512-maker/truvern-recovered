@@ -63,5 +63,6 @@ export async function insertStripeCreditPurchase(input: {
       ${input.metadataJson}::jsonb,
       now()
     )
+    on conflict ("eventKey") do nothing
   `;
 }

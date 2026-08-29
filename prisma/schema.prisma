@@ -1617,7 +1617,7 @@ model TruvernCreditLedgerEntry {
   reviewAssignmentId Int?
   reviewRequestId    Int?
   vendorId           Int?
-  eventKey           String?
+  eventKey           String?  @unique
 }
 
 model WorkflowInstance {
