@@ -17,6 +17,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const TRUVERN_REVIEW_TEMPLATE_NAME =
+  "Truvern NIST 800-53 Governance Review";
+
 type OrgJsonRow = {
   orgJson: Record<string, unknown> | null;
 };
@@ -323,6 +326,21 @@ export async function POST(req: Request) {
               code: "INVALID_TRUVERN_REVIEW_TEMPLATE",
               error:
                 "The selected assessment template is unavailable or does not belong to your organization.",
+            },
+          };
+        }
+
+        if (
+          selectedTemplate.name !==
+          TRUVERN_REVIEW_TEMPLATE_NAME
+        ) {
+          return {
+            status: 400,
+            body: {
+              ok: false,
+              code: "TRUVERN_REVIEW_TEMPLATE_REQUIRED",
+              error:
+                "Truvern Review uses the Truvern NIST 800-53 Governance Review questionnaire.",
             },
           };
         }

@@ -34,6 +34,7 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
     await prisma.assessmentTemplate.findMany({
       where: {
         isActive: true,
+        name: "Truvern NIST 800-53 Governance Review",
         OR: [
           {
             organizationId: vendor.organizationId,
@@ -130,7 +131,7 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
 
           <div className="mt-5 space-y-4 text-sm leading-7 text-slate-300">
             <p>
-              Truvern Truvern Reviews are operational governance assessments
+              Truvern Reviews are operational governance assessments
               based on information, evidence, attestations, and materials
               provided during the review process.
             </p>
