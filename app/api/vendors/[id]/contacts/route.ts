@@ -74,6 +74,7 @@ async function readPayload(req: Request): Promise<ContactPayload> {
 
   return {
     name: form.get("name"),
+    title: form.get("title"),
     email: form.get("email"),
     role: form.get("role"),
     phone: form.get("phone"),

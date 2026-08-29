@@ -1,3 +1,4 @@
+import VendorContactActions from "@/components/vendors/vendor-contact-actions.client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
@@ -297,6 +298,8 @@ return (
               vendorContacts.map((contact) => (
                 <ContactCard
                   key={contact.id}
+                  vendorId={vendor.id}
+                  contactId={contact.id}
                   name={contact.name || "Vendor contact"}
                   role={
                     contact.title
@@ -851,12 +854,16 @@ return (
 }
 
 function ContactCard({
+  vendorId,
+  contactId,
   name,
   role,
   email,
   phone,
   isPrimary,
 }: {
+  vendorId: number;
+  contactId: number;
   name: string;
   role: string;
   email: string;
@@ -892,6 +899,13 @@ return (
           <div className="text-slate-400">{phone}</div>
         ) : null}
       </div>
+
+      <VendorContactActions
+        vendorId={vendorId}
+        contactId={contactId}
+        contactName={name}
+        isPrimary={isPrimary}
+      />
     </div>
   );
 }
