@@ -81,6 +81,12 @@ export default async function VendorDetailPage({
       criticality: true,
       status: true,
       riskScore: true,
+      summary: true,
+      website: true,
+      dataAccess: true,
+      sensitiveData: true,
+      externalAccess: true,
+      productionAccess: true,
       updatedAt: true,
 
       _count: {
@@ -292,7 +298,11 @@ return (
                 <ContactCard
                   key={contact.id}
                   name={contact.name || "Vendor contact"}
-                  role={contact.role || "Vendor contact"}
+                  role={
+                    contact.title
+                      ? `${contact.title} · ${contact.role || "Vendor contact"}`
+                      : contact.role || "Vendor contact"
+                  }
                   email={contact.email}
                   phone={contact.phone || ""}
                   isPrimary={contact.isPrimary}
@@ -318,6 +328,12 @@ return (
               <input
                 name="name"
                 placeholder="Full name"
+                className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
+              />
+
+              <input
+                name="title"
+                placeholder="Job title"
                 className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
               />
 
@@ -377,12 +393,48 @@ return (
 
             <ContextCard
               title="Customer data exposure"
-              value="Moderate"
+              value={
+                vendor.sensitiveData === null
+                  ? "Not provided"
+                  : Array.isArray(vendor.sensitiveData) &&
+                      vendor.sensitiveData.length > 0
+                    ? vendor.sensitiveData.join(", ")
+                    : "None selected"
+              }
             />
 
             <ContextCard
-              title="Identity integration"
-              value="SSO connected"
+              title="Systems / environments"
+              value={
+                vendor.dataAccess === null
+                  ? "Not provided"
+                  : Array.isArray(vendor.dataAccess) &&
+                      vendor.dataAccess.length > 0
+                    ? vendor.dataAccess.join(", ")
+                    : "None selected"
+              }
+            />
+
+            <ContextCard
+              title="External remote access"
+              value={
+                vendor.externalAccess === null
+                  ? "Not provided"
+                  : vendor.externalAccess
+                    ? "Yes"
+                    : "No"
+              }
+            />
+
+            <ContextCard
+              title="Production access"
+              value={
+                vendor.productionAccess === null
+                  ? "Not provided"
+                  : vendor.productionAccess
+                    ? "Yes"
+                    : "No"
+              }
             />
           </div>
 

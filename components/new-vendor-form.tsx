@@ -11,6 +11,7 @@ type VendorPayload = {
   criticality?: string;
   website?: string;
   primaryContactName?: string;
+  primaryContactTitle?: string;
   primaryContactEmail?: string;
   primaryContactPhone?: string;
   dataAccess?: string[];
@@ -30,6 +31,7 @@ export default function NewVendorForm() {
 
   const [website, setWebsite] = useState("");
   const [primaryContactName, setPrimaryContactName] = useState("");
+  const [primaryContactTitle, setPrimaryContactTitle] = useState("");
   const [primaryContactEmail, setPrimaryContactEmail] = useState("");
   const [primaryContactPhone, setPrimaryContactPhone] = useState("");
 
@@ -60,6 +62,7 @@ export default function NewVendorForm() {
       criticality,
       website: website.trim() || undefined,
       primaryContactName: primaryContactName.trim() || undefined,
+      primaryContactTitle: primaryContactTitle.trim() || undefined,
       primaryContactEmail: primaryContactEmail.trim() || undefined,
       primaryContactPhone: primaryContactPhone.trim() || undefined,
       dataAccess,
@@ -205,6 +208,19 @@ export default function NewVendorForm() {
               value={primaryContactName}
               onChange={(event) => setPrimaryContactName(event.target.value)}
               placeholder="Jane Smith"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-white">
+              Contact title
+            </label>
+
+            <input
+              value={primaryContactTitle}
+              onChange={(event) => setPrimaryContactTitle(event.target.value)}
+              placeholder="Chief Information Security Officer"
               className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
             />
           </div>

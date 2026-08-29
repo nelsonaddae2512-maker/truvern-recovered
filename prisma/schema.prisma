@@ -310,9 +310,15 @@ model Vendor {
   riskScore                 Int?
   status                    String?
   summary                   String?                  @db.Text
+  website                   String?
+  dataAccess                Json?
+  sensitiveData             Json?
+  externalAccess            Boolean?
+  productionAccess          Boolean?
 
   // Legacy single-contact fields (kept for backward compatibility)
   contactName  String?
+  contactTitle String?
   contactEmail String?
 
   contacts VendorContact[]
@@ -358,6 +364,7 @@ model VendorContact {
   id        Int               @id @default(autoincrement())
   vendorId  Int
   name      String?
+  title     String?
   email     String
   phone     String?
   role      VendorContactRole @default(OTHER)
@@ -384,7 +391,6 @@ model VendorRiskAlert {
   @@index([vendorId, type, resolvedAt])
 }
 
-
 model AuditLog {
   id Int @id @default(autoincrement())
 
@@ -405,6 +411,7 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([actorUserId, createdAt])
 }
+
 model GovernanceTransparencyLog {
   id Int @id @default(autoincrement())
 

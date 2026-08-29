@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDbOrganization } from "@/lib/org-db";
-import { VendorCriticality, VendorTier } from "@prisma/client";
-import { createVendor } from "@/lib/repositories/vendor-repository";
+import { Prisma, VendorContactRole, VendorCriticality, VendorTier } from "@prisma/client";
+import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,20 +60,122 @@ export async function POST(request: Request) {
       );
     }
 
-    const vendor = await createVendor({
-      data: {
-        name,
-        organizationId: org.id,
-        category: clean(body?.category),
-        slug: `${slugify(name)}-${Date.now()}`,
-        tier: parseVendorTier(body?.tier),
-        criticality: parseVendorCriticality(body?.criticality),
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-    });
+    const summary = clean(body?.summary);
+    const website = clean(body?.website);
+
+    const primaryContactName =
+      clean(body?.primaryContactName);
+
+    const primaryContactTitle =
+      clean(body?.primaryContactTitle);
+
+    const primaryContactEmail =
+      clean(body?.primaryContactEmail)?.toLowerCase() ?? null;
+
+    const primaryContactPhone =
+      clean(body?.primaryContactPhone);
+
+    const dataAccess =
+      Array.isArray(body?.dataAccess)
+        ? body.dataAccess
+            .map((value: unknown) => clean(value))
+            .filter(
+              (value: string | null): value is string =>
+                Boolean(value),
+            )
+        : [];
+
+    const sensitiveData =
+      Array.isArray(body?.sensitiveData)
+        ? body.sensitiveData
+            .map((value: unknown) => clean(value))
+            .filter(
+              (value: string | null): value is string =>
+                Boolean(value),
+            )
+        : [];
+
+    const externalAccess =
+      typeof body?.externalAccess === "boolean"
+        ? body.externalAccess
+        : null;
+
+    const productionAccess =
+      typeof body?.productionAccess === "boolean"
+        ? body.productionAccess
+        : null;
+
+    const hasPrimaryContactInput =
+      Boolean(
+        primaryContactName ||
+          primaryContactTitle ||
+          primaryContactEmail ||
+          primaryContactPhone,
+      );
+
+    if (
+      hasPrimaryContactInput &&
+      (!primaryContactName || !primaryContactEmail)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Primary contact name and email must be provided together.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const vendor =
+      await prisma.$transaction(async (tx) => {
+        const createdVendor =
+          await tx.vendor.create({
+            data: {
+              name,
+              organizationId: org.id,
+              category: clean(body?.category),
+              slug: `${slugify(name)}-${Date.now()}`,
+              tier: parseVendorTier(body?.tier),
+              criticality:
+                parseVendorCriticality(body?.criticality),
+              summary,
+              website,
+              dataAccess:
+                dataAccess as Prisma.InputJsonValue,
+              sensitiveData:
+                sensitiveData as Prisma.InputJsonValue,
+              externalAccess,
+              productionAccess,
+              contactName: primaryContactName,
+              contactTitle: primaryContactTitle,
+              contactEmail: primaryContactEmail,
+            },
+            select: {
+              id: true,
+              name: true,
+            },
+          });
+
+        if (
+          primaryContactName &&
+          primaryContactEmail
+        ) {
+          await tx.vendorContact.create({
+            data: {
+              vendorId: createdVendor.id,
+              name: primaryContactName,
+              title: primaryContactTitle,
+              email: primaryContactEmail,
+              phone: primaryContactPhone,
+              role: VendorContactRole.PRIMARY,
+              isPrimary: true,
+            },
+          });
+        }
+
+        return createdVendor;
+      });
 
     return NextResponse.json({
       ok: true,

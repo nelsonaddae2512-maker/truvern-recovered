@@ -23,6 +23,7 @@ type Params = {
 
 type ContactPayload = {
   name?: unknown;
+  title?: unknown;
   email?: unknown;
   role?: unknown;
   phone?: unknown;
@@ -175,6 +176,7 @@ export async function POST(req: Request, { params }: Params) {
     const payload = await readPayload(req);
 
     const name = String(payload.name ?? "").trim();
+    const title = String(payload.title ?? "").trim();
     const email = String(payload.email ?? "")
       .trim()
       .toLowerCase();
@@ -205,7 +207,8 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    const role = requestedRole;const isPrimary = parseBoolean(payload.isPrimary);
+    const role = requestedRole;
+    const isPrimary = parseBoolean(payload.isPrimary);
 
     if (!name || !email) {
       return NextResponse.json(
@@ -267,6 +270,7 @@ export async function POST(req: Request, { params }: Params) {
         await updateVendorContactRow(tx, {
           id: existingId,
           name,
+          title: title || null,
           email,
           role,
           phone: phone || null,
@@ -276,6 +280,7 @@ export async function POST(req: Request, { params }: Params) {
         await insertVendorContactRow(tx, {
           vendorId: vendor.id,
           name,
+          title: title || null,
           email,
           role,
           phone: phone || null,
@@ -290,6 +295,7 @@ export async function POST(req: Request, { params }: Params) {
           },
           data: {
             contactName: name,
+            contactTitle: title || null,
             contactEmail: email,
           },
         }, tx);

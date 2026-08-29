@@ -49,6 +49,7 @@ export async function updateVendorContactRow(
   input: {
     id: number;
     name: string;
+    title: string | null;
     email: string;
     role: string;
     phone: string | null;
@@ -59,6 +60,7 @@ export async function updateVendorContactRow(
     update "VendorContact"
     set
       name = ${input.name},
+      title = ${input.title},
       email = ${input.email},
       role = ${input.role}::"VendorContactRole",
       phone = ${input.phone},
@@ -73,6 +75,7 @@ export async function insertVendorContactRow(
   input: {
     vendorId: number;
     name: string;
+    title: string | null;
     email: string;
     role: string;
     phone: string | null;
@@ -83,6 +86,7 @@ export async function insertVendorContactRow(
     insert into "VendorContact" (
       "vendorId",
       name,
+      title,
       email,
       role,
       phone,
@@ -93,6 +97,7 @@ export async function insertVendorContactRow(
     values (
       ${input.vendorId},
       ${input.name},
+      ${input.title},
       ${input.email},
       ${input.role}::"VendorContactRole",
       ${input.phone},

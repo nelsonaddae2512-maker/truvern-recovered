@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 export type VendorDetailContactRow = {
   id: number;
   name: string | null;
+  title: string | null;
   email: string;
   role: string | null;
   phone: string | null;
@@ -60,6 +61,7 @@ export async function readVendorDetailContacts(
     select
       id,
       name,
+      title,
       email,
       role,
       phone,
