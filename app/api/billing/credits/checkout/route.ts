@@ -29,6 +29,12 @@ const CREDIT_PACKS = {
     credits: 100,
     envPriceKey: "STRIPE_PRICE_TRUVERN_CREDITS_SCALE",
   },
+  certification: {
+    key: "certification",
+    name: "Purchase Certification",
+    credits: 1,
+    envPriceKey: "STRIPE_PRICE_TRUVERN_CREDITS_CERTIFICATION",
+  },
 } as const;
 
 type PackKey = keyof typeof CREDIT_PACKS;
