@@ -25,7 +25,6 @@ export async function insertStripeCreditPurchase(input: {
   return prisma.$executeRaw`
     insert into "TruvernCreditLedgerEntry" (
       "organizationId",
-      "assessmentRunId",
       "reviewAssignmentId",
       "actorUserId",
       "eventKey",
@@ -45,7 +44,6 @@ export async function insertStripeCreditPurchase(input: {
     )
     values (
       ${input.organizationId},
-      null,
       null,
       ${input.userId},
       ${input.eventKey},
