@@ -26,7 +26,6 @@ export async function insertStripeCreditPurchase(input: {
     insert into "TruvernCreditLedgerEntry" (
       "organizationId",
       "reviewAssignmentId",
-      "actorUserId",
       "eventKey",
       "entryType",
       "fundingSource",
@@ -35,9 +34,6 @@ export async function insertStripeCreditPurchase(input: {
       "reservedDelta",
       "consumedDelta",
       quantity,
-      currency,
-      "unitPriceCents",
-      "amountCents",
       note,
       "metadataJson",
       "createdAt"
@@ -45,7 +41,6 @@ export async function insertStripeCreditPurchase(input: {
     values (
       ${input.organizationId},
       null,
-      ${input.userId},
       ${input.eventKey},
       'PURCHASE'::text,
       'PREPAID_CREDITS'::text,
@@ -54,9 +49,6 @@ export async function insertStripeCreditPurchase(input: {
       0,
       0,
       ${input.credits},
-      null,
-      null,
-      null,
       ${input.note},
       ${input.metadataJson}::jsonb,
       now()

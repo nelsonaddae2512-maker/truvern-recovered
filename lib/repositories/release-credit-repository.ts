@@ -36,9 +36,7 @@ export async function insertCreditConsumptionLedgerEntry(input: {
   await prisma.$executeRaw`
     insert into "TruvernCreditLedgerEntry" (
       "organizationId",
-      "assessmentRunId",
       "reviewAssignmentId",
-      "actorUserId",
       "eventKey",
       "entryType",
       "fundingSource",
@@ -47,29 +45,21 @@ export async function insertCreditConsumptionLedgerEntry(input: {
       "reservedDelta",
       "consumedDelta",
       quantity,
-      currency,
-      "unitPriceCents",
-      "amountCents",
       note,
       "metadataJson",
       "createdAt"
     )
     select
       ${input.organizationId},
-      null,
       ${input.assignmentId},
-      null,
       ${input.eventKey},
-      'CONSUMPTION'::"TruvernCreditEntryType",
-      'PREPAID_CREDITS'::"TruvernCreditFundingSource",
+      'CONSUMPTION'::text,
+      'PREPAID_CREDITS'::text,
       'POSTED'::text,
       0,
       ${-input.reservedCredits},
       ${input.reservedCredits},
       ${input.reservedCredits},
-      null,
-      null,
-      null,
       ${input.note},
       ${input.metadataJson}::jsonb,
       now()

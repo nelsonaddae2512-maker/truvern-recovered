@@ -51,9 +51,7 @@ export async function insertPlanOverrideLedgerEntry(
   return tx.$executeRaw`
     insert into "TruvernCreditLedgerEntry" (
       "organizationId",
-      "assessmentRunId",
       "reviewAssignmentId",
-      "actorUserId",
       "eventKey",
       "entryType",
       "fundingSource",
@@ -62,9 +60,6 @@ export async function insertPlanOverrideLedgerEntry(
       "reservedDelta",
       "consumedDelta",
       quantity,
-      currency,
-      "unitPriceCents",
-      "amountCents",
       note,
       "metadataJson",
       "createdAt"
@@ -72,19 +67,14 @@ export async function insertPlanOverrideLedgerEntry(
     values (
       ${input.organizationId},
       null,
-      null,
-      ${input.actorUserId},
       ${input.eventKey},
-      'ADJUSTMENT'::"TruvernCreditEntryType",
-      'MANUAL'::"TruvernCreditFundingSource",
+      'ADJUSTMENT'::text,
+      'MANUAL'::text,
       'POSTED'::text,
       0,
       0,
       0,
       0,
-      null,
-      null,
-      null,
       ${input.note},
       ${input.metadataJson}::jsonb,
       now()
