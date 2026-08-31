@@ -26,6 +26,11 @@ const isPublicRoute = createRouteMatcher([
 
   // Org bootstrap page must be reachable
   "/select-org(.*)",
+  // Token-authenticated vendor assessment workflow.
+  // These handlers validate the assessment token themselves.
+  "/vendor-assessment(.*)",
+  "/vendor-portal/assessment-answers",
+  "/vendor-portal/assessment-submit",
 ]);
 
 /**
