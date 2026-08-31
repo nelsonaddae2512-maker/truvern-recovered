@@ -99,24 +99,6 @@ export async function POST(req: Request) {
         );
       }
 
-      try {
-        await fetch(
-          `${
-            process.env.NEXT_PUBLIC_APP_URL ??
-            "http://localhost:3000"
-          }/api/truvern/framework-assessments/${
-            result.assessment.id
-          }/score`,
-          {
-            method: "POST",
-          },
-        );
-      } catch (error) {
-        console.error(
-          "Failed to score assessment",
-          error,
-        );
-      }
     }
 
     return NextResponse.json({
