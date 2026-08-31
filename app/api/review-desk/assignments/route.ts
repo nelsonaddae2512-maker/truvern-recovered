@@ -738,7 +738,7 @@ export async function POST(req: Request) {
         assignedTo: "Truvern Review Team",
               opsRecipient: opsUser,
             },
-          });
+          }, tx);
         }
 
         if (opsUsers.length === 0) {
@@ -763,7 +763,7 @@ export async function POST(req: Request) {
         assignedTo: "Truvern Review Team",
               opsRecipient: "fallback-org-notification",
             },
-          });
+          }, tx);
         }
       }
 

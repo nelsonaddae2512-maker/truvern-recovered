@@ -1,4 +1,4 @@
-﻿import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
 export type NotificationType =
@@ -32,8 +32,11 @@ export type CreateNotificationInput = {
   metadataJson?: Prisma.InputJsonValue | null;
 };
 
-export async function createNotification(input: CreateNotificationInput) {
-  return prisma.notification.create({
+export async function createNotification(
+  input: CreateNotificationInput,
+  client: Prisma.TransactionClient | typeof prisma = prisma,
+) {
+  return client.notification.create({
     data: {
       userId: input.userId ?? null,
       organizationId: input.organizationId ?? null,
