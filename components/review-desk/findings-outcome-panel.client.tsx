@@ -157,7 +157,7 @@ function severityTone(severity: unknown) {
     return "border-red-400/30 bg-red-500/15 text-red-100";
   }
 
-  if (value === "MEDIUM") {
+  if (value === "MODERATE" || value === "MEDIUM") {
     return "border-amber-400/30 bg-amber-500/15 text-amber-100";
   }
 
@@ -172,14 +172,14 @@ function groupFindings(findings: Finding[]) {
   const groups = {
     critical: findings.filter((item) => cleanText(item.severity).toUpperCase() === "CRITICAL"),
     high: findings.filter((item) => cleanText(item.severity).toUpperCase() === "HIGH"),
-    medium: findings.filter((item) => cleanText(item.severity).toUpperCase() === "MEDIUM"),
+    moderate: findings.filter((item) => ["MODERATE", "MEDIUM"].includes(cleanText(item.severity).toUpperCase())),
     low: findings.filter((item) => cleanText(item.severity).toUpperCase() === "LOW"),
   };
 
   return [
     { label: "Critical", severity: "CRITICAL", items: groups.critical },
     { label: "High", severity: "HIGH", items: groups.high },
-    { label: "Medium", severity: "MEDIUM", items: groups.medium },
+    { label: "Moderate", severity: "MODERATE", items: groups.moderate },
     { label: "Low", severity: "LOW", items: groups.low },
   ].filter((group) => group.items.length > 0);
 }
