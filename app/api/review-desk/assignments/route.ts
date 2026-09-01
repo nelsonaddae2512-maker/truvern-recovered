@@ -909,40 +909,69 @@ export async function POST(req: Request) {
             const token =
               randomBytes(24).toString("hex");
 
-            await tx.$executeRaw`
-              insert into "Assessment" (
-                "organizationId",
-                "vendorId",
-                "templateId",
-                "reviewAssignmentId",
-                title,
-                status,
-                token,
-                "vendorEmail",
-                "vendorContactName",
-                "launchedAt",
-                "dueAt",
-                "isVendorSubmitted",
-                "createdAt",
-                "updatedAt"
-              )
-              values (
-                ${vendor.organizationId},
-                ${vendor.id},
-                ${template.id},
-                ${assignment.id},
-                ${`${template.name ?? "Truvern Review Questionnaire"} for ${vendor.name}`},
-                'LAUNCHED'::"AssessmentStatus",
-                ${token},
-                ${null},
-                ${null},
-                now(),
-                ${addDays(14)},
-                false,
-                now(),
-                now()
-              )
-            `;
+            const createdAssessmentRows =
+              await tx.$queryRaw<Array<{ id: number }>>`
+                insert into "Assessment" (
+                  "organizationId",
+                  "vendorId",
+                  "templateId",
+                  "reviewAssignmentId",
+                  title,
+                  status,
+                  token,
+                  "vendorEmail",
+                  "vendorContactName",
+                  "launchedAt",
+                  "dueAt",
+                  "isVendorSubmitted",
+                  "createdAt",
+                  "updatedAt"
+                )
+                values (
+                  ${vendor.organizationId},
+                  ${vendor.id},
+                  ${template.id},
+                  ${assignment.id},
+                  ${`${template.name ?? "Truvern Review Questionnaire"} for ${vendor.name}`},
+                  'LAUNCHED'::"AssessmentStatus",
+                  ${token},
+                  ${null},
+                  ${null},
+                  now(),
+                  ${addDays(14)},
+                  false,
+                  now(),
+                  now()
+                )
+                returning id
+              `;
+
+            const createdAssessment =
+              createdAssessmentRows[0];
+
+            if (!createdAssessment?.id) {
+              throw new Error(
+                "Failed to create the Truvern Review questionnaire.",
+              );
+            }
+
+            const linkedRequestCount =
+              await tx.$executeRaw`
+                update "ReviewRequest"
+                set
+                  "assessmentId" = ${createdAssessment.id},
+                  "updatedAt" = now()
+                where id = ${request.id}
+                  and "organizationId" = ${vendor.organizationId}
+                  and "vendorId" = ${vendor.id}
+                  and "assessmentId" is null
+              `;
+
+            if (linkedRequestCount !== 1) {
+              throw new Error(
+                "Failed to link the Truvern Review questionnaire to its review request.",
+              );
+            }
           }
         }
 
