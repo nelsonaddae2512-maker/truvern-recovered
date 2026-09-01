@@ -1303,6 +1303,55 @@ const initialFinalAssessment =
     }
   }
 
+  async function publishRemediation() {
+    if (editingLocked || saving) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const res = await fetch(
+        `/api/review-desk/reviews/${assignment.id}/publish-remediation`,
+        {
+          method: "POST",
+        },
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            `Failed to publish remediation. HTTP ${res.status}`,
+        );
+      }
+
+      const createdCount = Number(data?.createdCount ?? 0);
+      const skippedCount = Number(data?.skippedCount ?? 0);
+
+      setMessage(
+        createdCount > 0
+          ? `Published ${createdCount} remediation request${
+              createdCount === 1 ? "" : "s"
+            } successfully.`
+          : skippedCount > 0
+            ? "Remediation requests are already published."
+            : data?.message || "No remediation requests were published.",
+      );
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error: any) {
+      setMessage(
+        error?.message ||
+          "Failed to publish remediation requests.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
   async function submitOutcome(intent: "SAVE_DRAFT" | "COMPLETE" | "RELEASE") {
     if (editingLocked) return;
 
@@ -2510,6 +2559,15 @@ const initialFinalAssessment =
                 </button>
               ) : null}
 
+              <button
+                type="button"
+                disabled={editingLocked || saving}
+                onClick={publishRemediation}
+                title="Create remediation and evidence requests from the canonical governance findings"
+                className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-50 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? "Publishing..." : "Publish remediation"}
+              </button>
               <button
                 type="button"
                 disabled={saving}
