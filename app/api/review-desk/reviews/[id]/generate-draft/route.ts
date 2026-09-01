@@ -867,6 +867,57 @@ if (!vendorId) {
         ? (existing.responses as Record<string, unknown>)
         : {};
 
+    const existingIntelligence =
+      existingResponses.truvernReviewerIntelligence &&
+      typeof existingResponses.truvernReviewerIntelligence === "object" &&
+      !Array.isArray(existingResponses.truvernReviewerIntelligence)
+        ? (existingResponses.truvernReviewerIntelligence as Record<string, any>)
+        : {};
+
+    const existingCanonicalArtifact =
+      existingResponses.canonicalGovernanceArtifact &&
+      typeof existingResponses.canonicalGovernanceArtifact === "object" &&
+      !Array.isArray(existingResponses.canonicalGovernanceArtifact)
+        ? (existingResponses.canonicalGovernanceArtifact as Record<string, any>)
+        : {};
+
+    const canonicalFindings =
+      Array.isArray(existingCanonicalArtifact.findings) &&
+      existingCanonicalArtifact.findings.length > 0
+        ? existingCanonicalArtifact.findings
+        : Array.isArray(existingIntelligence.findings) &&
+            existingIntelligence.findings.length > 0
+          ? existingIntelligence.findings
+          : [];
+
+    if (canonicalFindings.length === 0) {
+      return json(409, {
+        ok: false,
+        code: "FINDINGS_REQUIRED",
+        error:
+          "Generate findings before generating the review draft.",
+      });
+    }
+
+    const canonicalRiskLevel =
+      typeof existingCanonicalArtifact.riskLevel === "string"
+        ? existingCanonicalArtifact.riskLevel.trim().toUpperCase()
+        : "";
+
+    const canonicalDecision =
+      typeof existingCanonicalArtifact.decision === "string"
+        ? existingCanonicalArtifact.decision.trim().toUpperCase()
+        : "";
+
+    if (!canonicalRiskLevel || !canonicalDecision) {
+      return json(409, {
+        ok: false,
+        code: "CANONICAL_OUTCOME_REQUIRED",
+        error:
+          "Canonical governance outcome is required before generating the review draft.",
+      });
+    }
+
     const existingReleaseState = upper(existingResponses.releaseState);
 
     if (
@@ -906,34 +957,32 @@ if (!vendorId) {
       submittedAnswerSummary,
     ].join("\n");
 
-    console.log("FINDINGS ENGINE INPUT");
-    console.dir(assessmentAnswerRowsForFindings.slice(0, 20), { depth: 4 });
-
-    const responseDrivenFindingsV2 = buildResponseDrivenFindingsV2(
-      {
-        ...(submittedAssessment || {}),
-        answers: assessmentAnswerRowsForFindings.length
-          ? assessmentAnswerRowsForFindings
-          : submittedAssessment?.answers || [],
-      },
-      fallbackFindingsText,
-    );
-
-    console.log("FINDINGS ENGINE OUTPUT");
-    console.dir(responseDrivenFindingsV2, { depth: 4 });
-
     const canonicalOutcome =
       deriveCanonicalGovernanceOutcome({
-        baseRiskLevel: inferredRiskLevel,
-        findings:
-          responseDrivenFindingsV2.responseDrivenFindings,
+        baseRiskLevel: canonicalRiskLevel,
+        findings: canonicalFindings,
       });
 
     const riskLevel =
-      canonicalOutcome.riskLevel;
+      canonicalRiskLevel;
 
     const decision =
-      canonicalOutcome.recommendation;
+      canonicalDecision;
+
+    const canonicalFindingCount =
+      canonicalFindings.length;
+
+    const canonicalFollowUps =
+      Array.isArray(existingCanonicalArtifact.conditionsAndFollowUps)
+        ? existingCanonicalArtifact.conditionsAndFollowUps
+        : Array.isArray(existingResponses.conditionsAndFollowUps)
+          ? existingResponses.conditionsAndFollowUps
+          : canonicalOutcome.followUps;
+
+    const canonicalReleaseReady =
+      typeof existingCanonicalArtifact.releaseReady === "boolean"
+        ? existingCanonicalArtifact.releaseReady
+        : canonicalOutcome.releaseReady;
 
     const generatedDraft = {
       schema: "truvern.vendor_review_response.v1",
@@ -994,20 +1043,20 @@ if (!vendorId) {
           observations: [
             `Vendor submitted ${submittedAnswerCount} questionnaire answer${submittedAnswerCount === 1 ? "" : "s"} for governance review.`,
             "Vendor operational posture aligns with submitted assessment information.",
-            canonicalOutcome.findingCount > 0
-              ? `${canonicalOutcome.findingCount} response-driven governance finding${canonicalOutcome.findingCount === 1 ? "" : "s"} require reviewer disposition.`
-              : "No response-driven governance findings were identified during draft generation.",
+            canonicalFindingCount > 0
+              ? `${canonicalFindingCount} canonical governance finding${canonicalFindingCount === 1 ? "" : "s"} require reviewer disposition.`
+              : "No canonical governance findings were available for reviewer disposition.",
             "Residual risk classification reflects currently available evidence and assessment context.",
           ],
         },
 
         governanceRecommendation: {
           recommendation: decision,
-          releaseReady: canonicalOutcome.releaseReady,
+          releaseReady: canonicalReleaseReady,
           requiresCustomerConfirmation: true,
         },
 
-        conditionsAndFollowUps: canonicalOutcome.followUps,
+        conditionsAndFollowUps: canonicalFollowUps,
 
         finalAssessment: [
           `This assessment was reviewed through Truvern governance workflows using submitted assessment materials, vendor operational context, evidence documentation, and risk evaluation procedures.`,
@@ -1016,16 +1065,18 @@ if (!vendorId) {
           ``,
           `Based on the available assessment information and governance review process, Truvern determined that the current recommendation and residual risk classification accurately reflect the vendor's present operational and risk posture.`,
           ``,
-          canonicalOutcome.releaseReady
+          canonicalReleaseReady
             ? `This assessment outcome is eligible for governance release after required reviewer approval.`
             : `This assessment outcome remains blocked from governance release until required findings, evidence, attestations, or remediation are resolved and validated.`,
         ].join("\n"),
       },
 
-findings: responseDrivenFindingsV2.findingsText,
-      generatedBy: "TRUVERN_FINDINGS_ENGINE",
-      intelligenceMode: responseDrivenFindingsV2.intelligenceMode,
-      responseDrivenFindingsV2: responseDrivenFindingsV2.responseDrivenFindings,
+findings:
+        existingResponses.findings ?? fallbackFindingsText,
+      generatedBy: "TRUVERN_REVIEW_DRAFT_ENGINE",
+      intelligenceMode: "CANONICAL_FINDINGS",
+      canonicalFindings,
+      canonicalFindingCount,
       assessmentAnswerRowsForFindingsCount: assessmentAnswerRowsForFindings.length,
       draftGeneratedAt: nowIso,
       savedAt: nowIso,
@@ -1041,25 +1092,61 @@ findings: responseDrivenFindingsV2.findingsText,
         vendorId: vendor.id,
         humanReviewRequired: true,
       },
-      completedAt: null,
-      releasedAt: null,
+      completedAt:
+        existingResponses.completedAt ?? null,
+      releasedAt:
+        existingResponses.releasedAt ?? null,
     };
 
     let responseId: number | null = null;
 
     const storedGeneratedResponses = {
       ...generatedDraft,
-      intelligenceMode: responseDrivenFindingsV2.intelligenceMode,
-      responseDrivenFindingsV2: responseDrivenFindingsV2.responseDrivenFindings,
-      assessmentAnswerRowsForFindingsCount: assessmentAnswerRowsForFindings.length,
+
+      findings:
+        existingResponses.findings ?? generatedDraft.findings,
+
+      executiveSummary:
+        existingResponses.executiveSummary ??
+        (generatedDraft as any).executiveSummary,
+
+      finalAssessment:
+        existingResponses.finalAssessment ??
+        (generatedDraft as any).finalAssessment,
+
+      finalRecommendation:
+        existingResponses.finalRecommendation ??
+        (generatedDraft as any).finalRecommendation,
+
+      intelligenceMode: "CANONICAL_FINDINGS",
+
+      canonicalFindings,
+
+      canonicalFindingCount,
+
+      assessmentAnswerRowsForFindingsCount:
+        assessmentAnswerRowsForFindings.length,
+
       truvernReviewerIntelligence: {
-        ...(generatedDraft as any).truvernReviewerIntelligence,
-        source: responseDrivenFindingsV2.intelligenceMode,
-        findings: responseDrivenFindingsV2.responseDrivenFindings,
-        responseDrivenFindingsV2: responseDrivenFindingsV2.responseDrivenFindings,
-        assessmentAnswerRowsForFindingsCount: assessmentAnswerRowsForFindings.length,
+        ...existingIntelligence,
+        source:
+          existingIntelligence.source ??
+          "CANONICAL_FINDINGS",
+        findings: canonicalFindings,
+        assessmentAnswerRowsForFindingsCount:
+          assessmentAnswerRowsForFindings.length,
       },
-      generatedDraft,
+
+      canonicalGovernanceArtifact:
+        existingCanonicalArtifact,
+
+      generatedDraft: {
+        ...generatedDraft,
+        canonicalFindings,
+        canonicalFindingCount,
+        draftFindingsSource:
+          "CANONICAL_FINDINGS",
+      },
     };
     const storedGeneratedResponsesJson =
       JSON.parse(
