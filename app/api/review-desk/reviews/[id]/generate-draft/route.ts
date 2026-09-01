@@ -972,6 +972,171 @@ if (!vendorId) {
     const canonicalFindingCount =
       canonicalFindings.length;
 
+    const canonicalRemediationPlans =
+      canonicalFindings.map((rawFinding: any, index: number) => {
+        const finding =
+          rawFinding &&
+          typeof rawFinding === "object" &&
+          !Array.isArray(rawFinding)
+            ? rawFinding
+            : {};
+
+        const findingNumber =
+          index + 1;
+
+        const title =
+          [
+            finding.title,
+            finding.findingTitle,
+            finding.name,
+            finding.controlTitle,
+            finding.controlCode,
+            finding.controlId,
+          ]
+            .find(
+              (value) =>
+                typeof value === "string" &&
+                value.trim().length > 0,
+            )
+            ?.trim() ??
+          `Governance finding ${findingNumber}`;
+
+        const severity =
+          typeof finding.severity === "string" &&
+          finding.severity.trim().length > 0
+            ? finding.severity.trim().toUpperCase()
+            : "MODERATE";
+
+        const recommendation =
+          [
+            finding.recommendation,
+            finding.remediation,
+            finding.remediationRecommendation,
+            finding.correctiveAction,
+            finding.description,
+          ]
+            .find(
+              (value) =>
+                typeof value === "string" &&
+                value.trim().length > 0,
+            )
+            ?.trim() ??
+          "Provide corrective action and evidence demonstrating that this governance finding has been remediated.";
+
+        const evidenceCandidates =
+          [
+            finding.requiredEvidence,
+            finding.evidenceRequired,
+            finding.evidenceRequests,
+            finding.requestedEvidence,
+          ]
+            .flatMap((value) =>
+              Array.isArray(value)
+                ? value
+                : value == null
+                  ? []
+                  : [value],
+            )
+            .map((value) =>
+              typeof value === "string"
+                ? value.trim()
+                : "",
+            )
+            .filter(Boolean);
+
+        const requiredEvidence =
+          evidenceCandidates.length > 0
+            ? Array.from(
+                new Set(evidenceCandidates),
+              )
+            : [
+                `Evidence demonstrating remediation of: ${title}`,
+              ];
+
+        const attestationCandidates =
+          [
+            finding.requiredAttestation,
+            finding.requiredAttestations,
+            finding.attestationRequired === true
+              ? `Attestation confirming remediation of: ${title}`
+              : null,
+          ]
+            .flatMap((value) =>
+              Array.isArray(value)
+                ? value
+                : value == null
+                  ? []
+                  : [value],
+            )
+            .map((value) =>
+              typeof value === "string"
+                ? value.trim()
+                : "",
+            )
+            .filter(Boolean);
+
+        const requiredAttestation =
+          Array.from(
+            new Set(attestationCandidates),
+          );
+
+        const findingReference =
+          [
+            finding.id,
+            finding.findingId,
+            finding.controlId,
+            finding.controlCode,
+            finding.controlKey,
+          ]
+            .find(
+              (value) =>
+                value !== null &&
+                value !== undefined &&
+                String(value).trim().length > 0,
+            ) ?? findingNumber;
+
+        return {
+          id: `canonical-finding-${String(findingReference)}`,
+          findingId:
+            finding.id ??
+            finding.findingId ??
+            null,
+          controlId:
+            finding.controlId ??
+            finding.controlKey ??
+            null,
+          controlCode:
+            finding.controlCode ??
+            null,
+          title,
+          severity,
+          recommendation,
+          requiredEvidence,
+          requiredAttestation,
+          releaseImpact:
+            typeof finding.releaseImpact === "string" &&
+            finding.releaseImpact.trim().length > 0
+              ? finding.releaseImpact.trim()
+              : "Release blocked until required remediation and evidence are reviewed and approved.",
+          evidenceSignal:
+            typeof finding.evidenceSignal === "string" &&
+            finding.evidenceSignal.trim().length > 0
+              ? finding.evidenceSignal.trim()
+              : "CANONICAL_FINDING",
+          status: "OPEN",
+          blockerStatus: "OPEN",
+          evidenceStatus: "REQUESTED",
+          attestationStatus:
+            requiredAttestation.length > 0
+              ? "REQUESTED"
+              : "NOT_REQUIRED",
+          remediationRequired:
+            finding.remediationRequired !== false,
+          source: "CANONICAL_FINDINGS",
+          sourceFindingIndex: index,
+        };
+      });
+
     const canonicalFollowUps =
       Array.isArray(existingCanonicalArtifact.conditionsAndFollowUps)
         ? existingCanonicalArtifact.conditionsAndFollowUps
@@ -1058,6 +1223,15 @@ if (!vendorId) {
 
         conditionsAndFollowUps: canonicalFollowUps,
 
+        truvernRemediation: {
+          schema: "truvern.remediation_plan.v1",
+          source: "CANONICAL_FINDINGS",
+          generatedFromCanonicalFindings: true,
+          findingCount: canonicalFindingCount,
+          planCount: canonicalRemediationPlans.length,
+          plans: canonicalRemediationPlans,
+        },
+
         finalAssessment: [
           `This assessment was reviewed through Truvern governance workflows using submitted assessment materials, vendor operational context, evidence documentation, and risk evaluation procedures.`,
           ``,
@@ -1077,6 +1251,8 @@ findings:
       intelligenceMode: "CANONICAL_FINDINGS",
       canonicalFindings,
       canonicalFindingCount,
+      remediationPlans: canonicalRemediationPlans,
+      remediationPlanCount: canonicalRemediationPlans.length,
       assessmentAnswerRowsForFindingsCount: assessmentAnswerRowsForFindings.length,
       draftGeneratedAt: nowIso,
       savedAt: nowIso,

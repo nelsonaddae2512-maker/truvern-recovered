@@ -322,14 +322,125 @@ function extractPlans(responses: any) {
     return primary
       .map((plan, index) => normalizePlan(plan, index))
       .filter((plan) => {
-        const key = plan.title.toLowerCase();
+        const key = safeStr(plan.sourceKey) || plan.title.toLowerCase();
         if (!key || seen.has(key)) return false;
         seen.add(key);
         return true;
       });
   }
 
-  const fallback = [
+    // Existing drafts may predate generated remediation-plan persistence.
+  // When no explicit plans exist, project the already-persisted canonical
+  // findings into remediation plans without rerunning findings intelligence.
+  const canonicalFindingPools = [
+    responses?.canonicalGovernanceArtifact?.findings,
+    responses?.canonicalFindings,
+    responses?.generatedDraft?.canonicalGovernanceArtifact?.findings,
+    responses?.generatedDraft?.canonicalFindings,
+    responses?.truvernReviewerIntelligence?.findings,
+  ];
+
+  const canonicalFindings =
+    canonicalFindingPools
+      .map((pool) => asArray(pool))
+      .find((pool) => pool.length > 0) || [];
+
+  if (canonicalFindings.length > 0) {
+    const seen = new Set<string>();
+
+    return canonicalFindings
+      .filter((finding: any) => {
+        if (!finding || typeof finding !== "object") return false;
+
+        if (finding.remediationRequired === false) return false;
+
+        const severity =
+          safeStr(finding.severity).toUpperCase();
+
+        return [
+          "CRITICAL",
+          "HIGH",
+          "MODERATE",
+          "MEDIUM",
+        ].includes(severity);
+      })
+      .map((finding: any, index: number) => {
+        const title =
+          safeStr(finding.title) ||
+          safeStr(finding.controlTitle) ||
+          safeStr(finding.control) ||
+          safeStr(finding.controlId) ||
+          `Governance finding ${index + 1}`;
+
+        const description =
+          safeStr(finding.description) ||
+          safeStr(finding.summary) ||
+          safeStr(finding.finding) ||
+          safeStr(finding.rationale) ||
+          `Remediation is required for ${title}.`;
+
+        const requiredEvidence = [
+          ...asArray(finding.requiredEvidence),
+          ...asArray(finding.evidenceRequired),
+          ...asArray(finding.evidence),
+          ...asArray(finding.evidenceItems),
+        ]
+          .map(safeStr)
+          .filter(Boolean);
+
+        const requiredAttestation = [
+          ...asArray(finding.requiredAttestation),
+          ...asArray(finding.requiredAttestations),
+          ...asArray(finding.attestationRequired),
+          ...asArray(finding.attestations),
+        ]
+          .map(safeStr)
+          .filter(Boolean);
+
+        const recommendation =
+          safeStr(finding.recommendation) ||
+          safeStr(finding.remediation) ||
+          safeStr(finding.remediationRecommendation) ||
+          safeStr(finding.recommendedAction) ||
+          description;
+
+        return normalizePlan(
+          {
+            ...finding,
+            title,
+            description,
+            requiredEvidence,
+            requiredAttestation,
+            recommendation,
+            releaseImpact:
+              safeStr(finding.releaseImpact) ||
+              "Remediation must be reviewed before governance release.",
+            evidenceSignal:
+              safeStr(finding.evidenceSignal) ||
+              "Evidence is required to validate remediation.",
+            severity:
+              safeStr(finding.severity).toUpperCase(),
+            sourceKey:
+              safeStr(finding.sourceKey) ||
+              safeStr(finding.id) ||
+              safeStr(finding.controlId) ||
+              `canonical-finding-${index + 1}`,
+          },
+          index,
+        );
+      })
+      .filter((plan) => {
+        const key =
+          `${safeStr(plan.sourceKey)}|${plan.title.toLowerCase()}`;
+
+        if (!plan.title || seen.has(key)) return false;
+
+        seen.add(key);
+        return true;
+      });
+  }
+
+const fallback = [
     ...asArray(responses?.conditionsAndFollowUps),
     ...asArray(responses?.structuredAssessment?.conditionsAndFollowUps),
   ];
@@ -420,7 +531,7 @@ function extractPlans(responses: any) {
   return grouped
     .map((plan, index) => normalizePlan(plan, index))
     .filter((plan) => {
-      const key = plan.title.toLowerCase();
+      const key = safeStr(plan.sourceKey) || plan.title.toLowerCase();
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
