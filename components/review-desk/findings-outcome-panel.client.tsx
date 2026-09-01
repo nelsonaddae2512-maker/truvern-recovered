@@ -170,12 +170,14 @@ function severityTone(severity: unknown) {
 
 function groupFindings(findings: Finding[]) {
   const groups = {
-    high: findings.filter((item) => ["HIGH", "CRITICAL"].includes(cleanText(item.severity).toUpperCase())),
+    critical: findings.filter((item) => cleanText(item.severity).toUpperCase() === "CRITICAL"),
+    high: findings.filter((item) => cleanText(item.severity).toUpperCase() === "HIGH"),
     medium: findings.filter((item) => cleanText(item.severity).toUpperCase() === "MEDIUM"),
     low: findings.filter((item) => cleanText(item.severity).toUpperCase() === "LOW"),
   };
 
   return [
+    { label: "Critical", severity: "CRITICAL", items: groups.critical },
     { label: "High", severity: "HIGH", items: groups.high },
     { label: "Medium", severity: "MEDIUM", items: groups.medium },
     { label: "Low", severity: "LOW", items: groups.low },

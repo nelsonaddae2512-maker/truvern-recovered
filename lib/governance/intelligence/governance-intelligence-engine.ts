@@ -261,10 +261,17 @@ function buildExecutiveSummary(input: GovernanceIntelligenceInput, result: Truve
   const critical = result.findings.filter((f) => f.severity === "CRITICAL").length;
   const high = result.findings.filter((f) => f.severity === "HIGH").length;
   const moderate = result.findings.filter((f) => f.severity === "MODERATE").length;
+  const canonicalOutcome = deriveCanonicalGovernanceOutcome({
+    baseRiskLevel: result.score.riskLevel,
+    findings: result.findings,
+  });
+  const canonicalDecision = labelRecommendation(
+    canonicalOutcome.recommendation,
+  );
 
   return [
     `${vendor} was reviewed against ${framework}.`,
-    `The assessment achieved an overall governance score of ${result.score.percent}% with a ${result.score.riskLevel} residual risk rating.`,
+    `The assessment achieved an overall governance score of ${result.score.percent}%. After findings and governance escalation, residual risk is ${canonicalOutcome.riskLevel} and the governance decision is ${canonicalDecision}.`,
     `Truvern identified ${result.findings.length} governance finding(s), including ${critical} critical, ${high} high, and ${moderate} moderate finding(s).`,
     result.remediationRequired
       ? "Remediation is required before unrestricted governance release."
