@@ -2197,13 +2197,14 @@ const initialFinalAssessment =
                   Number(item.requestId) === requestIdNumber,
               );
 
+              const remediationPackage =
+                remediationPackages.find(
+                  (pkg: any) =>
+                    Number(pkg.evidenceRequestId ?? 0) === requestIdNumber,
+                ) ?? null;
+
               const packageId =
-                Number(
-                  remediationPackages.find(
-                    (pkg: any) =>
-                      Number(pkg.evidenceRequestId ?? 0) === requestIdNumber,
-                  )?.id ?? 0,
-                ) || null;
+                Number(remediationPackage?.id ?? 0) || null;
 
               const reviewTargetId =
                 submittedEvidence?.requestId ??
@@ -2244,6 +2245,11 @@ const initialFinalAssessment =
                       <p className="mt-1 text-sm text-slate-400">
                         Evidence request #{request.id} · Due: {dueText} · Updated: {updatedText}
                       </p>
+
+                      {/* R82I_REMEDIATION_PACKAGE_EDITOR */}
+                      <RemediationPackageReviewerEditor
+                        packageData={remediationPackage}
+                      />
 
                       {Array.isArray((request as any).requiredEvidence) &&
                       (request as any).requiredEvidence.length > 0 ? (
@@ -3892,6 +3898,848 @@ function CreditMiniCard({
       <p className="mt-2 text-2xl font-semibold text-white">
         {value}
       </p>
+    </div>
+  );
+}
+
+function remediationPackageString(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function remediationPackageList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => remediationPackageString(item))
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function remediationDateInput(value: unknown) {
+  const text = remediationPackageString(value);
+
+  if (!text) return "";
+
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function RemediationPackageReviewerEditor({
+  packageData,
+}: {
+  packageData: any;
+}) {
+  const payload =
+    packageData?.payload &&
+    typeof packageData.payload === "object" &&
+    !Array.isArray(packageData.payload)
+      ? packageData.payload
+      : {};
+
+  const packageId =
+    Number(packageData?.id ?? 0);
+
+  const [editing, setEditing] =
+    useState(false);
+
+  const [savingPackage, setSavingPackage] =
+    useState(false);
+
+  const [packageMessage, setPackageMessage] =
+    useState("");
+
+  const [showComments, setShowComments] =
+    useState(false);
+
+  const [loadingComments, setLoadingComments] =
+    useState(false);
+
+  const [commentsLoaded, setCommentsLoaded] =
+    useState(false);
+
+  const [comments, setComments] =
+    useState<any[]>([]);
+
+  const [commentText, setCommentText] =
+    useState("");
+
+  const [postingComment, setPostingComment] =
+    useState(false);
+
+  const initialTitle =
+    remediationPackageString(
+      packageData?.title ??
+        payload?.title,
+    );
+
+  const initialSeverity =
+    remediationPackageString(
+      packageData?.severity ??
+        payload?.severity,
+    );
+
+  const initialSummary =
+    remediationPackageString(
+      payload?.summary,
+    );
+
+  const initialRecommendation =
+    remediationPackageString(
+      payload?.recommendation,
+    );
+
+  const initialEvidence =
+    remediationPackageList(
+      payload?.requiredEvidence,
+    ).join("\n");
+
+  const initialAttestations =
+    remediationPackageList(
+      payload?.requiredAttestations,
+    ).join("\n");
+
+  const initialReleaseImpact =
+    remediationPackageString(
+      payload?.releaseImpact,
+    );
+
+  const initialEvidenceSignal =
+    remediationPackageString(
+      payload?.evidenceSignal,
+    );
+
+  const initialVendorTitle =
+    remediationPackageString(
+      payload?.vendorTitle,
+    );
+
+  const initialVendorSummary =
+    remediationPackageString(
+      payload?.vendorSummary,
+    );
+
+  const initialVendorInstructions =
+    remediationPackageString(
+      payload?.vendorInstructions,
+    );
+
+  const initialDueAt =
+    remediationDateInput(
+      packageData?.dueAt ??
+        payload?.dueAt,
+    );
+
+  const [title, setTitle] =
+    useState(initialTitle);
+
+  const [severity, setSeverity] =
+    useState(initialSeverity);
+
+  const [summary, setSummary] =
+    useState(initialSummary);
+
+  const [recommendation, setRecommendation] =
+    useState(initialRecommendation);
+
+  const [requiredEvidence, setRequiredEvidence] =
+    useState(initialEvidence);
+
+  const [
+    requiredAttestations,
+    setRequiredAttestations,
+  ] =
+    useState(initialAttestations);
+
+  const [releaseImpact, setReleaseImpact] =
+    useState(initialReleaseImpact);
+
+  const [evidenceSignal, setEvidenceSignal] =
+    useState(initialEvidenceSignal);
+
+  const [vendorTitle, setVendorTitle] =
+    useState(initialVendorTitle);
+
+  const [vendorSummary, setVendorSummary] =
+    useState(initialVendorSummary);
+
+  const [
+    vendorInstructions,
+    setVendorInstructions,
+  ] =
+    useState(initialVendorInstructions);
+
+  const [dueAt, setDueAt] =
+    useState(initialDueAt);
+
+  if (
+    !Number.isFinite(packageId) ||
+    packageId <= 0
+  ) {
+    return null;
+  }
+
+  function cancelEditing() {
+    setTitle(initialTitle);
+    setSeverity(initialSeverity);
+    setSummary(initialSummary);
+    setRecommendation(initialRecommendation);
+    setRequiredEvidence(initialEvidence);
+
+    setRequiredAttestations(
+      initialAttestations,
+    );
+
+    setReleaseImpact(initialReleaseImpact);
+    setEvidenceSignal(initialEvidenceSignal);
+    setVendorTitle(initialVendorTitle);
+    setVendorSummary(initialVendorSummary);
+
+    setVendorInstructions(
+      initialVendorInstructions,
+    );
+
+    setDueAt(initialDueAt);
+    setPackageMessage("");
+    setEditing(false);
+  }
+
+  async function saveRemediationPackage() {
+    if (!title.trim()) {
+      setPackageMessage(
+        "Finding title cannot be empty.",
+      );
+
+      return;
+    }
+
+    try {
+      setSavingPackage(true);
+      setPackageMessage("");
+
+      const response =
+        await fetch(
+          `/api/review-desk/remediation-packages/${packageId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              title,
+              severity,
+              summary,
+              recommendation,
+
+              requiredEvidence:
+                remediationPackageList(
+                  requiredEvidence,
+                ),
+
+              requiredAttestations:
+                remediationPackageList(
+                  requiredAttestations,
+                ),
+
+              releaseImpact,
+              evidenceSignal,
+              vendorTitle,
+              vendorSummary,
+              vendorInstructions,
+
+              dueAt:
+                dueAt || null,
+            }),
+          },
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => null);
+
+      if (
+        !response.ok ||
+        !data?.ok
+      ) {
+        throw new Error(
+          data?.error ||
+            "Unable to save remediation changes.",
+        );
+      }
+
+      setPackageMessage(
+        "Reviewer changes saved. Refreshing remediation request...",
+      );
+
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
+    catch (error: any) {
+      setPackageMessage(
+        error?.message ||
+          "Unable to save remediation changes.",
+      );
+    }
+    finally {
+      setSavingPackage(false);
+    }
+  }
+
+  async function loadReviewerComments() {
+    if (commentsLoaded) {
+      return;
+    }
+
+    try {
+      setLoadingComments(true);
+      setPackageMessage("");
+
+      const response =
+        await fetch(
+          `/api/review-desk/remediation-packages/${packageId}/comments`,
+          {
+            cache: "no-store",
+          },
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => null);
+
+      if (
+        !response.ok ||
+        !data?.ok
+      ) {
+        throw new Error(
+          data?.error ||
+            "Unable to load reviewer comments.",
+        );
+      }
+
+      setComments(
+        Array.isArray(data.comments)
+          ? data.comments
+          : [],
+      );
+
+      setCommentsLoaded(true);
+    }
+    catch (error: any) {
+      setPackageMessage(
+        error?.message ||
+          "Unable to load reviewer comments.",
+      );
+    }
+    finally {
+      setLoadingComments(false);
+    }
+  }
+
+  async function toggleReviewerComments() {
+    const next =
+      !showComments;
+
+    setShowComments(next);
+
+    if (
+      next &&
+      !commentsLoaded
+    ) {
+      await loadReviewerComments();
+    }
+  }
+
+  async function addReviewerComment() {
+    const message =
+      commentText.trim();
+
+    if (!message) {
+      return;
+    }
+
+    try {
+      setPostingComment(true);
+      setPackageMessage("");
+
+      const response =
+        await fetch(
+          `/api/review-desk/remediation-packages/${packageId}/comments`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              message,
+            }),
+          },
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => null);
+
+      if (
+        !response.ok ||
+        !data?.ok
+      ) {
+        throw new Error(
+          data?.error ||
+            "Unable to add reviewer comment.",
+        );
+      }
+
+      setComments((current) => [
+        ...current,
+        data.comment,
+      ]);
+
+      setCommentsLoaded(true);
+      setCommentText("");
+
+      setPackageMessage(
+        "Internal reviewer comment added.",
+      );
+    }
+    catch (error: any) {
+      setPackageMessage(
+        error?.message ||
+          "Unable to add reviewer comment.",
+      );
+    }
+    finally {
+      setPostingComment(false);
+    }
+  }
+
+  const questionPrompt =
+    remediationPackageString(
+      payload?.questionPrompt,
+    );
+
+  const sourceKey =
+    remediationPackageString(
+      packageData?.sourceKey ??
+        payload?.sourceKey,
+    );
+
+  const reviewerOverrideActive =
+    payload?.reviewerOverride?.active ===
+    true;
+
+  const inputClass =
+    "mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-300/40";
+
+  const textareaClass =
+    `${inputClass} min-h-[88px] resize-y`;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.035] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
+            Reviewer-controlled remediation
+          </p>
+
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            AI-generated content may be edited before it becomes authoritative for vendor remediation.
+          </p>
+
+          {reviewerOverrideActive ? (
+            <span className="mt-2 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100">
+              Reviewer override active
+            </span>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {!editing ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPackageMessage("");
+                setEditing(true);
+              }}
+              className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
+            >
+              Edit remediation
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              void toggleReviewerComments();
+            }}
+            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]"
+          >
+            {showComments
+              ? "Hide comments"
+              : `Reviewer comments${
+                  commentsLoaded &&
+                  comments.length > 0
+                    ? ` (${comments.length})`
+                    : ""
+                }`}
+          </button>
+        </div>
+      </div>
+
+      {questionPrompt ? (
+        <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Source assessment question · Read only
+          </p>
+
+          <p className="mt-2 text-sm leading-6 text-slate-200">
+            {questionPrompt}
+          </p>
+        </div>
+      ) : null}
+
+      {sourceKey ? (
+        <p className="mt-2 text-[10px] text-slate-500">
+          Stable source identity: {sourceKey}
+        </p>
+      ) : null}
+
+      {editing ? (
+        <div className="mt-4 grid gap-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="text-xs font-medium text-slate-300">
+              Finding title
+
+              <input
+                value={title}
+                onChange={(event) =>
+                  setTitle(
+                    event.target.value,
+                  )
+                }
+                className={inputClass}
+              />
+            </label>
+
+            <label className="text-xs font-medium text-slate-300">
+              Severity
+
+              <input
+                value={severity}
+                onChange={(event) =>
+                  setSeverity(
+                    event.target.value,
+                  )
+                }
+                placeholder="CRITICAL, HIGH, MODERATE, LOW..."
+                className={inputClass}
+              />
+            </label>
+          </div>
+
+          <label className="text-xs font-medium text-slate-300">
+            Finding / issue description
+
+            <textarea
+              value={summary}
+              onChange={(event) =>
+                setSummary(
+                  event.target.value,
+                )
+              }
+              className={textareaClass}
+            />
+          </label>
+
+          <label className="text-xs font-medium text-slate-300">
+            Recommendation / remediation instruction
+
+            <textarea
+              value={recommendation}
+              onChange={(event) =>
+                setRecommendation(
+                  event.target.value,
+                )
+              }
+              className={textareaClass}
+            />
+          </label>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="text-xs font-medium text-slate-300">
+              Required evidence · one item per line
+
+              <textarea
+                value={requiredEvidence}
+                onChange={(event) =>
+                  setRequiredEvidence(
+                    event.target.value,
+                  )
+                }
+                className={textareaClass}
+              />
+            </label>
+
+            <label className="text-xs font-medium text-slate-300">
+              Required attestations · one item per line
+
+              <textarea
+                value={requiredAttestations}
+                onChange={(event) =>
+                  setRequiredAttestations(
+                    event.target.value,
+                  )
+                }
+                className={textareaClass}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="text-xs font-medium text-slate-300">
+              Release impact / follow-up
+
+              <textarea
+                value={releaseImpact}
+                onChange={(event) =>
+                  setReleaseImpact(
+                    event.target.value,
+                  )
+                }
+                className={textareaClass}
+              />
+            </label>
+
+            <label className="text-xs font-medium text-slate-300">
+              Evidence signal / rationale
+
+              <textarea
+                value={evidenceSignal}
+                onChange={(event) =>
+                  setEvidenceSignal(
+                    event.target.value,
+                  )
+                }
+                className={textareaClass}
+              />
+            </label>
+          </div>
+
+          <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.035] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
+              Vendor-facing wording
+            </p>
+
+            <div className="mt-3 grid gap-4">
+              <label className="text-xs font-medium text-slate-300">
+                Vendor-facing title
+
+                <input
+                  value={vendorTitle}
+                  onChange={(event) =>
+                    setVendorTitle(
+                      event.target.value,
+                    )
+                  }
+                  className={inputClass}
+                />
+              </label>
+
+              <label className="text-xs font-medium text-slate-300">
+                Vendor-facing summary
+
+                <textarea
+                  value={vendorSummary}
+                  onChange={(event) =>
+                    setVendorSummary(
+                      event.target.value,
+                    )
+                  }
+                  className={textareaClass}
+                />
+              </label>
+
+              <label className="text-xs font-medium text-slate-300">
+                Vendor instructions
+
+                <textarea
+                  value={vendorInstructions}
+                  onChange={(event) =>
+                    setVendorInstructions(
+                      event.target.value,
+                    )
+                  }
+                  className={textareaClass}
+                />
+              </label>
+
+              <label className="max-w-xs text-xs font-medium text-slate-300">
+                Due date
+
+                <input
+                  type="date"
+                  value={dueAt}
+                  onChange={(event) =>
+                    setDueAt(
+                      event.target.value,
+                    )
+                  }
+                  className={inputClass}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={savingPackage}
+              onClick={() => {
+                void saveRemediationPackage();
+              }}
+              className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingPackage
+                ? "Saving..."
+                : "Save changes"}
+            </button>
+
+            <button
+              type="button"
+              disabled={savingPackage}
+              onClick={cancelEditing}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showComments ? (
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-200">
+                Internal reviewer comments
+              </p>
+
+              <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                Internal only. These notes are not sent to the vendor and are not part of the released remediation packet.
+              </p>
+            </div>
+
+            {loadingComments ? (
+              <span className="text-xs text-slate-400">
+                Loading...
+              </span>
+            ) : null}
+          </div>
+
+          {commentsLoaded &&
+          comments.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">
+              No internal reviewer comments yet.
+            </p>
+          ) : null}
+
+          {comments.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {comments.map(
+                (comment: any) => (
+                  <div
+                    key={comment.id}
+                    className="rounded-xl border border-white/10 bg-black/20 p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-200">
+                        {remediationPackageString(
+                          comment.authorName,
+                        ) ||
+                          remediationPackageString(
+                            comment.authorType,
+                          ) ||
+                          "Reviewer"}
+                      </span>
+
+                      <span className="text-[10px] text-slate-500">
+                        {comment.createdAt
+                          ? new Date(
+                              comment.createdAt,
+                            ).toLocaleString()
+                          : ""}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                      {comment.message}
+                    </p>
+                  </div>
+                ),
+              )}
+            </div>
+          ) : null}
+
+          <div className="mt-3">
+            <textarea
+              value={commentText}
+              maxLength={8000}
+              onChange={(event) =>
+                setCommentText(
+                  event.target.value,
+                )
+              }
+              placeholder="Add an internal note about this finding, evidence requirement, or remediation decision..."
+              className="min-h-[82px] w-full resize-y rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40"
+            />
+
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-500">
+                {commentText.length}/8000
+              </span>
+
+              <button
+                type="button"
+                disabled={
+                  postingComment ||
+                  !commentText.trim()
+                }
+                onClick={() => {
+                  void addReviewerComment();
+                }}
+                className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {postingComment
+                  ? "Adding..."
+                  : "Add comment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {packageMessage ? (
+        <p className="mt-3 text-xs leading-5 text-cyan-100">
+          {packageMessage}
+        </p>
+      ) : null}
     </div>
   );
 }

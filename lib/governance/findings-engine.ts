@@ -1,4 +1,4 @@
-﻿import { scoreAssessment, type TruvernAssessmentScore, type TruvernScoringInput } from "./scoring-engine";
+import { scoreAssessment, type TruvernAssessmentScore, type TruvernScoringInput } from "./scoring-engine";
 
 export type TruvernGeneratedFinding = {
   controlKey: string;
@@ -279,7 +279,10 @@ export function generateFindings(items: TruvernScoringInput[]): TruvernFindingsR
         family: control.family,
         severity,
         title: `${label} control gap detected`,
-        description: `This control scored ${control.percent}% based on ${control.answeredQuestions}/${control.totalQuestions} answered questions.`,
+        description:
+          semantic.prompt
+            ? `Assessment question: ${semantic.prompt} This control scored ${control.percent}% based on ${control.answeredQuestions}/${control.totalQuestions} answered questions.`
+            : `This control scored ${control.percent}% based on ${control.answeredQuestions}/${control.totalQuestions} answered questions.`,
         recommendation:
           severity === "CRITICAL" || severity === "HIGH"
             ? "Request remediation evidence from the vendor and require reviewer validation before release."
@@ -309,6 +312,8 @@ export function generateFindings(items: TruvernScoringInput[]): TruvernFindingsR
 
           semanticVersion:
             "TRV-OSCAL-SEMANTIC-FINDINGS-1.0",
+          questionPrompt:
+            semantic.prompt,
 
           assessmentObjectiveIds:
             semantic.objectives,

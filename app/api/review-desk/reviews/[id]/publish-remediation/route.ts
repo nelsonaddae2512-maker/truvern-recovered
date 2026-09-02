@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 import { createEvidenceRequest, findEvidenceRequests, updateEvidenceRequest } from "@/lib/repositories/evidence-request-repository";
-import { updateRemediationPackage, upsertRemediationPackage } from "@/lib/repositories/remediation-package-repository";
+import { findRemediationPackages, updateRemediationPackage, upsertRemediationPackage } from "@/lib/repositories/remediation-package-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -258,7 +258,8 @@ function normalizePlan(plan: any, index: number) {
 
   return {
     title,
-    sourceKey: packageSourceKey(title),
+    sourceKey: safeStr(plan?.sourceKey) || packageSourceKey(title),
+    questionPrompt: safeStr(plan?.questionPrompt),
     description: description || "Truvern generated this remediation request from vendor assessment findings.",
     kind: normalizeKind(`${title} ${plan?.kind ?? ""} ${plan?.control ?? ""} ${plan?.controlFamily ?? ""}`),
     severity: safeStr(plan?.severity ?? plan?.riskLevel ?? plan?.risk) || null,
@@ -279,6 +280,54 @@ function splitListText(value: string) {
     .filter(Boolean);
 }
 
+function remediationQuestionPrompt(plan: any): string | null {
+  const metadata =
+    plan?.metadata && typeof plan.metadata === "object"
+      ? plan.metadata
+      : null;
+
+  const direct = safeStr(
+    plan?.questionPrompt ??
+      metadata?.questionPrompt,
+  );
+
+  if (direct) {
+    return direct;
+  }
+
+  const description = safeStr(plan?.description);
+  const prefix = "Assessment question:";
+
+  if (description.startsWith(prefix)) {
+    const remainder = description.slice(prefix.length).trim();
+    const scoreMarker = " This control scored ";
+    const markerIndex = remainder.indexOf(scoreMarker);
+
+    if (markerIndex >= 0) {
+      return remainder.slice(0, markerIndex).trim() || null;
+    }
+
+    return remainder || null;
+  }
+
+  return null;
+}
+
+function vendorEvidenceInstruction(plan: any): string {
+  const questionPrompt = remediationQuestionPrompt(plan);
+
+  const requirementContext = questionPrompt
+    ? ` The assessment item requiring remediation is: "${questionPrompt}"`
+    : "";
+
+  return [
+    "Please provide evidence demonstrating that this control gap has been remediated.",
+    "Upload supporting documentation or other evidence showing the corrective action implemented and its current operating status.",
+    requirementContext,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 function mergePlanDetails(target: any, source: any) {
   const evidence = [
     ...asArray(target.requiredEvidence),
@@ -316,18 +365,6 @@ function extractPlans(responses: any) {
 
   const primary = primaryPools.flatMap(asArray);
 
-  if (primary.length > 0) {
-    const seen = new Set<string>();
-
-    return primary
-      .map((plan, index) => normalizePlan(plan, index))
-      .filter((plan) => {
-        const key = safeStr(plan.sourceKey) || plan.title.toLowerCase();
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-  }
 
     // Existing drafts may predate generated remediation-plan persistence.
   // When no explicit plans exist, project the already-persisted canonical
@@ -435,6 +472,23 @@ function extractPlans(responses: any) {
 
         if (!plan.title || seen.has(key)) return false;
 
+        seen.add(key);
+        return true;
+      });
+  }
+
+  // R82G: canonical remediation-required findings are the
+  // completeness authority. Generated remediation plans remain
+  // available only when canonical findings are absent.
+
+  if (primary.length > 0) {
+    const seen = new Set<string>();
+
+    return primary
+      .map((plan, index) => normalizePlan(plan, index))
+      .filter((plan) => {
+        const key = safeStr(plan.sourceKey) || plan.title.toLowerCase();
+        if (!key || seen.has(key)) return false;
         seen.add(key);
         return true;
       });
@@ -632,6 +686,8 @@ export async function POST(_req: Request, props: Props) {
       const remediationPayload =
         JSON.parse(
           JSON.stringify({
+            sourceKey: plan.sourceKey,
+            questionPrompt: plan.questionPrompt,
             title: plan.title,
             summary: plan.description,
             requiredEvidence: plan.requiredEvidence,
@@ -642,6 +698,45 @@ export async function POST(_req: Request, props: Props) {
             severity: plan.severity,
           }),
         ) as Prisma.InputJsonValue;
+
+      const existingPackageRows =
+        await findRemediationPackages({
+          where: {
+            reviewAssignmentId: assignmentId,
+            sourceKey: plan.sourceKey!,
+          },
+          select: {
+            id: true,
+            title: true,
+            severity: true,
+            dueAt: true,
+            payload: true,
+          },
+          take: 1,
+        });
+
+      const existingPackagePayload =
+        safeJson(
+          existingPackageRows[0]?.payload,
+        );
+
+      const reviewerOverrideActive =
+        existingPackagePayload?.reviewerOverride?.active === true;
+
+      const preservedReviewerPayload =
+        reviewerOverrideActive
+          ? (
+              JSON.parse(
+                JSON.stringify({
+                  ...existingPackagePayload,
+                  latestGeneratedBaseline:
+                    remediationPayload,
+                  latestGeneratedAt:
+                    new Date().toISOString(),
+                }),
+              ) as Prisma.InputJsonValue
+            )
+          : null;
 
       const remediationPackage =
         await upsertRemediationPackage({
@@ -662,12 +757,22 @@ export async function POST(_req: Request, props: Props) {
             dueAt: plan.dueAt,
             payload: remediationPayload,
           },
-          update: {
-            title: plan.title,
-            severity: plan.severity,
-            dueAt: plan.dueAt,
-            payload: remediationPayload,
-          },
+          update:
+            reviewerOverrideActive &&
+            existingPackageRows[0] &&
+            preservedReviewerPayload
+              ? {
+                  title: existingPackageRows[0].title,
+                  severity: existingPackageRows[0].severity,
+                  dueAt: existingPackageRows[0].dueAt,
+                  payload: preservedReviewerPayload,
+                }
+              : {
+                  title: plan.title,
+                  severity: plan.severity,
+                  dueAt: plan.dueAt,
+                  payload: remediationPayload,
+                },
           select: {
             id: true,
           },
@@ -706,7 +811,7 @@ export async function POST(_req: Request, props: Props) {
             kind: plan.kind as EvidenceRequestKind,
             label: plan.title.slice(0, 240),
             title: plan.title,
-            description: plan.description,
+            description: vendorEvidenceInstruction(plan),
             dueAt: plan.dueAt,
             status: "REQUESTED",
             requestedAt: new Date(),
