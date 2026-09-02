@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 
@@ -136,6 +137,12 @@ export async function GET(
       comments,
     });
   } catch (error: any) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
     return NextResponse.json(
       {
         ok: false,
@@ -296,6 +303,12 @@ export async function POST(
       },
     );
   } catch (error: any) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
     return NextResponse.json(
       {
         ok: false,

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 
@@ -136,6 +137,12 @@ export async function GET(
       package: pkg,
     });
   } catch (error: any) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
     return NextResponse.json(
       {
         ok: false,
@@ -523,6 +530,12 @@ export async function PATCH(
         Boolean(pkg.evidenceRequestId),
     });
   } catch (error: any) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
     return NextResponse.json(
       {
         ok: false,
