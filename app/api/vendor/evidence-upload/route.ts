@@ -16,7 +16,6 @@ import {
 
 import {
   createVendorEvidenceUpload,
-  findRemediationPackageForEvidenceRequest,
   findVendorEvidenceRequest,
   fulfillVendorEvidenceRequest,
 } from "@/lib/repositories/vendor-evidence-upload-repository";
@@ -142,6 +141,39 @@ export async function POST(request: Request) {
       );
     }
 
+    const scopedPackageRows =
+      await prisma.$queryRaw<Array<{ id: number }>>`
+        select scoped_rp.id
+        from "RemediationPackage" scoped_rp
+        join "ReviewAssignment" scoped_ra
+          on scoped_ra.id = scoped_rp."reviewAssignmentId"
+        join "ReviewRequest" scoped_rr
+          on scoped_rr.id = scoped_ra."reviewRequestId"
+        where scoped_rp."evidenceRequestId" = ${evidenceRequestId}
+          and scoped_rp."vendorId" = ${assessment.vendorId}
+          and scoped_rp."organizationId" = ${assessment.organizationId}
+          and scoped_rr."assessmentId" = ${assessment.id}
+          and scoped_rr."vendorId" = ${assessment.vendorId}
+          and scoped_rr."organizationId" = ${assessment.organizationId}
+          and upper(coalesce(scoped_rp.status, '')) <> 'CANCELLED'
+        order by scoped_rp.id asc
+        limit 2
+      `;
+
+    if (scopedPackageRows.length > 1) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Evidence request has an ambiguous remediation package binding.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const remediationPackageId =
+      scopedPackageRows[0]?.id ?? null;
+
     const evidenceRequest = await findVendorEvidenceRequest({
       evidenceRequestId,
       vendorId,
@@ -221,13 +253,6 @@ export async function POST(request: Request) {
       evidenceRequestId,
       evidenceId,
     });
-    const remediationPackage =
-      await findRemediationPackageForEvidenceRequest({
-        evidenceRequestId,
-      });
-
-    const remediationPackageId =
-      remediationPackage?.id ?? null;
 
     if (remediationPackageId) {
       await emitWorkflowEvent({

@@ -77,8 +77,28 @@ export async function readVendorAssessmentEvidenceRequests(input: {
       rp.severity as "packageSeverity",
       rp.payload as "packagePayload"
     from "EvidenceRequest" er
-    left join "RemediationPackage" rp
-      on rp."evidenceRequestId" = er.id
+    left join lateral (
+      select
+        scoped_rp.id,
+        scoped_rp.title,
+        scoped_rp.status,
+        scoped_rp.severity,
+        scoped_rp.payload
+      from "RemediationPackage" scoped_rp
+      join "ReviewAssignment" scoped_ra
+        on scoped_ra.id = scoped_rp."reviewAssignmentId"
+      join "ReviewRequest" scoped_rr
+        on scoped_rr.id = scoped_ra."reviewRequestId"
+      where scoped_rp."evidenceRequestId" = er.id
+        and scoped_rp."vendorId" = ${input.vendorId}
+        and scoped_rp."organizationId" = ${input.organizationId}
+        and scoped_rr."assessmentId" = ${input.assessmentId}
+        and scoped_rr."vendorId" = ${input.vendorId}
+        and scoped_rr."organizationId" = ${input.organizationId}
+        and upper(coalesce(scoped_rp.status, '')) <> 'CANCELLED'
+      order by scoped_rp."updatedAt" desc, scoped_rp.id desc
+      limit 1
+    ) rp on true
     left join "AssessmentRun" ar
       on ar.id = er."assessmentRunId"
     where er."vendorId" = ${input.vendorId}
