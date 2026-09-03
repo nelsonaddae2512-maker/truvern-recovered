@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findFirstAssessment } from "@/lib/repositories/assessment-repository";
-import { readVendorEvidenceRequests } from "@/lib/repositories/vendor-evidence-request-read-repository";
+import { readVendorAssessmentEvidenceRequests } from "@/lib/repositories/vendor-assessment-portal-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +49,8 @@ export async function GET(_req: Request, context: RouteContext) {
       );
     }
 
-    const rows = await readVendorEvidenceRequests({
+    const rows = await readVendorAssessmentEvidenceRequests({
+      assessmentId: assessment.id,
       vendorId: assessment.vendorId,
       organizationId: assessment.organizationId,
     });

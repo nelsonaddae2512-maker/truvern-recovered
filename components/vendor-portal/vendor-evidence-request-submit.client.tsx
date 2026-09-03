@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,7 @@ function clsx(...parts: Array<string | false | null | undefined>) {
 export default function VendorEvidenceRequestSubmitClient(props: {
   vendorId: number;
   evidenceRequestId: number;
+  token: string;
   status: string;
   defaultTitle?: string;
 }) {
@@ -50,6 +51,7 @@ export default function VendorEvidenceRequestSubmitClient(props: {
     if (!title || !item.file) return { ok: false, skipped: true };
 
     const fd = new FormData();
+    fd.append("token", props.token);
     fd.append("vendorId", String(props.vendorId));
     fd.append("evidenceRequestId", String(props.evidenceRequestId));
     fd.append("note", title);

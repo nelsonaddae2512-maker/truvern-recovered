@@ -25,9 +25,11 @@ export type VendorAssessmentEvidenceRequestRow = {
   packagePayload: any;
 };
 
-export async function readVendorAssessmentLatestRelease(
-  vendorId: number,
-): Promise<VendorAssessmentLatestReleaseRow[]> {
+export async function readVendorAssessmentLatestRelease(input: {
+  assessmentId: number;
+  vendorId: number;
+  organizationId: number;
+}): Promise<VendorAssessmentLatestReleaseRow[]> {
   return prisma.$queryRaw<VendorAssessmentLatestReleaseRow[]>`
     select
       ra.id as "assignmentId",
@@ -45,7 +47,9 @@ export async function readVendorAssessmentLatestRelease(
       order by r."updatedAt" desc, r.id desc
       limit 1
     ) resp on true
-    where rr."vendorId" = ${vendorId}
+    where rr."assessmentId" = ${input.assessmentId}
+      and rr."vendorId" = ${input.vendorId}
+      and rr."organizationId" = ${input.organizationId}
     order by ra."updatedAt" desc, ra.id desc
     limit 1
   `;
@@ -54,6 +58,7 @@ export async function readVendorAssessmentLatestRelease(
 export async function readVendorAssessmentEvidenceRequests(input: {
   assessmentId: number;
   vendorId: number;
+  organizationId: number;
 }): Promise<VendorAssessmentEvidenceRequestRow[]> {
   return prisma.$queryRaw<VendorAssessmentEvidenceRequestRow[]>`
     select
@@ -76,10 +81,23 @@ export async function readVendorAssessmentEvidenceRequests(input: {
       on rp."evidenceRequestId" = er.id
     left join "AssessmentRun" ar
       on ar.id = er."assessmentRunId"
-    where (
-      ar."assessmentId" = ${input.assessmentId}
-      or er."vendorId" = ${input.vendorId}
-    )
+    where er."vendorId" = ${input.vendorId}
+      and er."organizationId" = ${input.organizationId}
+      and (
+        ar."assessmentId" = ${input.assessmentId}
+        or exists (
+          select 1
+          from "RemediationPackage" scoped_rp
+          join "ReviewAssignment" scoped_ra
+            on scoped_ra.id = scoped_rp."reviewAssignmentId"
+          join "ReviewRequest" scoped_rr
+            on scoped_rr.id = scoped_ra."reviewRequestId"
+          where scoped_rp."evidenceRequestId" = er.id
+            and scoped_rr."assessmentId" = ${input.assessmentId}
+            and scoped_rr."vendorId" = ${input.vendorId}
+            and scoped_rr."organizationId" = ${input.organizationId}
+        )
+      )
       and upper(coalesce(er.status::text, '')) <> 'CANCELLED'
     order by er."createdAt" desc
   `;

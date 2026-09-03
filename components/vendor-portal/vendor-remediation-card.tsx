@@ -1,4 +1,4 @@
-﻿import VendorEvidenceRequestSubmitClient from "@/components/vendor-portal/vendor-evidence-request-submit.client";
+import VendorEvidenceRequestSubmitClient from "@/components/vendor-portal/vendor-evidence-request-submit.client";
 
 function statusLabel(value: unknown) {
   const status = String(value ?? "").toUpperCase();
@@ -23,9 +23,10 @@ function statusClass(value: unknown) {
 type Props = {
   request: any;
   vendorId: number;
+  token: string;
 };
 
-export default function VendorRemediationCard({ request, vendorId }: Props) {
+export default function VendorRemediationCard({ request, vendorId, token }: Props) {
   const payload =
     request.packagePayload && typeof request.packagePayload === "object"
       ? request.packagePayload
@@ -158,6 +159,7 @@ export default function VendorRemediationCard({ request, vendorId }: Props) {
             <VendorEvidenceRequestSubmitClient
               vendorId={vendorId}
               evidenceRequestId={request.id}
+              token={token}
               status={request.status || "REQUESTED"}
               defaultTitle={title}
             />

@@ -120,9 +120,11 @@ export default async function VendorAssessmentPortalPage({
         options: parseOptions(question.options),
       }))
     ) || [];
-  const releaseRows = await readVendorAssessmentLatestRelease(
-    assessment.vendor.id,
-  );
+  const releaseRows = await readVendorAssessmentLatestRelease({
+    assessmentId: assessment.id,
+    vendorId: assessment.vendor.id,
+    organizationId: assessment.organizationId,
+  });
 
   const latestRelease = releaseRows[0] ?? null;
 
@@ -187,13 +189,22 @@ export default async function VendorAssessmentPortalPage({
       rp."createdAt",
       rp."updatedAt"
     from "RemediationPackage" rp
-    where rp."vendorId" = ${assessment.vendor.id}
+    join "ReviewAssignment" ra
+      on ra.id = rp."reviewAssignmentId"
+    join "ReviewRequest" rr
+      on rr.id = ra."reviewRequestId"
+    where rr."assessmentId" = ${assessment.id}
+      and rr."vendorId" = ${assessment.vendor.id}
+      and rr."organizationId" = ${assessment.organizationId}
+      and rp."vendorId" = ${assessment.vendor.id}
+      and rp."organizationId" = ${assessment.organizationId}
       and upper(coalesce(rp.status, '')) <> 'CANCELLED'
     order by rp."createdAt" desc, rp.id desc
   `;
   const evidenceRequestRows = await readVendorAssessmentEvidenceRequests({
     assessmentId: assessment.id,
     vendorId: assessment.vendor.id,
+    organizationId: assessment.organizationId,
   });
 
     const packageLinkedEvidenceRequestIds = new Set(
@@ -587,6 +598,7 @@ return (
             key={request.id}
             request={request}
             vendorId={assessment.vendor.id}
+            token={token}
           />
         ))}
       </div>

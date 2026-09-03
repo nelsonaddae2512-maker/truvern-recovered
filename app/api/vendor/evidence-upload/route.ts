@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -60,10 +61,18 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
 
+    const token = safeText(form.get("token"));
     const vendorId = Number(form.get("vendorId"));
     const evidenceRequestId = Number(form.get("evidenceRequestId"));
     const note = safeText(form.get("note"));
     const file = form.get("file");
+
+    if (!token) {
+      return NextResponse.json(
+        { ok: false, error: "Vendor assessment token is required." },
+        { status: 401 },
+      );
+    }
 
     if (!Number.isFinite(vendorId) || vendorId <= 0) {
       return NextResponse.json({ ok: false, error: "Vendor id is required." }, { status: 400 });
@@ -75,6 +84,62 @@ export async function POST(request: Request) {
 
     if (!(file instanceof File)) {
       return NextResponse.json({ ok: false, error: "Evidence file is required." }, { status: 400 });
+    }
+
+    const assessment = await prisma.assessment.findFirst({
+      where: {
+        token,
+      },
+      select: {
+        id: true,
+        vendorId: true,
+        organizationId: true,
+      },
+    });
+
+    if (
+      !assessment ||
+      assessment.vendorId !== vendorId
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Evidence request not found." },
+        { status: 404 },
+      );
+    }
+
+    const authorizedRows =
+      await prisma.$queryRaw<Array<{ id: number }>>`
+        select er.id
+        from "EvidenceRequest" er
+        left join "AssessmentRun" ar
+          on ar.id = er."assessmentRunId"
+        where er.id = ${evidenceRequestId}
+          and er."vendorId" = ${assessment.vendorId}
+          and er."organizationId" = ${assessment.organizationId}
+          and upper(coalesce(er.status::text, '')) <> 'CANCELLED'
+          and (
+            ar."assessmentId" = ${assessment.id}
+            or exists (
+              select 1
+              from "RemediationPackage" scoped_rp
+              join "ReviewAssignment" scoped_ra
+                on scoped_ra.id = scoped_rp."reviewAssignmentId"
+              join "ReviewRequest" scoped_rr
+                on scoped_rr.id = scoped_ra."reviewRequestId"
+              where scoped_rp."evidenceRequestId" = er.id
+                and scoped_rr."assessmentId" = ${assessment.id}
+                and scoped_rr."vendorId" = ${assessment.vendorId}
+                and scoped_rr."organizationId" = ${assessment.organizationId}
+            )
+          )
+        limit 1
+      `;
+
+    if (!authorizedRows[0]) {
+      return NextResponse.json(
+        { ok: false, error: "Evidence request not found." },
+        { status: 404 },
+      );
     }
 
     const evidenceRequest = await findVendorEvidenceRequest({
