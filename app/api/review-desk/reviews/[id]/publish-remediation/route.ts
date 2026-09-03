@@ -1,6 +1,8 @@
 import type { EvidenceRequestKind, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
+import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
@@ -594,6 +596,8 @@ const fallback = [
 
 export async function POST(_req: Request, props: Props) {
   try {
+    const actor = await requireReviewerAccess();
+
     const { userId } = await auth();
     const resolved = await props.params;
     const assignmentId = Number(resolved?.id);
@@ -613,6 +617,17 @@ export async function POST(_req: Request, props: Props) {
         },
       });
 
+    if (
+      assignment &&
+      actor.role !== "OPS" &&
+      actor.organizationId != null &&
+      actor.organizationId !== assignment.organizationId
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Forbidden." },
+        { status: 403 },
+      );
+    }
     const latestResponse =
       assignment
         ? await findLatestReviewResponse(assignment.id)
@@ -853,6 +868,12 @@ export async function POST(_req: Request, props: Props) {
       message: `Published ${created.length} generated remediation request(s).`,
     });
   } catch (error: any) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
     console.error("Auto-publish remediation failed:", error);
     return NextResponse.json(
       { ok: false, error: safeStr(error?.message) || "Failed to publish remediation requests." },
