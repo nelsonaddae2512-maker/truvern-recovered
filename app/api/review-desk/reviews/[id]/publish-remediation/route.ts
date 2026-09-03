@@ -714,21 +714,53 @@ export async function POST(_req: Request, props: Props) {
           }),
         ) as Prisma.InputJsonValue;
 
+      const existingRequestId =
+        existing.length > 0
+          ? Number(existing[0].id)
+          : null;
+
+      const linkedPackageRows =
+        existingRequestId != null
+          ? await findRemediationPackages({
+              where: {
+                reviewAssignmentId: assignmentId,
+                evidenceRequestId: existingRequestId,
+              },
+              select: {
+                id: true,
+                sourceKey: true,
+                title: true,
+                severity: true,
+                dueAt: true,
+                payload: true,
+              },
+              take: 1,
+            })
+          : [];
+
+      const sourceKeyPackageRows =
+        linkedPackageRows.length === 0
+          ? await findRemediationPackages({
+              where: {
+                reviewAssignmentId: assignmentId,
+                sourceKey: plan.sourceKey!,
+              },
+              select: {
+                id: true,
+                sourceKey: true,
+                title: true,
+                severity: true,
+                dueAt: true,
+                payload: true,
+              },
+              take: 1,
+            })
+          : [];
+
       const existingPackageRows =
-        await findRemediationPackages({
-          where: {
-            reviewAssignmentId: assignmentId,
-            sourceKey: plan.sourceKey!,
-          },
-          select: {
-            id: true,
-            title: true,
-            severity: true,
-            dueAt: true,
-            payload: true,
-          },
-          take: 1,
-        });
+        linkedPackageRows.length > 0
+          ? linkedPackageRows
+          : sourceKeyPackageRows;
 
       const existingPackagePayload =
         safeJson(
@@ -753,45 +785,72 @@ export async function POST(_req: Request, props: Props) {
             )
           : null;
 
+      const linkedPackage =
+        linkedPackageRows[0];
+
       const remediationPackage =
-        await upsertRemediationPackage({
-          where: {
-            reviewAssignmentId_sourceKey: {
-              reviewAssignmentId: assignmentId,
-              sourceKey: plan.sourceKey!,
-            },
-          },
-          create: {
-            reviewAssignmentId: assignmentId,
-            vendorId: Number(row.vendorId),
-            organizationId: Number(row.organizationId),
-            sourceKey: plan.sourceKey!,
-            title: plan.title,
-            status: "REQUESTED",
-            severity: plan.severity,
-            dueAt: plan.dueAt,
-            payload: remediationPayload,
-          },
-          update:
-            reviewerOverrideActive &&
-            existingPackageRows[0] &&
-            preservedReviewerPayload
-              ? {
-                  title: existingPackageRows[0].title,
-                  severity: existingPackageRows[0].severity,
-                  dueAt: existingPackageRows[0].dueAt,
-                  payload: preservedReviewerPayload,
-                }
-              : {
-                  title: plan.title,
-                  severity: plan.severity,
-                  dueAt: plan.dueAt,
-                  payload: remediationPayload,
+        linkedPackage
+          ? await updateRemediationPackage({
+              where: {
+                id: linkedPackage.id,
+              },
+              data:
+                reviewerOverrideActive &&
+                preservedReviewerPayload
+                  ? {
+                      title: linkedPackage.title,
+                      severity: linkedPackage.severity,
+                      dueAt: linkedPackage.dueAt,
+                      payload: preservedReviewerPayload,
+                    }
+                  : {
+                      title: plan.title,
+                      severity: plan.severity,
+                      dueAt: plan.dueAt,
+                      payload: remediationPayload,
+                    },
+              select: {
+                id: true,
+              },
+            })
+          : await upsertRemediationPackage({
+              where: {
+                reviewAssignmentId_sourceKey: {
+                  reviewAssignmentId: assignmentId,
+                  sourceKey: plan.sourceKey!,
                 },
-          select: {
-            id: true,
-          },
-        });
+              },
+              create: {
+                reviewAssignmentId: assignmentId,
+                vendorId: Number(row.vendorId),
+                organizationId: Number(row.organizationId),
+                sourceKey: plan.sourceKey!,
+                title: plan.title,
+                status: "REQUESTED",
+                severity: plan.severity,
+                dueAt: plan.dueAt,
+                payload: remediationPayload,
+              },
+              update:
+                reviewerOverrideActive &&
+                existingPackageRows[0] &&
+                preservedReviewerPayload
+                  ? {
+                      title: existingPackageRows[0].title,
+                      severity: existingPackageRows[0].severity,
+                      dueAt: existingPackageRows[0].dueAt,
+                      payload: preservedReviewerPayload,
+                    }
+                  : {
+                      title: plan.title,
+                      severity: plan.severity,
+                      dueAt: plan.dueAt,
+                      payload: remediationPayload,
+                    },
+              select: {
+                id: true,
+              },
+            });
       if (existing.length > 0) {
         const existingRequestId = Number(existing[0].id);
         const existingPackageId =
