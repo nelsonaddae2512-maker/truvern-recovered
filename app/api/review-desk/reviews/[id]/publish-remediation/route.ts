@@ -648,9 +648,9 @@ export async function POST(_req: Request, props: Props) {
     }
 
     const responses = safeJson(row.responses);
-    const plans = extractPlans(responses);
+    const rawPlans = extractPlans(responses);
 
-    if (plans.length === 0) {
+    if (rawPlans.length === 0) {
       return NextResponse.json({
         ok: true,
         createdCount: 0,
@@ -659,15 +659,108 @@ export async function POST(_req: Request, props: Props) {
       });
     }
 
-    const created: number[] = [];
-    const skipped: string[] = [];
+    // ----------------------------------------------------------
+    // Deterministic logical-plan reconciliation.
+    //
+    // Different generated source keys must not allow duplicate
+    // logical remediation work to pass silently. Same-title plans
+    // are collapsed only when their remediation semantics match.
+    // Otherwise publishing fails closed before any database write.
+    // ----------------------------------------------------------
+
+    function planSemanticSignature(plan: any) {
+      return JSON.stringify({
+        title: safeStr(plan.title).toLowerCase(),
+        kind: safeStr(plan.kind).toUpperCase(),
+        severity: safeStr(plan.severity).toUpperCase(),
+        questionPrompt: safeStr(plan.questionPrompt),
+        description: safeStr(plan.description),
+        recommendation: safeStr(plan.recommendation),
+        releaseImpact: safeStr(plan.releaseImpact),
+        evidenceSignal: safeStr(plan.evidenceSignal),
+        requiredEvidence: asArray(plan.requiredEvidence),
+        requiredAttestation: asArray(plan.requiredAttestation),
+      });
+    }
+
+    const planByLogicalTitle =
+      new Map<string, any>();
+
+    for (const plan of rawPlans) {
+      const logicalTitle =
+        safeStr(plan.title).toLowerCase();
+
+      if (!logicalTitle) {
+        continue;
+      }
+
+      const prior =
+        planByLogicalTitle.get(logicalTitle);
+
+      if (!prior) {
+        planByLogicalTitle.set(
+          logicalTitle,
+          plan,
+        );
+        continue;
+      }
+
+      if (
+        planSemanticSignature(prior) !==
+        planSemanticSignature(plan)
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Remediation reconciliation conflict.",
+            reason:
+              "Multiple generated remediation plans share a logical title but differ semantically.",
+            title: plan.title,
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+    }
+
+    const plans =
+      Array.from(
+        planByLogicalTitle.values(),
+      );
+
+    // ----------------------------------------------------------
+    // Read-only reconciliation preflight.
+    //
+    // Every plan is resolved before the first package or evidence
+    // request mutation occurs.
+    // ----------------------------------------------------------
+
+    const reconciliation: Array<{
+      plan: any;
+      remediationPayload: Prisma.InputJsonValue;
+      existingRequestId: number | null;
+      existingPackage:
+        | {
+            id: number;
+            sourceKey: string;
+            title: string;
+            severity: string | null;
+            dueAt: Date | null;
+            payload: any;
+          }
+        | null;
+    }> = [];
 
     for (const plan of plans) {
-      const existing =
+      const existingRequests =
         await findEvidenceRequests({
           where: {
-            vendorId: Number(row.vendorId),
-            organizationId: Number(row.organizationId),
+            vendorId:
+              Number(row.vendorId),
+            organizationId:
+              Number(row.organizationId),
             status: {
               not: "CANCELLED",
             },
@@ -696,35 +789,47 @@ export async function POST(_req: Request, props: Props) {
           select: {
             id: true,
           },
-          take: 1,
+          orderBy: {
+            id: "asc",
+          },
+          take: 2,
         });
-      const remediationPayload =
-        JSON.parse(
-          JSON.stringify({
-            sourceKey: plan.sourceKey,
-            questionPrompt: plan.questionPrompt,
+
+      if (existingRequests.length > 1) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Remediation reconciliation conflict.",
+            reason:
+              "Multiple active evidence requests match the same remediation title.",
             title: plan.title,
-            summary: plan.description,
-            requiredEvidence: plan.requiredEvidence,
-            requiredAttestations: plan.requiredAttestation,
-            recommendation: plan.recommendation,
-            releaseImpact: plan.releaseImpact,
-            evidenceSignal: plan.evidenceSignal,
-            severity: plan.severity,
-          }),
-        ) as Prisma.InputJsonValue;
+            evidenceRequestIds:
+              existingRequests.map(
+                (item) => item.id,
+              ),
+          },
+          {
+            status: 409,
+          },
+        );
+      }
 
       const existingRequestId =
-        existing.length > 0
-          ? Number(existing[0].id)
+        existingRequests.length === 1
+          ? Number(
+              existingRequests[0].id,
+            )
           : null;
 
       const linkedPackageRows =
         existingRequestId != null
           ? await findRemediationPackages({
               where: {
-                reviewAssignmentId: assignmentId,
-                evidenceRequestId: existingRequestId,
+                reviewAssignmentId:
+                  assignmentId,
+                evidenceRequestId:
+                  existingRequestId,
               },
               select: {
                 id: true,
@@ -734,41 +839,184 @@ export async function POST(_req: Request, props: Props) {
                 dueAt: true,
                 payload: true,
               },
-              take: 1,
+              orderBy: {
+                id: "asc",
+              },
             })
           : [];
 
-      const sourceKeyPackageRows =
-        linkedPackageRows.length === 0
-          ? await findRemediationPackages({
-              where: {
-                reviewAssignmentId: assignmentId,
-                sourceKey: plan.sourceKey!,
-              },
-              select: {
-                id: true,
-                sourceKey: true,
-                title: true,
-                severity: true,
-                dueAt: true,
-                payload: true,
-              },
-              take: 1,
-            })
-          : [];
+      let existingPackage:
+        | {
+            id: number;
+            sourceKey: string;
+            title: string;
+            severity: string | null;
+            dueAt: Date | null;
+            payload: any;
+          }
+        | null = null;
 
-      const existingPackageRows =
-        linkedPackageRows.length > 0
-          ? linkedPackageRows
-          : sourceKeyPackageRows;
+      if (linkedPackageRows.length === 1) {
+        existingPackage =
+          linkedPackageRows[0];
+      } else if (
+        linkedPackageRows.length > 1
+      ) {
+        const activeOverridePackages =
+          linkedPackageRows.filter(
+            (pkg) =>
+              safeJson(pkg.payload)
+                ?.reviewerOverride
+                ?.active === true,
+          );
+
+        if (
+          activeOverridePackages.length !== 1
+        ) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Remediation reconciliation conflict.",
+              reason:
+                "Multiple remediation packages are linked to one evidence request and no unique reviewer override identifies the authoritative package.",
+              title: plan.title,
+              evidenceRequestId:
+                existingRequestId,
+              packageIds:
+                linkedPackageRows.map(
+                  (pkg) => pkg.id,
+                ),
+              activeOverridePackageIds:
+                activeOverridePackages.map(
+                  (pkg) => pkg.id,
+                ),
+            },
+            {
+              status: 409,
+            },
+          );
+        }
+
+        existingPackage =
+          activeOverridePackages[0];
+      }
+
+      if (!existingPackage) {
+        const sourceKeyPackageRows =
+          await findRemediationPackages({
+            where: {
+              reviewAssignmentId:
+                assignmentId,
+              sourceKey:
+                plan.sourceKey!,
+            },
+            select: {
+              id: true,
+              sourceKey: true,
+              title: true,
+              severity: true,
+              dueAt: true,
+              payload: true,
+            },
+            orderBy: {
+              id: "asc",
+            },
+            take: 2,
+          });
+
+        if (
+          sourceKeyPackageRows.length > 1
+        ) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Remediation reconciliation conflict.",
+              reason:
+                "Multiple remediation packages match the same assignment/sourceKey identity.",
+              title: plan.title,
+              sourceKey:
+                plan.sourceKey,
+              packageIds:
+                sourceKeyPackageRows.map(
+                  (pkg) => pkg.id,
+                ),
+            },
+            {
+              status: 409,
+            },
+          );
+        }
+
+        existingPackage =
+          sourceKeyPackageRows[0] ??
+          null;
+      }
+
+      const remediationPayload =
+        JSON.parse(
+          JSON.stringify({
+            sourceKey:
+              plan.sourceKey,
+            questionPrompt:
+              plan.questionPrompt,
+            title:
+              plan.title,
+            summary:
+              plan.description,
+            requiredEvidence:
+              plan.requiredEvidence,
+            requiredAttestations:
+              plan.requiredAttestation,
+            recommendation:
+              plan.recommendation,
+            releaseImpact:
+              plan.releaseImpact,
+            evidenceSignal:
+              plan.evidenceSignal,
+            severity:
+              plan.severity,
+          }),
+        ) as Prisma.InputJsonValue;
+
+      reconciliation.push({
+        plan,
+        remediationPayload,
+        existingRequestId,
+        existingPackage,
+      });
+    }
+
+    // ----------------------------------------------------------
+    // Mutation phase.
+    //
+    // No execution reaches this point unless every plan completed
+    // deterministic preflight successfully.
+    // ----------------------------------------------------------
+
+    const created: number[] = [];
+    const skipped: string[] = [];
+
+    for (
+      const decision of reconciliation
+    ) {
+      const {
+        plan,
+        remediationPayload,
+        existingRequestId,
+        existingPackage,
+      } = decision;
 
       const existingPackagePayload =
         safeJson(
-          existingPackageRows[0]?.payload,
+          existingPackage?.payload,
         );
 
       const reviewerOverrideActive =
-        existingPackagePayload?.reviewerOverride?.active === true;
+        existingPackagePayload
+          ?.reviewerOverride
+          ?.active === true;
 
       const preservedReviewerPayload =
         reviewerOverrideActive
@@ -779,35 +1027,42 @@ export async function POST(_req: Request, props: Props) {
                   latestGeneratedBaseline:
                     remediationPayload,
                   latestGeneratedAt:
-                    new Date().toISOString(),
+                    new Date()
+                      .toISOString(),
                 }),
               ) as Prisma.InputJsonValue
             )
           : null;
 
-      const linkedPackage =
-        linkedPackageRows[0];
-
       const remediationPackage =
-        linkedPackage
+        existingPackage
           ? await updateRemediationPackage({
               where: {
-                id: linkedPackage.id,
+                id:
+                  existingPackage.id,
               },
               data:
                 reviewerOverrideActive &&
                 preservedReviewerPayload
                   ? {
-                      title: linkedPackage.title,
-                      severity: linkedPackage.severity,
-                      dueAt: linkedPackage.dueAt,
-                      payload: preservedReviewerPayload,
+                      title:
+                        existingPackage.title,
+                      severity:
+                        existingPackage.severity,
+                      dueAt:
+                        existingPackage.dueAt,
+                      payload:
+                        preservedReviewerPayload,
                     }
                   : {
-                      title: plan.title,
-                      severity: plan.severity,
-                      dueAt: plan.dueAt,
-                      payload: remediationPayload,
+                      title:
+                        plan.title,
+                      severity:
+                        plan.severity,
+                      dueAt:
+                        plan.dueAt,
+                      payload:
+                        remediationPayload,
                     },
               select: {
                 id: true,
@@ -815,48 +1070,60 @@ export async function POST(_req: Request, props: Props) {
             })
           : await upsertRemediationPackage({
               where: {
-                reviewAssignmentId_sourceKey: {
-                  reviewAssignmentId: assignmentId,
-                  sourceKey: plan.sourceKey!,
-                },
+                reviewAssignmentId_sourceKey:
+                  {
+                    reviewAssignmentId:
+                      assignmentId,
+                    sourceKey:
+                      plan.sourceKey!,
+                  },
               },
               create: {
-                reviewAssignmentId: assignmentId,
-                vendorId: Number(row.vendorId),
-                organizationId: Number(row.organizationId),
-                sourceKey: plan.sourceKey!,
-                title: plan.title,
-                status: "REQUESTED",
-                severity: plan.severity,
-                dueAt: plan.dueAt,
-                payload: remediationPayload,
+                reviewAssignmentId:
+                  assignmentId,
+                vendorId:
+                  Number(row.vendorId),
+                organizationId:
+                  Number(
+                    row.organizationId,
+                  ),
+                sourceKey:
+                  plan.sourceKey!,
+                title:
+                  plan.title,
+                status:
+                  "REQUESTED",
+                severity:
+                  plan.severity,
+                dueAt:
+                  plan.dueAt,
+                payload:
+                  remediationPayload,
               },
-              update:
-                reviewerOverrideActive &&
-                existingPackageRows[0] &&
-                preservedReviewerPayload
-                  ? {
-                      title: existingPackageRows[0].title,
-                      severity: existingPackageRows[0].severity,
-                      dueAt: existingPackageRows[0].dueAt,
-                      payload: preservedReviewerPayload,
-                    }
-                  : {
-                      title: plan.title,
-                      severity: plan.severity,
-                      dueAt: plan.dueAt,
-                      payload: remediationPayload,
-                    },
+              update: {
+                title:
+                  plan.title,
+                severity:
+                  plan.severity,
+                dueAt:
+                  plan.dueAt,
+                payload:
+                  remediationPayload,
+              },
               select: {
                 id: true,
               },
             });
-      if (existing.length > 0) {
-        const existingRequestId = Number(existing[0].id);
-        const existingPackageId =
+
+      if (
+        existingRequestId != null
+      ) {
+        const packageId =
           remediationPackage.id;
 
-        if (!Number.isFinite(existingPackageId)) {
+        if (
+          !Number.isFinite(packageId)
+        ) {
           throw new Error(
             "Remediation package id missing while linking existing evidence request.",
           );
@@ -864,67 +1131,99 @@ export async function POST(_req: Request, props: Props) {
 
         await updateRemediationPackage({
           where: {
-            id: existingPackageId,
+            id: packageId,
           },
           data: {
-            evidenceRequestId: existingRequestId,
+            evidenceRequestId:
+              existingRequestId,
           },
         });
 
-        skipped.push(plan.title);
+        skipped.push(
+          plan.title,
+        );
+
         continue;
       }
 
       const insertedEvidenceRequest =
         await createEvidenceRequest({
           data: {
-            vendorId: Number(row.vendorId),
-            organizationId: Number(row.organizationId),
+            vendorId:
+              Number(row.vendorId),
+            organizationId:
+              Number(
+                row.organizationId,
+              ),
             requestedBy:
-              userId || "truvern-findings-engine",
-            kind: plan.kind as EvidenceRequestKind,
-            label: plan.title.slice(0, 240),
-            title: plan.title,
-            description: vendorEvidenceInstruction(plan),
-            dueAt: plan.dueAt,
-            status: "REQUESTED",
-            requestedAt: new Date(),
-            notes: "Auto-created by Truvern Findings Engine.",
+              userId ||
+              "truvern-findings-engine",
+            kind:
+              plan.kind as EvidenceRequestKind,
+            label:
+              plan.title.slice(
+                0,
+                240,
+              ),
+            title:
+              plan.title,
+            description:
+              vendorEvidenceInstruction(
+                plan,
+              ),
+            dueAt:
+              plan.dueAt,
+            status:
+              "REQUESTED",
+            requestedAt:
+              new Date(),
+            notes:
+              "Auto-created by Truvern Findings Engine.",
           },
           select: {
             id: true,
           },
         });
 
-      {
-        const evidenceRequestId = insertedEvidenceRequest.id;        created.push(evidenceRequestId);
-        const createdPackageId =
-          remediationPackage.id;
+      const evidenceRequestId =
+        insertedEvidenceRequest.id;
 
-        if (!Number.isFinite(createdPackageId)) {
-          throw new Error(
-            "Remediation package id missing while linking created evidence request.",
-          );
-        }
+      created.push(
+        evidenceRequestId,
+      );
 
-        await updateRemediationPackage({
-          where: {
-            id: createdPackageId,
-          },
-          data: {
-            evidenceRequestId,
-          },
-        });
+      const packageId =
+        remediationPackage.id;
+
+      if (
+        !Number.isFinite(packageId)
+      ) {
+        throw new Error(
+          "Remediation package id missing while linking created evidence request.",
+        );
       }
+
+      await updateRemediationPackage({
+        where: {
+          id: packageId,
+        },
+        data: {
+          evidenceRequestId,
+        },
+      });
     }
 
     return NextResponse.json({
       ok: true,
-      createdCount: created.length,
-      createdIds: created,
-      skippedCount: skipped.length,
+      createdCount:
+        created.length,
+      createdIds:
+        created,
+      skippedCount:
+        skipped.length,
       skipped,
-      message: `Published ${created.length} generated remediation request(s).`,
+      message:
+        `Published ${created.length} generated remediation request(s).`,
     });
   } catch (error: any) {
     const authError =
