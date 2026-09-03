@@ -44,6 +44,15 @@ const isApiNoRedirectRoute = createRouteMatcher([
   // Organization-scoped vendor APIs own their JSON auth responses.
   // Do not replace API 401/403 responses with Clerk HTML redirects.
   "/api/vendors(.*)",
+
+  // Public vendor assessment APIs are authenticated by assessment token
+  // inside their route handlers, not by a Clerk browser session.
+  "/api/vendor-assessment(.*)",
+  "/api/vendor/evidence-upload",
+
+  // Legacy vendor remediation submit is intentionally retired and must
+  // reach its fail-closed 410 handler instead of redirecting to sign-in.
+  "/api/vendor/remediation-packages(.*)",
   "/api/review-desk(.*)",
   "/api/governance(.*)",
   "/api/truvern/ops(.*)",
