@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { sendAssessmentVendorLink } from "@/lib/communications/assessment-vendor-link";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
@@ -828,6 +829,9 @@ export async function POST(req: Request) {
       }
 
 
+      let resolvedAssessmentId =
+        assessmentId ?? null;
+
       // AUTO_LAUNCH_TRUVERN_VENDOR_QUESTIONNAIRE
       // Truvern Review requests immediately create a vendor questionnaire token.
       if (mode === "truvern") {
@@ -905,7 +909,10 @@ export async function POST(req: Request) {
             limit 1
           `;
 
-          if (!existingAssessmentRows[0]) {
+          if (existingAssessmentRows[0]?.id) {
+            resolvedAssessmentId =
+              existingAssessmentRows[0].id;
+          } else {
             const token =
               randomBytes(24).toString("hex");
 
@@ -955,6 +962,9 @@ export async function POST(req: Request) {
               );
             }
 
+            resolvedAssessmentId =
+              createdAssessment.id;
+
             const linkedRequestCount =
               await tx.$executeRaw`
                 update "ReviewRequest"
@@ -990,6 +1000,8 @@ export async function POST(req: Request) {
           ok: true,
           requestId: request.id,
           assignmentId: assignment.id,
+          assessmentId:
+            resolvedAssessmentId,
           mode,
           reservation,
           legalAcknowledgement,
@@ -997,6 +1009,84 @@ export async function POST(req: Request) {
         },
       };
     });
+
+    if (
+      result.status === 200 &&
+      result.body.mode === "truvern"
+    ) {
+      try {
+        const deliveryAssessmentId =
+          result.body.assessmentId;
+
+        if (
+          !Number.isInteger(deliveryAssessmentId) ||
+          Number(deliveryAssessmentId) <= 0
+        ) {
+          console.error(
+            "TRUVERN_ASSIGNMENT_VENDOR_DELIVERY_ERROR",
+            {
+              assignmentId:
+                result.body.assignmentId,
+              error:
+                "Truvern Review committed without an exact assessment identity for vendor delivery.",
+            },
+          );
+
+          return json(result.status, {
+            ...result.body,
+            vendorDelivery: {
+              sent: false,
+              alreadySent: false,
+              error:
+                "Vendor delivery could not be completed automatically.",
+            },
+          });
+        }
+
+        const vendorDelivery =
+          await sendAssessmentVendorLink({
+            assessmentId:
+              Number(deliveryAssessmentId),
+            mode:
+              "AUTO_ONCE",
+          });
+
+        return json(result.status, {
+          ...result.body,
+          vendorDelivery: {
+            sent:
+              vendorDelivery.sent,
+            alreadySent:
+              vendorDelivery.alreadySent,
+            failed: false,
+            error: null,
+          },
+        });
+      } catch (deliveryError) {
+        console.error(
+          "TRUVERN_ASSIGNMENT_VENDOR_DELIVERY_ERROR",
+          {
+            assignmentId:
+              result.body.assignmentId,
+            error:
+              deliveryError instanceof Error
+                ? deliveryError.message
+                : String(deliveryError),
+          },
+        );
+
+        return json(result.status, {
+          ...result.body,
+          vendorDelivery: {
+            sent: false,
+            alreadySent: false,
+            failed: true,
+            error:
+              "Truvern Review was created, but the vendor invitation could not be delivered automatically.",
+          },
+        });
+      }
+    }
 
     return json(result.status, result.body);
   } catch (error) {
