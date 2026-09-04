@@ -165,6 +165,31 @@ describe(
     );
 
     it(
+      "keeps a newly routed Truvern review pending until reviewer work begins",
+      () => {
+        const source = readSource(
+          "app/api/review-desk/assignments/route.ts",
+        );
+
+        expect(source).toContain(
+          'mode === "truvern"\n          ? "PENDING"',
+        );
+
+        const truvernOwnershipUpdate =
+          source.match(
+            /update "ReviewAssignment"\s+set "reviewerName" = 'Truvern Review Team',\s+"assignedReviewerName" = 'Truvern Review Team',\s+"assignedTo" = 'Truvern Review Team'\s+where id = \$\{assignment\.id\}/,
+          );
+
+        expect(truvernOwnershipUpdate).not.toBeNull();
+
+        expect(
+          truvernOwnershipUpdate?.[0],
+        ).not.toContain(
+          '"startedAt"',
+        );
+      },
+    );
+    it(
       "returns successful delivery metadata on the assignment response",
       () => {
         const source = readSource(

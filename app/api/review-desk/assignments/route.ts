@@ -989,8 +989,7 @@ export async function POST(req: Request) {
             update "ReviewAssignment"
             set "reviewerName" = 'Truvern Review Team',
                 "assignedReviewerName" = 'Truvern Review Team',
-                "assignedTo" = 'Truvern Review Team',
-                "startedAt" = coalesce("startedAt", now())
+                "assignedTo" = 'Truvern Review Team'
             where id = ${assignment.id}
           `;
         }
