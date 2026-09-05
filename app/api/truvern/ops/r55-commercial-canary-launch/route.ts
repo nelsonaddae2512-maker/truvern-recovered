@@ -20,6 +20,11 @@ export const revalidate = 0;
 const CONFIRMATION =
   "CREATE-R55-CONTROLLED-ASSESSMENT";
 
+const CONTROLLED_ORGANIZATION_ID = 7;
+const CONTROLLED_VENDOR_ID = 1;
+const CONTROLLED_TEMPLATE_ID = 5;
+const CONTROLLED_PLAN_TIER = "FREE";
+
 function json(
   status: number,
   body: Record<string, unknown>,
@@ -114,13 +119,13 @@ export async function POST(
     });
   }
 
-  const organizationId =
+  const requestedOrganizationId =
     positiveInteger(body.organizationId);
 
-  const vendorId =
+  const requestedVendorId =
     positiveInteger(body.vendorId);
 
-  const templateId =
+  const requestedTemplateId =
     positiveInteger(body.templateId);
 
   const recipientEmail =
@@ -132,16 +137,34 @@ export async function POST(
     ).trim() || null;
 
   if (
-    !organizationId ||
-    !vendorId ||
-    !templateId ||
-    !recipientEmail
+    requestedOrganizationId !==
+      CONTROLLED_ORGANIZATION_ID ||
+    requestedVendorId !==
+      CONTROLLED_VENDOR_ID ||
+    requestedTemplateId !==
+      CONTROLLED_TEMPLATE_ID
   ) {
     return json(400, {
       error:
-        "Valid organizationId, vendorId, templateId, and recipientEmail are required.",
+        "R55 canary identity must exactly match the frozen controlled organization, vendor, and template.",
     });
   }
+
+  if (!recipientEmail) {
+    return json(400, {
+      error:
+        "Valid recipientEmail is required.",
+    });
+  }
+
+  const organizationId =
+    CONTROLLED_ORGANIZATION_ID;
+
+  const vendorId =
+    CONTROLLED_VENDOR_ID;
+
+  const templateId =
+    CONTROLLED_TEMPLATE_ID;
 
   const organization =
     await prisma.organization.findUnique({
@@ -158,6 +181,16 @@ export async function POST(
   if (!organization) {
     return json(404, {
       error: "Organization not found.",
+    });
+  }
+
+  if (
+    String(organization.planTier) !==
+    CONTROLLED_PLAN_TIER
+  ) {
+    return json(409, {
+      error:
+        "Controlled organization plan tier changed from the certified R55 baseline.",
     });
   }
 
@@ -239,16 +272,15 @@ export async function POST(
       vendorId,
       templateId,
       currentPlanTier:
-        String(
-          organization.planTier ??
-            "ENTERPRISE",
-        ),
+        String(organization.planTier),
       title:
         `R55 Production Commercial Canary - ${vendor.name}`,
       vendorEmailOverride:
         recipientEmail,
       vendorContactNameOverride:
         recipientName,
+      allowFreeTruvernReviewForControlledOpsCanary:
+        true,
     });
 
   if (!result.ok) {

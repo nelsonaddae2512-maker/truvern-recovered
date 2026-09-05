@@ -19,6 +19,7 @@ export type LaunchAssessmentInput = {
   dueAt?: Date | null;
   vendorEmailOverride?: string | null;
   vendorContactNameOverride?: string | null;
+  allowFreeTruvernReviewForControlledOpsCanary?: boolean;
 };
 
 export type LaunchAssessmentSuccess = {
@@ -131,7 +132,9 @@ export async function launchAssessment(
     String(input.currentPlanTier).toUpperCase() ===
       "FREE" &&
     template?.name ===
-      "Truvern NIST 800-53 Governance Review"
+      "Truvern NIST 800-53 Governance Review" &&
+    input.allowFreeTruvernReviewForControlledOpsCanary !==
+      true
   ) {
     return {
       ok: false,
