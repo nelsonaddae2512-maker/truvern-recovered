@@ -17,6 +17,8 @@ export type LaunchAssessmentInput = {
   currentPlanTier: AssessmentLaunchPlanTier;
   title?: string | null;
   dueAt?: Date | null;
+  vendorEmailOverride?: string | null;
+  vendorContactNameOverride?: string | null;
 };
 
 export type LaunchAssessmentSuccess = {
@@ -173,7 +175,14 @@ export async function launchAssessment(
       },
     });
 
-  if (existingAssessment?.token) {
+  const hasVendorSnapshotOverride =
+    input.vendorEmailOverride !== undefined ||
+    input.vendorContactNameOverride !== undefined;
+
+  if (
+    existingAssessment?.token &&
+    !hasVendorSnapshotOverride
+  ) {
     let existingRun =
       await prisma.assessmentRun.findFirst({
         where: {
@@ -222,8 +231,14 @@ export async function launchAssessment(
           `${template.name} for ${vendor.name}`,
         dueAt: input.dueAt ?? null,
         token,
-        vendorEmail: vendor.contactEmail,
-        vendorContactName: vendor.contactName,
+        vendorEmail:
+          input.vendorEmailOverride !== undefined
+            ? input.vendorEmailOverride?.trim().toLowerCase() || null
+            : vendor.contactEmail,
+        vendorContactName:
+          input.vendorContactNameOverride !== undefined
+            ? input.vendorContactNameOverride?.trim() || null
+            : vendor.contactName,
         launchedAt: now,
         startedAt: now,
         completionPercent: 0,
