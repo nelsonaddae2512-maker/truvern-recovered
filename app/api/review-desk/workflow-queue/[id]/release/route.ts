@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  requireGovernanceCapability,
+  requireReviewerAccess
+} from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { findWorkflowQueueItem, updateWorkflowQueueItems } from "@/lib/repositories/workflow-queue-repository";
 import { createWorkflowEvent } from "@/lib/repositories/workflow-event-repository";
@@ -14,7 +17,11 @@ type Props = {
 
 export async function POST(request: Request, props: Props) {
   try {
-    await requireReviewerAccess();
+    const reviewer = await requireReviewerAccess();
+    requireGovernanceCapability(
+      reviewer,
+      "assessment.review",
+    );
 
     const resolved = await props.params;
     const queueItemId = Number(resolved.id);
@@ -36,6 +43,19 @@ export async function POST(request: Request, props: Props) {
 
       if (!current || current.status !== "OPEN") {
         return null;
+      }
+
+      if (
+        reviewer.role !== "OPS" &&
+        reviewer.role !== "TRUVERN_REVIEWER" &&
+        (
+          reviewer.organizationId == null ||
+          reviewer.organizationId !== current.organizationId
+        )
+      ) {
+        throw new Error(
+          "Reviewer does not have access to this workflow queue item.",
+        );
       }
 
       const updateResult = await updateWorkflowQueueItems({

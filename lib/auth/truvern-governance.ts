@@ -8,8 +8,98 @@ export type GovernanceActor = {
   userId: string;
   organizationId: number | null;
   vendorId: number | null;
-  role: "OPS" | "REVIEWER" | "VENDOR" | "UNKNOWN";
+  role:
+    | "OPS"
+    | "TRUVERN_REVIEWER"
+    | "OWNER"
+    | "ADMIN"
+    | "ANALYST"
+    | "VIEWER"
+    | "VENDOR"
+    | "UNKNOWN";
 };
+
+export type GovernanceCapability =
+  | "governance.read"
+  | "assessment.manage"
+  | "assessment.review"
+  | "finding.manage"
+  | "governance.approve"
+  | "report.release"
+  | "member.manage"
+  | "billing.manage";
+
+const GOVERNANCE_CAPABILITIES_BY_ROLE = {
+  OPS: [
+    "governance.read",
+    "assessment.manage",
+    "assessment.review",
+    "finding.manage",
+    "governance.approve",
+    "report.release",
+  ],
+  TRUVERN_REVIEWER: [
+    "governance.read",
+    "assessment.review",
+    "finding.manage",
+  ],
+  OWNER: [
+    "governance.read",
+    "assessment.manage",
+    "assessment.review",
+    "finding.manage",
+    "governance.approve",
+    "report.release",
+    "member.manage",
+    "billing.manage",
+  ],
+  ADMIN: [
+    "governance.read",
+    "assessment.manage",
+    "assessment.review",
+    "finding.manage",
+    "governance.approve",
+    "report.release",
+    "member.manage",
+  ],
+  ANALYST: [
+    "governance.read",
+    "assessment.manage",
+    "assessment.review",
+    "finding.manage",
+  ],
+  VIEWER: [
+    "governance.read",
+  ],
+  VENDOR: [],
+  UNKNOWN: [],
+} satisfies Record<
+  GovernanceActor["role"],
+  readonly GovernanceCapability[]
+>;
+
+export function hasGovernanceCapability(
+  actor: GovernanceActor,
+  capability: GovernanceCapability,
+) {
+  const capabilities: readonly GovernanceCapability[] =
+    GOVERNANCE_CAPABILITIES_BY_ROLE[actor.role];
+
+  return capabilities.includes(capability);
+}
+
+export function requireGovernanceCapability(
+  actor: GovernanceActor,
+  capability: GovernanceCapability,
+) {
+  if (!hasGovernanceCapability(actor, capability)) {
+    throw governanceForbidden(
+      `Governance capability required: ${capability}.`,
+    );
+  }
+
+  return actor;
+}
 
 function parseOpsUsers() {
   return new Set(
@@ -90,7 +180,9 @@ export async function getGovernanceActor(): Promise<GovernanceActor> {
       userId,
       organizationId: null,
       vendorId: null,
-      role: truvernAccess.isTruvernReviewer ? "REVIEWER" : "UNKNOWN",
+      role: truvernAccess.isTruvernReviewer
+        ? "TRUVERN_REVIEWER"
+        : "UNKNOWN",
     };
   }
 
@@ -102,11 +194,11 @@ export async function getGovernanceActor(): Promise<GovernanceActor> {
     organizationId: membership.organizationId,
     vendorId: null,
     role:
-      normalizedRole.includes("REVIEW") ||
-      normalizedRole.includes("ADMIN") ||
-      normalizedRole.includes("OWNER") ||
-      normalizedRole.includes("ANALYST")
-        ? "REVIEWER"
+      normalizedRole === "OWNER" ||
+      normalizedRole === "ADMIN" ||
+      normalizedRole === "ANALYST" ||
+      normalizedRole === "VIEWER"
+        ? normalizedRole
         : "UNKNOWN",
   };
 }
@@ -123,7 +215,15 @@ export async function requireOpsAccess() {
 export async function requireReviewerAccess() {
   const actor = await getGovernanceActor();
 
-  if (!["OPS", "REVIEWER"].includes(actor.role)) {
+  if (
+    ![
+      "OPS",
+      "TRUVERN_REVIEWER",
+      "OWNER",
+      "ADMIN",
+      "ANALYST",
+    ].includes(actor.role)
+  ) {
     throw governanceForbidden("Reviewer access required.");
   }
 
@@ -172,7 +272,9 @@ export async function requireFrameworkAssessmentAccess(assessmentId: number) {
   }
 
   if (
-    actor.role === "REVIEWER" &&
+    ["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(
+      actor.role,
+    ) &&
     actor.organizationId &&
     assessment.organizationId &&
     actor.organizationId === assessment.organizationId

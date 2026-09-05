@@ -4,8 +4,8 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { insertGovernanceAuditLog } from "@/lib/repositories/governance-audit-log-repository";
 import {
-  requireReviewerAccess,
-  requireFrameworkAssessmentAccess,
+  requireGovernanceCapability,
+  requireReviewerAccess, requireFrameworkAssessmentAccess,
 } from "@/lib/auth/truvern-governance";
 import {
   buildFrameworkReleaseSnapshot,
@@ -45,6 +45,10 @@ export async function POST(_request: Request, context: RouteContext) {
     }
 
     const reviewer = await requireReviewerAccess();
+    requireGovernanceCapability(
+      reviewer,
+      "report.release",
+    );
     await requireFrameworkAssessmentAccess(assessmentId);
 
     const unresolvedFindings = await countTruvernAssessmentFindings({

@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
-import { requireReviewerAccess, requireFrameworkAssessmentAccess } from "@/lib/auth/truvern-governance";
+import {
+  requireGovernanceCapability,
+  requireReviewerAccess, requireFrameworkAssessmentAccess
+} from "@/lib/auth/truvern-governance";
 import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { countTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
 import { countTruvernRemediationRequests } from "@/lib/repositories/truvern-remediation-request-repository";
@@ -30,7 +33,11 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "Invalid assessment id." }, { status: 400 });
     }
 
-    await requireReviewerAccess();
+    const reviewer = await requireReviewerAccess();
+    requireGovernanceCapability(
+      reviewer,
+      "assessment.review",
+    );
     await requireFrameworkAssessmentAccess(assessmentId);
 
     const unresolvedFindings = await countTruvernAssessmentFindings({

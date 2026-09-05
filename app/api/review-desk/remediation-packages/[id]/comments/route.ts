@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  requireGovernanceCapability,
+  requireReviewerAccess,
+} from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -22,16 +25,20 @@ function canAccessPackage(
   actor: Awaited<ReturnType<typeof requireReviewerAccess>>,
   pkg: { organizationId: number },
 ) {
-  if (actor.role === "OPS") {
-    return true;
-  }
+  requireGovernanceCapability(
+    actor,
+    "assessment.review",
+  );
 
-  if (actor.role !== "REVIEWER") {
-    return false;
+  if (
+    actor.role === "OPS" ||
+    actor.role === "TRUVERN_REVIEWER"
+  ) {
+    return true;
   }
 
   if (actor.organizationId == null) {
-    return true;
+    return false;
   }
 
   return actor.organizationId === pkg.organizationId;

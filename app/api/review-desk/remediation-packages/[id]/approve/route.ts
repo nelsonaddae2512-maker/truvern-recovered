@@ -1,5 +1,9 @@
-﻿import { NextResponse } from "next/server";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import {
+  requireGovernanceCapability,
+  requireReviewerAccess
+} from "@/lib/auth/truvern-governance";
 import { emitWorkflowEvent } from "@/lib/workflow/workflow-events";
 import { WorkflowEvent } from "@/lib/workflow/workflow-constants";
 
@@ -13,7 +17,11 @@ type Props = {
 
 export async function POST(request: Request, props: Props) {
   try {
-    await requireReviewerAccess();
+    const actor = await requireReviewerAccess();
+    requireGovernanceCapability(
+      actor,
+      "governance.approve",
+    );
     const resolved = await props.params;
     const packageId = Number(resolved.id);
     const body = await request.json().catch(() => ({}));
@@ -22,14 +30,56 @@ export async function POST(request: Request, props: Props) {
       return NextResponse.json({ ok: false, error: "Remediation package id required." }, { status: 400 });
     }
 
+    const pkg =
+      await prisma.remediationPackage.findUnique({
+        where: {
+          id: packageId,
+        },
+        select: {
+          id: true,
+          organizationId: true,
+        },
+      });
+
+    if (!pkg) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Remediation package not found.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    if (
+      actor.role !== "OPS" &&
+      (
+        actor.organizationId == null ||
+        actor.organizationId !== pkg.organizationId
+      )
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Reviewer does not have access to this remediation package.",
+        },
+        {
+          status: 403,
+        },
+      );
+    }
+
     const result = await emitWorkflowEvent({
       event: WorkflowEvent.PackageApproved,
       packageId,
-      actor: body?.actor || "TRUVERN_REVIEWER",
+      actor: actor.role,
       summary: body?.summary || "Truvern approved the remediation package.",
       payload: {
         rationale: body?.rationale || "",
-        reviewerName: body?.reviewerName || null,
+        reviewerName: actor.userId,
       },
     });
 

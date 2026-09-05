@@ -1,6 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { requireDbOrganization } from "@/lib/org-db";
+import prisma from "@/lib/prisma";
+import {
+  requireGovernanceCapability,
+  requireReviewerAccess,
+} from "@/lib/auth/truvern-governance";
 import {
   confirmReviewRelease,
 } from "@/lib/services/review-release-service";
@@ -60,12 +64,15 @@ export async function POST(
     });
   }
 
+  let actor;
+
   try {
-    await requireDbOrganization();
+    actor = await requireReviewerAccess();
+    requireGovernanceCapability(actor, "report.release");
   } catch {
     return json(403, {
       ok: false,
-      error: "Organization required",
+      error: "Release authority required",
     });
   }
 
@@ -85,6 +92,36 @@ export async function POST(
     await req
       .json()
       .catch(() => ({}));
+
+  const assignment =
+    await prisma.reviewAssignment.findUnique({
+      where: {
+        id: assignmentId,
+      },
+      select: {
+        organizationId: true,
+      },
+    });
+
+  if (!assignment) {
+    return json(404, {
+      ok: false,
+      error: "Review assignment not found.",
+    });
+  }
+
+  if (
+    actor.role !== "OPS" &&
+    (
+      actor.organizationId == null ||
+      actor.organizationId !== assignment.organizationId
+    )
+  ) {
+    return json(403, {
+      ok: false,
+      error: "Review assignment is outside the active organization.",
+    });
+  }
 
   const result =
     await confirmReviewRelease({

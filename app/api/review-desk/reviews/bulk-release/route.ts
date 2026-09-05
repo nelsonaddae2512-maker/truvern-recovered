@@ -1,7 +1,11 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { logActivityEvent } from "@/lib/activity-log";
+import {
+  requireGovernanceCapability,
+  requireReviewerAccess,
+} from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +54,18 @@ export async function POST(req: Request) {
     );
   }
 
+  let actor;
+
+  try {
+    actor = await requireReviewerAccess();
+    requireGovernanceCapability(actor, "report.release");
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Release authority required" },
+      { status: 403 },
+    );
+  }
+
   const body = await req.json().catch(() => null);
   const assignmentIds = safeIds(body?.assignmentIds);
 
@@ -80,6 +96,10 @@ export async function POST(req: Request) {
       limit 1
     ) latest on true
     where ra.id = any(${assignmentIds}::int[])
+      and (
+        ${actor.role === "OPS"}
+        or ra."organizationId" = ${actor.organizationId ?? -1}
+      )
   `;
 
   const nowIso = new Date().toISOString();
@@ -147,7 +167,7 @@ export async function POST(req: Request) {
         organizationId: row.organizationId,
         vendorId: row.vendorId,
         type: "REVIEW_BULK_RELEASED",
-        title: `Review released · ${row.vendorName || `Assignment #${row.assignmentId}`}`,
+        title: `Review released - ${row.vendorName || `Assignment #${row.assignmentId}`}`,
         description:
           "A completed review was released through the Governance Ops bulk release workflow.",
         metadata: {
@@ -160,7 +180,7 @@ export async function POST(req: Request) {
         },
         actor: {
           userId: null,
-          name: "Governance Ops",
+          name: actor.role,
           email: null,
         },
       });
