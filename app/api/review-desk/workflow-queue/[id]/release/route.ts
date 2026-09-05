@@ -25,7 +25,6 @@ export async function POST(request: Request, props: Props) {
 
     const resolved = await props.params;
     const queueItemId = Number(resolved.id);
-    const body = await request.json().catch(() => ({}));
 
     if (!Number.isFinite(queueItemId) || queueItemId <= 0) {
       return NextResponse.json(
@@ -34,7 +33,7 @@ export async function POST(request: Request, props: Props) {
       );
     }
 
-    const actor = String(body?.actor || "TRUVERN_REVIEWER");
+    const auditActor = reviewer.role;
 
     const result = await prisma.$transaction(async (tx) => {
       const current = await findWorkflowQueueItem({
@@ -53,9 +52,10 @@ export async function POST(request: Request, props: Props) {
           reviewer.organizationId !== current.organizationId
         )
       ) {
-        throw new Error(
-          "Reviewer does not have access to this workflow queue item.",
-        );
+        return {
+          kind: "FORBIDDEN" as const,
+          item: null,
+        };
       }
 
       const updateResult = await updateWorkflowQueueItems({
@@ -95,7 +95,7 @@ export async function POST(request: Request, props: Props) {
           vendorId: item.vendorId,
           reviewAssignmentId: item.reviewAssignmentId,
           type: "QUEUE_ITEM_RELEASED",
-          actor,
+          actor: auditActor,
           summary: "Workflow queue item released.",
           payload: {
             queueItemId,
@@ -103,8 +103,21 @@ export async function POST(request: Request, props: Props) {
         },
       }, tx);
 
-      return item;
+      return {
+        kind: "RELEASED" as const,
+        item,
+      };
     });
+
+    if (result?.kind === "FORBIDDEN") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Reviewer does not have access to this workflow queue item.",
+        },
+        { status: 403 },
+      );
+    }
 
     if (!result) {
       return NextResponse.json(
@@ -115,7 +128,7 @@ export async function POST(request: Request, props: Props) {
 
     return NextResponse.json({
       ok: true,
-      item: result,
+      item: result.item,
     });
   } catch (error: any) {
     return NextResponse.json(
