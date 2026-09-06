@@ -144,6 +144,7 @@ type VendorsPageSearchParams = {
   q?: string | string[];
   stage?: string | string[];
   page?: string | string[];
+  truvernComprehensiveReview?: string | string[];
 };
 
 function firstSearchValue(
@@ -225,6 +226,11 @@ export default async function VendorsPage({
 
   const resolvedSearchParams =
     (await searchParams) ?? {};
+
+  const comprehensiveReviewRequested =
+    firstSearchValue(
+      resolvedSearchParams.truvernComprehensiveReview,
+    ) === "1";
 
   const q =
     firstSearchValue(
@@ -850,10 +856,16 @@ export default async function VendorsPage({
                   <div className="flex w-full max-w-[300px] flex-col gap-3 border-l border-white/10 pl-7 xl:items-stretch">
                     <div className="flex flex-wrap gap-3">
                       <Link
-                        href={`/vendors/${vendor.id}`}
+                        href={
+                          comprehensiveReviewRequested
+                            ? `/truvern/ops/comprehensive-reviews/${vendor.id}`
+                            : `/vendors/${vendor.id}`
+                        }
                         className="inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
                       >
-                        Open vendor workspace
+                        {comprehensiveReviewRequested
+                          ? "Select vendor"
+                          : "Open vendor workspace"}
                       </Link>
 
                       <Link
