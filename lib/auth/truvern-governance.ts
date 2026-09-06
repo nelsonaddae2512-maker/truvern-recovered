@@ -230,6 +230,53 @@ export async function requireReviewerAccess() {
   return actor;
 }
 
+export async function requireReviewAssignmentAccess(
+  assignmentId: number,
+) {
+  const actor = await getGovernanceActor();
+
+  const assignment = await prisma.reviewAssignment.findUnique({
+    where: {
+      id: assignmentId,
+    },
+    select: {
+      id: true,
+      organizationId: true,
+      vendorId: true,
+      status: true,
+      assignmentType: true,
+      reviewerUserId: true,
+    },
+  });
+
+  if (!assignment) {
+    throw governanceForbidden("Review assignment not found.");
+  }
+
+  if (actor.role === "OPS") {
+    return { actor, assignment };
+  }
+
+  if (
+    actor.role === "TRUVERN_REVIEWER" &&
+    String(assignment.assignmentType ?? "").toUpperCase() === "TRUVERN" &&
+    assignment.reviewerUserId === actor.userId
+  ) {
+    return { actor, assignment };
+  }
+
+  if (
+    ["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(actor.role) &&
+    actor.organizationId != null &&
+    actor.organizationId === assignment.organizationId
+  ) {
+    return { actor, assignment };
+  }
+
+  throw governanceForbidden(
+    "You do not have access to this review assignment.",
+  );
+}
 export async function requireFrameworkAssessmentAccess(assessmentId: number) {
   const actor = await getGovernanceActor();
 
