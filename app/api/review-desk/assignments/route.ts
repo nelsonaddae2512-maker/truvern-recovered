@@ -13,6 +13,10 @@ import { findFirstReviewAssignment } from "@/lib/repositories/review-assignment-
 import { aggregateTruvernCreditLedger, createTruvernCreditLedgerEntry, findFirstTruvernCreditLedgerEntry } from "@/lib/repositories/review-credit-ledger-repository";
 import { acquireReviewAssignmentAdvisoryLock } from "@/lib/repositories/review-assignment-lock-repository";
 import { readTruvernReviewTemplateSelection } from "@/lib/repositories/truvern-review-template-repository";
+import {
+  getGovernanceActor,
+  requireGovernanceCapability,
+} from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -239,6 +243,9 @@ export async function POST(req: Request) {
       });
     }
 
+    const actor = await getGovernanceActor();
+    requireGovernanceCapability(actor, "assessment.manage");
+
     const body = await req.json().catch(() => null);
     const vendorId = safeInt(body?.vendorId);
     const assessmentId = safeInt(body?.assessmentId);
@@ -283,6 +290,22 @@ export async function POST(req: Request) {
 
       if (!vendor) {
         return { status: 404, body: { ok: false, error: "Vendor not found" } };
+      }
+
+      if (
+        actor.role !== "OPS" &&
+        (
+          actor.organizationId == null ||
+          actor.organizationId !== vendor.organizationId
+        )
+      ) {
+        return {
+          status: 403,
+          body: {
+            ok: false,
+            error: "Forbidden",
+          },
+        };
       }
 
       await acquireReviewAssignmentAdvisoryLock(tx, {

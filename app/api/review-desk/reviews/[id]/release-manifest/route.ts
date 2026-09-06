@@ -66,6 +66,21 @@ export async function GET(req: Request, ctx: RouteContext) {
     if (!gate.ok) {
       return gate.response;
     }
+
+    if ("_needsOrgSelection" in gate.org) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Organization required",
+        },
+        {
+          status: 403,
+          headers: {
+            "cache-control": "no-store",
+          },
+        },
+      );
+    }
 const params = await ctx.params;
     const assignmentId = safeInt(params?.id);
 
@@ -77,7 +92,10 @@ const params = await ctx.params;
     }
 
     const assignment = await findReviewAssignment({
-      where: { id: assignmentId },
+      where: {
+        id: assignmentId,
+        organizationId: gate.org.id,
+      },
       select: {
         id: true,
         reviewRequest: {

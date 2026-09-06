@@ -9,6 +9,10 @@ import {
   type ReviewAssignmentAction,
 } from "@/lib/services/review-assignment-service";
 import { createNotifications } from "@/lib/repositories/notification-repository";
+import {
+  getGovernanceActor,
+  requireGovernanceCapability,
+} from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -136,6 +140,88 @@ export async function POST(
     safeString(
       body?.reviewerUserId,
     );
+
+  const governanceActor =
+    await getGovernanceActor();
+
+  const assignmentScope =
+    await prisma.reviewAssignment.findUnique({
+      where: {
+        id: assignmentId,
+      },
+      select: {
+        organizationId: true,
+        assignmentType: true,
+      },
+    });
+
+  if (!assignmentScope) {
+    return json(404, {
+      ok: false,
+      error: "Assignment not found",
+    });
+  }
+
+  if (action === "assign") {
+    requireGovernanceCapability(
+      governanceActor,
+      "assessment.review",
+    );
+
+    if (
+      governanceActor.role ===
+      "TRUVERN_REVIEWER"
+    ) {
+      if (
+        String(
+          assignmentScope.assignmentType ??
+            "",
+        ).toUpperCase() !== "TRUVERN" ||
+        reviewerUserId !== userId
+      ) {
+        return json(403, {
+          ok: false,
+          error: "Forbidden",
+        });
+      }
+    } else if (
+      governanceActor.role !== "OPS" &&
+      (
+        governanceActor.organizationId ==
+          null ||
+        governanceActor.organizationId !==
+          assignmentScope.organizationId
+      )
+    ) {
+      return json(403, {
+        ok: false,
+        error: "Forbidden",
+      });
+    }
+  } else if (
+    action === "truvern" ||
+    action === "unassign"
+  ) {
+    requireGovernanceCapability(
+      governanceActor,
+      "assessment.manage",
+    );
+
+    if (
+      governanceActor.role !== "OPS" &&
+      (
+        governanceActor.organizationId ==
+          null ||
+        governanceActor.organizationId !==
+          assignmentScope.organizationId
+      )
+    ) {
+      return json(403, {
+        ok: false,
+        error: "Forbidden",
+      });
+    }
+  }
 
   const requestedReviewerName =
     safeString(

@@ -1,6 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
+import {
+  getGovernanceActor,
+  requireGovernanceCapability,
+} from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +41,14 @@ export async function POST(req: Request) {
     return json(401, { ok: false, error: "Unauthorized" });
   }
 
+  const governanceActor =
+    await getGovernanceActor();
+
+  requireGovernanceCapability(
+    governanceActor,
+    "assessment.review",
+  );
+
   const body = await req.json().catch(() => null);
   const assignmentIds = parseIds(body?.assignmentIds);
 
@@ -60,19 +72,39 @@ export async function POST(req: Request) {
   const rows = await prisma.$queryRaw<
     Array<{
       id: number;
+      organizationId: number;
+      assignmentType: string;
       reviewerUserId: string | null;
     }>
   >`
     select
       id,
-      "reviewerUserId"
+      "reviewerUserId",
+      "organizationId",
+      "assignmentType"
     from "ReviewAssignment"
     where id = any(${assignmentIds}::int[])
   `;
 
-  const existingIds = new Set(rows.map((row: any) => Number(row.id)));
 
-  const unassignedIds = rows
+  const authorizedRows = rows.filter((row) => {
+    if (governanceActor.role === "OPS") {
+      return true;
+    }
+
+    if (governanceActor.role === "TRUVERN_REVIEWER") {
+      return safeStr(row.assignmentType).toUpperCase() === "TRUVERN";
+    }
+
+    return (
+      governanceActor.organizationId != null &&
+      governanceActor.organizationId === row.organizationId
+    );
+  });
+
+  const existingIds = new Set(authorizedRows.map((row) => Number(row.id)));
+
+  const unassignedIds = authorizedRows
     .filter((row: any) => !safeStr(row.reviewerUserId))
     .map((row: any) => Number(row.id));
 

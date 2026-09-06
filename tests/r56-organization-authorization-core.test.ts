@@ -401,4 +401,148 @@ describe("R56 organization authorization core", () => {
       'ra."organizationId" = ${actor.organizationId ?? -1}',
     );
   });
+
+  it("enforces assessment.manage and tenant scope on assignment creation", () => {
+    const source = readFileSync(
+      "app/api/review-desk/assignments/route.ts",
+      "utf8",
+    );
+
+    expect(source).toContain(
+      'requireGovernanceCapability(actor, "assessment.manage")',
+    );
+
+    expect(source).toContain(
+      'actor.role !== "OPS"',
+    );
+
+    expect(source).toContain(
+      "actor.organizationId !== vendor.organizationId",
+    );
+  });
+
+  it("enforces action-aware authorization on single assignment mutations", () => {
+    const source = readFileSync(
+      "app/api/review-desk/reviews/[id]/assign/route.ts",
+      "utf8",
+    );
+
+    const authorizationStart = source.indexOf(
+      'if (action === "assign")',
+    );
+
+    const authorizationEnd = source.indexOf(
+      "const requestedReviewerName",
+      authorizationStart,
+    );
+
+    expect(authorizationStart).toBeGreaterThanOrEqual(0);
+    expect(authorizationEnd).toBeGreaterThan(authorizationStart);
+
+    const authorization = source.slice(
+      authorizationStart,
+      authorizationEnd,
+    );
+
+    expect(authorization).toContain(
+      '"assessment.review"',
+    );
+
+    expect(authorization).toContain(
+      '"assessment.manage"',
+    );
+
+    expect(authorization).toContain(
+      'action === "truvern"',
+    );
+
+    expect(authorization).toContain(
+      'action === "unassign"',
+    );
+
+    expect(authorization).toContain(
+      '"TRUVERN_REVIEWER"',
+    );
+
+    expect(authorization).toContain(
+      ').toUpperCase() !== "TRUVERN"',
+    );
+
+    expect(authorization).toContain(
+      "reviewerUserId !== userId",
+    );
+
+    expect(authorization).toContain(
+      'governanceActor.role !== "OPS"',
+    );
+
+    expect(authorization).toContain(
+      "assignmentScope.organizationId",
+    );
+  });
+
+  it("enforces effective scope on bulk assignment", () => {
+    const source = readFileSync(
+      "app/api/review-desk/reviews/bulk-assign/route.ts",
+      "utf8",
+    );
+
+    expect(source).toContain(
+      '"assessment.review"',
+    );
+
+    expect(source).toContain(
+      'governanceActor.role === "OPS"',
+    );
+
+    expect(source).toContain(
+      'governanceActor.role === "TRUVERN_REVIEWER"',
+    );
+
+    expect(source).toContain(
+      'safeStr(row.assignmentType).toUpperCase() === "TRUVERN"',
+    );
+
+    expect(source).toContain(
+      "governanceActor.organizationId === row.organizationId",
+    );
+
+    expect(source).toContain(
+      "const authorizedRows = rows.filter",
+    );
+
+    expect(source).toContain(
+      "new Set(authorizedRows.map",
+    );
+
+    expect(source).toContain(
+      "const unassignedIds = authorizedRows",
+    );
+  });
+
+  it("scopes release manifest before response access", () => {
+    const source = readFileSync(
+      "app/api/review-desk/reviews/[id]/release-manifest/route.ts",
+      "utf8",
+    );
+
+    expect(source).toContain(
+      '"_needsOrgSelection" in gate.org',
+    );
+
+    expect(source).toContain(
+      "organizationId: gate.org.id",
+    );
+
+    const tenantScope = source.indexOf(
+      "organizationId: gate.org.id",
+    );
+
+    const responseAccess = source.indexOf(
+      "await findLatestReviewResponse(",
+    );
+
+    expect(tenantScope).toBeGreaterThanOrEqual(0);
+    expect(responseAccess).toBeGreaterThan(tenantScope);
+  });
 });
