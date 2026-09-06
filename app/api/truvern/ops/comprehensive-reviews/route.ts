@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { acquireReviewAssignmentAdvisoryLock } from "@/lib/repositories/review-assignment-lock-repository";
 import { createTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { createTruvernAssessmentResponses } from "@/lib/repositories/truvern-assessment-response-repository";
+import { reserveReviewCredits } from "@/lib/services/review-credit-ledger-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,46 @@ const CANONICAL_FRAMEWORK_SLUG =
 const EXPECTED_CANONICAL_QUESTION_COUNT =
   301;
 
+
+function comprehensiveReviewCreditCost(): number {
+  const configured =
+    Number(
+      process.env.TRUVERN_REVIEW_CREDIT_COST ??
+        1,
+    );
+
+  if (
+    !Number.isFinite(configured) ||
+    configured <= 0
+  ) {
+    return 1;
+  }
+
+  return Math.floor(configured);
+}
+
+class ComprehensiveReviewCreditError extends Error {
+  readonly requiredCredits: number;
+  readonly availableCredits: number;
+
+  constructor(
+    requiredCredits: number,
+    availableCredits: number,
+  ) {
+    super(
+      "Comprehensive Truvern Review requires available Truvern credits.",
+    );
+
+    this.name =
+      "ComprehensiveReviewCreditError";
+
+    this.requiredCredits =
+      requiredCredits;
+
+    this.availableCredits =
+      availableCredits;
+  }
+}
 type ExistingRow = {
   assignmentId: number;
   assessmentId: number;
@@ -298,7 +339,54 @@ export async function POST(
               "Failed to create comprehensive review assignment.",
             );
           }
+          const creditCost =
+            comprehensiveReviewCreditCost();
 
+          const creditReservation =
+            await reserveReviewCredits(
+              tx,
+              {
+                organizationId:
+                  vendor.organizationId,
+                assignmentId:
+                  assignment.id,
+                reviewRequestId:
+                  reviewRequest.id,
+                vendorId:
+                  vendor.id,
+                actorUserId:
+                  actor.userId ?? null,
+                cost:
+                  creditCost,
+                source:
+                  "truvern_ops_comprehensive_review",
+                eventKey:
+                  `review:${assignment.id}:reservation`,
+                note:
+                  `Reserved ${creditCost} Truvern credit${
+                    creditCost === 1 ? "" : "s"
+                  } for comprehensive NIST review.`,
+                metadata: {
+                  comprehensiveNist:
+                    true,
+                  frameworkSlug:
+                    framework.slug,
+                  frameworkVersion:
+                    framework.version,
+                  questionCount:
+                    questions.length,
+                  requestedBySource:
+                    "truvern-ops-library",
+                },
+              },
+            );
+
+          if (!creditReservation.ok) {
+            throw new ComprehensiveReviewCreditError(
+              creditReservation.requiredCredits,
+              creditReservation.availableCredits,
+            );
+          }
           const dueAt =
             new Date(
               Date.now() +
@@ -392,6 +480,14 @@ export async function POST(
               assignment.id,
             assessmentId:
               assessment.id,
+            creditReservation: {
+              reservedCredits:
+                creditReservation.reservedCredits,
+              eventKey:
+                creditReservation.eventKey,
+              reused:
+                creditReservation.reused,
+            },
           };
         },
       );
@@ -409,10 +505,34 @@ export async function POST(
         questions.length,
       reviewDeskUrl:
         `/review-desk/${result.assignmentId}`,
-      vendorWorkspaceUrl:
-        `/vendor-assessments/${result.assessmentId}`,
+      vendorWorkspaceAvailable:
+        false,
     });
   } catch (error) {
+    if (
+      error instanceof
+        ComprehensiveReviewCreditError
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code:
+            "TRUVERN_CREDITS_REQUIRED",
+          error:
+            error.message,
+          requiredCredits:
+            error.requiredCredits,
+          availableCredits:
+            error.availableCredits,
+          fundingUrl:
+            "/billing/credits",
+        },
+        {
+          status: 402,
+        },
+      );
+    }
+
     console.error(
       "TRUVERN_COMPREHENSIVE_REVIEW_CREATE_ERROR",
       error,

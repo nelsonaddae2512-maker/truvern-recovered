@@ -14,7 +14,6 @@ type LaunchResult = {
   assessmentId?: number;
   questionCount?: number;
   reviewDeskUrl?: string;
-  vendorWorkspaceUrl?: string;
 };
 
 export default function ComprehensiveReviewLauncher({
@@ -127,17 +126,6 @@ export default function ComprehensiveReviewLauncher({
                 className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
               >
                 Open Review Desk
-              </a>
-            ) : null}
-
-            {result.vendorWorkspaceUrl ? (
-              <a
-                href={result.vendorWorkspaceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl border border-white/15 bg-white/[0.05] px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/[0.09]"
-              >
-                Preview vendor workspace
               </a>
             ) : null}
           </div>
