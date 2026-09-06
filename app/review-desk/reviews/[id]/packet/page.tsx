@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
 import { governanceLabel } from "@/lib/governance/labels";
+import { buildCisoReportProjection } from "@/lib/governance/ciso-report";
 import PrintPacketButton from "@/components/review-desk/print-packet-button.client";
 
 
@@ -254,6 +255,31 @@ const sealVerified =
           row.vendorId,
         )
       : [];
+
+  const cisoReportAsOf =
+    governanceSealedAt ||
+    reviewFinalizedAt ||
+    row.outcomeUpdatedAt ||
+    null;
+
+  const cisoReport =
+    buildCisoReportProjection({
+      assignmentId,
+      vendorName: row.vendorName,
+      vendorCategory: row.vendorCategory,
+      responses,
+      governanceReleasePackage,
+      canonicalGovernanceArtifact,
+      evidenceCount: evidenceRows.length,
+      asOf: cisoReportAsOf,
+    });
+
+  const materialFindings =
+    cisoReport.findings.filter(
+      (finding) =>
+        finding.severity === "CRITICAL" ||
+        finding.severity === "HIGH",
+    );
   const lastEvidenceAt =
   evidenceRows.length > 0
     ? evidenceRows
@@ -351,6 +377,181 @@ function relativeTime(value?: string | number | Date | null) {
             </p>
           </section>
         ) : null}
+
+        <section className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-700">
+            Truvern Third-Party Cyber Risk Assessment Report
+          </p>
+
+          <div className="mt-3 flex flex-col justify-between gap-2 md:flex-row md:items-end">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-950">
+                CISO decision brief
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-600">
+                {cisoReport.schema}
+                {cisoReportAsOf ? (
+                  <>
+                    {" "}· Assessment as of {formatDate(cisoReportAsOf)}
+                  </>
+                ) : null}
+              </p>
+            </div>
+
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              {safeStr(row.vendorCategory) || "Third-party vendor"}
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                Decision
+              </p>
+              <p className="mt-2 break-words text-lg font-bold text-slate-950">
+                {governanceLabel(cisoReport.decision)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                Residual risk
+              </p>
+              <p className="mt-2 text-lg font-bold text-slate-950">
+                {governanceLabel(cisoReport.residualRisk)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                Open findings
+              </p>
+              <p className="mt-2 text-lg font-bold text-slate-950">
+                {cisoReport.findingSummary.open}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {cisoReport.findingSummary.total} total
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                Evidence artifacts
+              </p>
+              <p className="mt-2 text-lg font-bold text-slate-950">
+                {cisoReport.evidenceSummary.artifactCount}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                Critical
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">
+                {cisoReport.findingSummary.critical}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                High
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">
+                {cisoReport.findingSummary.high}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                Moderate
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">
+                {cisoReport.findingSummary.moderate}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                Low
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">
+                {cisoReport.findingSummary.low}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
+                Material findings
+              </h3>
+
+              {materialFindings.length ? (
+                <div className="mt-4 space-y-3">
+                  {materialFindings.map((finding, index) => (
+                    <div
+                      key={`${finding.controlId || "finding"}-${index}`}
+                      className="rounded-xl border border-slate-200 p-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                          {finding.severity}
+                        </span>
+
+                        {finding.controlId ? (
+                          <span className="font-mono text-xs text-slate-500">
+                            {finding.controlId}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-2 text-sm font-semibold text-slate-950">
+                        {finding.title}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">
+                  No critical or high findings recorded.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
+                Business recommendation
+              </h3>
+
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                {cisoReport.finalRecommendation}
+              </p>
+
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                  Conditions & follow-ups
+                </p>
+
+                <p className="mt-2 text-sm font-semibold text-slate-950">
+                  {cisoReport.conditionsAndFollowUps.length}
+                </p>
+              </div>
+
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                  Control-family coverage
+                </p>
+
+                <p className="mt-2 text-sm font-semibold text-slate-950">
+                  {governanceLabel(cisoReport.controlFamilyCoverage)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 p-4">

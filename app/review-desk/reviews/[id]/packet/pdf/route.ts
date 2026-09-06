@@ -4,6 +4,7 @@ const PDFDocument = require("pdfkit/js/pdfkit.standalone.js");
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
 import { readGovernancePacketAssignment, readGovernancePacketEvidence } from "@/lib/repositories/governance-packet-pdf-repository";
+import { buildCisoReportProjection } from "@/lib/governance/ciso-report";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -312,6 +313,146 @@ writeBlock(doc, "Executive Summary", governanceDisplayText(executiveSummary));
   const evidenceRows = row.vendorId
     ? await readGovernancePacketEvidence(Number(row.vendorId))
     : [];
+
+  const cisoReportAsOf =
+    snapshot?.governanceSeal?.sealedAt ||
+    snapshot?.reviewFinalizedAt ||
+    snapshot?.finalizedAt ||
+    snapshot?.releasedAt ||
+    responses?.reviewFinalizedAt ||
+    responses?.releasedAt ||
+    responses?.confirmedAt ||
+    row.outcomeUpdatedAt ||
+    null;
+
+  const cisoReport =
+    buildCisoReportProjection({
+      assignmentId,
+      vendorName: row.vendorName,
+      vendorCategory: row.vendorCategory,
+      responses,
+      governanceReleasePackage,
+      canonicalGovernanceArtifact,
+      evidenceCount: evidenceRows.length,
+      asOf: cisoReportAsOf,
+    });
+
+  const materialFindings =
+    cisoReport.findings.filter(
+      (finding) =>
+        finding.severity === "CRITICAL" ||
+        finding.severity === "HIGH",
+    );
+
+  doc.moveDown(0.35);
+
+  doc
+    .fontSize(15)
+    .fillColor("#020617")
+    .text(
+      "Truvern Third-Party Cyber Risk Assessment Report",
+    );
+
+  doc
+    .moveDown(0.2)
+    .fontSize(9)
+    .fillColor("#475569")
+    .text(
+      `CISO decision brief | ${cisoReport.schema}`,
+    );
+
+  if (cisoReportAsOf) {
+    doc
+      .moveDown(0.15)
+      .fontSize(9)
+      .fillColor("#475569")
+      .text(
+        `Assessment as of ${new Date(cisoReportAsOf).toLocaleString()}`,
+      );
+  }
+
+  doc.moveDown(0.55);
+
+  writeBlock(
+    doc,
+    "Decision",
+    governanceDisplayText(
+      cisoReport.decision,
+    ),
+  );
+
+  writeBlock(
+    doc,
+    "Residual Risk",
+    governanceDisplayText(
+      cisoReport.residualRisk,
+    ),
+  );
+
+  writeBlock(
+    doc,
+    "Finding Posture",
+    [
+      `${cisoReport.findingSummary.open} open / ${cisoReport.findingSummary.total} total`,
+      `Critical: ${cisoReport.findingSummary.critical}`,
+      `High: ${cisoReport.findingSummary.high}`,
+      `Moderate: ${cisoReport.findingSummary.moderate}`,
+      `Low: ${cisoReport.findingSummary.low}`,
+    ].join("\n"),
+  );
+
+  writeBlock(
+    doc,
+    "Evidence Artifacts",
+    String(
+      cisoReport.evidenceSummary.artifactCount,
+    ),
+  );
+
+  writeBlock(
+    doc,
+    "Control-Family Coverage",
+    governanceDisplayText(
+      cisoReport.controlFamilyCoverage,
+    ),
+  );
+
+  writeBlock(
+    doc,
+    "Business Recommendation",
+    cisoReport.finalRecommendation,
+  );
+
+  writeBlock(
+    doc,
+    "Conditions & Follow-ups",
+    cisoReport.conditionsAndFollowUps.length
+      ? cisoReport.conditionsAndFollowUps.join(
+          "\n",
+        )
+      : "None recorded.",
+  );
+
+  writeBlock(
+    doc,
+    "Material Findings",
+    materialFindings.length
+      ? materialFindings
+          .map(
+            (finding) =>
+              [
+                finding.severity,
+                finding.controlId,
+                finding.title,
+              ]
+                .filter(Boolean)
+                .join(" | "),
+          )
+          .join("\n")
+      : "No critical or high findings recorded.",
+  );
+
+  doc.moveDown(0.35);
 
 doc.moveDown(0.35);
 
