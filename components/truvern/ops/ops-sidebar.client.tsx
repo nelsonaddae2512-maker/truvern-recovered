@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -9,6 +9,7 @@ const opsLinks = [
   { href: "/truvern/ops", label: "Command Center", helper: "Network overview" },
   { href: "/truvern/ops/funding", label: "Funding", helper: "Credits & overrides" },
   { href: "/truvern/ops/network", label: "Network", helper: "Customer graph" },
+  { href: "/truvern/ops/library", label: "Library", helper: "Assessment frameworks" },
   { href: "/truvern/ops/governance-health", label: "Health", helper: "System posture" },
   { href: "/truvern/ops/reviews", label: "Governance Ops", helper: "Expert operations" },
 ];
@@ -177,7 +178,3 @@ export default function OpsSidebar() {
     </>
   );
 }
-
-
-
-
