@@ -49,6 +49,9 @@ export async function GET(
 
     const manifestRow = await findGovernanceReleaseManifest({
       where: {
+        releaseState: {
+          in: ["RELEASED", "CONFIRMED"],
+        },
         OR: [
           { id: numericLookupId },
           { reviewAssignmentId: numericLookupId },

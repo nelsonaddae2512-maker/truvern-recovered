@@ -7,6 +7,7 @@ import {
 } from "@/lib/governance-signing-keys";
 
 import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
+import { findGovernanceReleaseManifest } from "@/lib/repositories/review-release-repository";
 import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findVendor } from "@/lib/repositories/vendor-repository";
 
@@ -29,6 +30,31 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "Invalid assignment id" }, { status: 400 });
     }
 
+    const finalReleaseManifest =
+      await findGovernanceReleaseManifest({
+        where: {
+          reviewAssignmentId: assignmentId,
+          releaseState: {
+            in: ["RELEASED", "CONFIRMED"],
+          },
+        },
+        select: {
+          id: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+    if (!finalReleaseManifest) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Governance release not found",
+        },
+        { status: 404 },
+      );
+    }
     const assignment = await findReviewAssignment({
       where: {
         id: assignmentId,
