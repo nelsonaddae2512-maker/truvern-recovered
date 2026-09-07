@@ -1,7 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { governanceForbidden, governanceUnauthorized } from "@/lib/auth/governance-auth-errors";
-import { readGovernanceDbUserId } from "@/lib/repositories/governance-auth-repository";
+import {
+  claimGovernanceDbUserByEmail,
+  readGovernanceDbUserId,
+} from "@/lib/repositories/governance-auth-repository";
 import { getCurrentTruvernAccess } from "@/lib/truvern-ops-access";
 
 export type GovernanceActor = {
@@ -110,10 +113,60 @@ function parseOpsUsers() {
   );
 }
 
-async function findDbUserIdFromClerkUserId(clerkUserId: string) {
-  const rows = await readGovernanceDbUserId(clerkUserId);
+async function findDbUserIdFromClerkUserId(
+  clerkUserId: string,
+) {
+  const rows =
+    await readGovernanceDbUserId(
+      clerkUserId,
+    );
 
-  return rows[0]?.id ?? null;
+  const existingUserId =
+    rows[0]?.id ?? null;
+
+  if (existingUserId) {
+    return existingUserId;
+  }
+
+  /*
+   * A customer administrator can pre-provision a membership by
+   * verified email before the invited person has a Clerk identity
+   * linked to Truvern.
+   *
+   * On that person's first authenticated governance request, claim
+   * only the matching unbound DB user. The repository refuses to
+   * reassign a user already bound to another Clerk identity.
+   */
+  const clerkUser =
+    await currentUser().catch(
+      () => null,
+    );
+
+  if (
+    !clerkUser ||
+    clerkUser.id !== clerkUserId
+  ) {
+    return null;
+  }
+
+  const primaryEmail =
+    clerkUser.primaryEmailAddress
+      ?.emailAddress
+      ?.trim()
+      .toLowerCase() ??
+    "";
+
+  if (!primaryEmail) {
+    return null;
+  }
+
+  const claimed =
+    await claimGovernanceDbUserByEmail({
+      clerkUserId,
+      email: primaryEmail,
+    });
+
+  return claimed?.id ?? null;
 }
 
 export async function getGovernanceActor(): Promise<GovernanceActor> {

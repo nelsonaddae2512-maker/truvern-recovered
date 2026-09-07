@@ -14,6 +14,7 @@ const workspaceLinks = [
   { href: "/truvern-reviews", label: "Truvern Reviews" },
   { href: "/governance-ops", label: "Governance Ops" },
   { href: "/ciso-reports", label: "CISO Reports" },
+  { href: "/access", label: "Access" },
   { href: "/assessments", label: "Assessments" },
   { href: "/billing/credits", label: "Credits" },
   { href: "/billing/plans", label: "Plans" },
