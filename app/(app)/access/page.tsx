@@ -1,21 +1,20 @@
 import { redirect } from "next/navigation";
 
 import AccessMembers from "@/components/access/access-members.client";
-import { getGovernanceActor } from "@/lib/auth/truvern-governance";
+import {
+  getCustomerOrganizationActor,
+} from "@/lib/auth/customer-organization-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AccessPage() {
   const actor =
-    await getGovernanceActor();
+    await getCustomerOrganizationActor().catch(
+      () => null,
+    );
 
-  if (
-    !["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(
-      actor.role,
-    ) ||
-    !actor.organizationId
-  ) {
+  if (!actor) {
     redirect("/dashboard");
   }
 

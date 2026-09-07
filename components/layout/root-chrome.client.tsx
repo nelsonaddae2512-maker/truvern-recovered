@@ -45,9 +45,9 @@ const appLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/vendors", label: "Vendors" },
   { href: "/communications", label: "Communications" },
-  { href: "/truvern-reviews", label: "Truvern Reviews" },
-  { href: "/governance-ops", label: "Governance Ops" },
-  { href: "/ciso-reports", label: "CISO Reports" },
+  { href: "/truvern-reviews", label: "Reviews" },
+  { href: "/governance-ops", label: "Governance" },
+  { href: "/ciso-reports", label: "Reports" },
   { href: "/access", label: "Access" },
   { href: "/assessments/catalog", label: "Assessments" },
   { href: "/billing/credits", label: "Credits" },
@@ -81,7 +81,7 @@ function NavLink({
     <Link
       href={href}
       className={[
-        "text-sm transition",
+        "whitespace-nowrap text-sm transition",
         active ? "text-white" : "text-slate-400 hover:text-white",
       ].join(" ")}
     >
@@ -332,7 +332,7 @@ function AppNav({
   );
 return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#020617]/95 backdrop-blur">
-      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:min-h-20 sm:px-6">
+      <div className="mx-auto flex min-h-16 w-full max-w-[1536px] items-center justify-between gap-3 px-4 py-3 sm:min-h-20 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-8">
           <Link
             href="/dashboard"
@@ -351,7 +351,7 @@ return (
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-5 xl:flex">
+          <nav className="hidden items-center gap-4 xl:flex">
             {visibleAppLinks.map((link) => (
               <NavLink
                 key={link.href}

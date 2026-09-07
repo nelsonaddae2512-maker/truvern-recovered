@@ -11,9 +11,9 @@ const workspaceLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/vendors", label: "Vendors" },
   { href: "/communications", label: "Communications" },
-  { href: "/truvern-reviews", label: "Truvern Reviews" },
-  { href: "/governance-ops", label: "Governance Ops" },
-  { href: "/ciso-reports", label: "CISO Reports" },
+  { href: "/truvern-reviews", label: "Reviews" },
+  { href: "/governance-ops", label: "Governance" },
+  { href: "/ciso-reports", label: "Reports" },
   { href: "/access", label: "Access" },
   { href: "/assessments", label: "Assessments" },
   { href: "/billing/credits", label: "Credits" },
@@ -75,6 +75,7 @@ export default function AppShellNav() {
     pathname.startsWith("/governance-ops") || pathname.startsWith("/review-desk") || pathname.startsWith("/truvern-reviews") ||
     pathname.startsWith("/governance-ops") || pathname.startsWith("/review-desk") ||
     pathname.startsWith("/ciso-reports") ||
+    pathname.startsWith("/access") ||
     pathname.startsWith("/assessments") ||
     pathname.startsWith("/billing") ||
     pathname.startsWith("/truvern/ops");

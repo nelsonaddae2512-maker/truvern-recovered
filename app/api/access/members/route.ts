@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  getGovernanceActor,
-  hasGovernanceCapability,
-} from "@/lib/auth/truvern-governance";
+  canManageCustomerMembers,
+  getCustomerOrganizationActor,
+} from "@/lib/auth/customer-organization-access";
 import {
   isCustomerManagedRole,
   provisionCustomerAccessMember,
@@ -33,14 +33,10 @@ function safeString(value: unknown) {
 }
 
 async function requireCustomerAccessActor() {
-  const actor = await getGovernanceActor();
+  const actor =
+    await getCustomerOrganizationActor();
 
-  if (
-    !["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(
-      actor.role,
-    ) ||
-    !actor.organizationId
-  ) {
+  if (!actor) {
     throw new Error(
       "Customer organization access required.",
     );
@@ -56,17 +52,14 @@ export async function GET() {
 
     const members =
       await readCustomerAccessMembers(
-        actor.organizationId!,
+        actor.organizationId,
       );
 
     return json(200, {
       ok: true,
       role: actor.role,
       canManageMembers:
-        hasGovernanceCapability(
-          actor,
-          "member.manage",
-        ),
+        canManageCustomerMembers(actor),
       members,
     });
   } catch (error: any) {
@@ -92,10 +85,7 @@ export async function POST(
       await requireCustomerAccessActor();
 
     if (
-      !hasGovernanceCapability(
-        actor,
-        "member.manage",
-      )
+      !canManageCustomerMembers(actor)
     ) {
       return json(403, {
         ok: false,
@@ -137,7 +127,7 @@ export async function POST(
     const member =
       await provisionCustomerAccessMember({
         organizationId:
-          actor.organizationId!,
+          actor.organizationId,
         email,
         name,
         role,
@@ -153,11 +143,11 @@ export async function POST(
       error,
     );
 
-    return json(500, {
+    return json(403, {
       ok: false,
       error:
         error?.message ||
-        "Unable to provision organization access.",
+        "Customer organization access required.",
     });
   }
 }
