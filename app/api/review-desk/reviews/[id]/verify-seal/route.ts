@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { requireDbOrganization } from "@/lib/org-db";
+import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
 import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
@@ -97,6 +98,8 @@ const params = await ctx.params;
         { status: 400 },
       );
     }
+
+    await requireReviewAssignmentAccess(assignmentId);
 
     const entitlements = await getCurrentPlanEntitlements();
 

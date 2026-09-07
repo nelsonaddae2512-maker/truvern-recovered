@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
+import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
 import { findGovernanceTransparencyLogs } from "@/lib/repositories/governance-transparency-log-repository";
 
 export const runtime = "nodejs";
@@ -64,6 +65,8 @@ const params = await ctx.params;
         { status: 400 },
       );
     }
+
+    await requireReviewAssignmentAccess(assignmentId);
 
     const rows = await findGovernanceTransparencyLogs({
       where: {

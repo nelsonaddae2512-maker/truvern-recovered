@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getEvidenceManifestForReview } from "@/lib/evidence/queries";
 import { requireDbOrganization } from "@/lib/org-db";
+import { getGovernanceActor } from "@/lib/auth/truvern-governance";
+import { readCustomerFinalReleaseManifest } from "@/lib/repositories/customer-ciso-reports-repository";
 import {
   canonicalizeGovernancePayload,
   signGovernancePayload,
@@ -89,6 +91,53 @@ const params = await ctx.params;
         { ok: false, error: "Invalid assignment id." },
         { status: 400 },
       );
+    }
+
+    const actor = await getGovernanceActor();
+
+    const customerRoles = new Set([
+      "OWNER",
+      "ADMIN",
+      "ANALYST",
+      "VIEWER",
+    ]);
+
+    if (customerRoles.has(actor.role)) {
+      if (!actor.organizationId) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Organization required",
+          },
+          {
+            status: 403,
+            headers: {
+              "cache-control": "no-store",
+            },
+          },
+        );
+      }
+
+      const finalRelease =
+        await readCustomerFinalReleaseManifest({
+          organizationId: actor.organizationId,
+          reviewAssignmentId: assignmentId,
+        });
+
+      if (!finalRelease) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Final released governance manifest not found.",
+          },
+          {
+            status: 404,
+            headers: {
+              "cache-control": "no-store",
+            },
+          },
+        );
+      }
     }
 
     const assignment = await findReviewAssignment({

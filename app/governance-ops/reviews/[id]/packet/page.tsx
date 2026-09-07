@@ -1,4 +1,4 @@
-import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
@@ -65,7 +65,7 @@ export default async function GovernancePacketPage({ params }: Props) {
 
   if (!assignmentId) return notFound();
 
-  await requireReviewAssignmentAccess(assignmentId);
+  await requireOpsAccess();
 
   const row =
     await findGovernancePacketRow(

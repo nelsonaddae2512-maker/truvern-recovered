@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getEvidenceManifestForReview } from "@/lib/evidence/queries";
 import { requireDbOrganization } from "@/lib/org-db";
+import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
 import {
   canonicalizeGovernancePayload,
   signGovernancePayload,
@@ -75,6 +76,8 @@ const params = await ctx.params;
         { status: 400 },
       );
     }
+
+    await requireReviewAssignmentAccess(assignmentId);
 
     const assignment = await findReviewAssignment({
       where: { id: assignmentId },

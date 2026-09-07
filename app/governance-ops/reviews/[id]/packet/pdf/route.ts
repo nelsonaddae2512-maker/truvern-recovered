@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import { NextResponse } from "next/server";
 const PDFDocument = require("pdfkit/js/pdfkit.standalone.js");
-import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
 import { readGovernancePacketAssignment, readGovernancePacketEvidence } from "@/lib/repositories/governance-packet-pdf-repository";
@@ -72,7 +72,7 @@ export async function GET(request: Request, { params }: Props) {
     return NextResponse.json({ ok: false, error: "Invalid assignment id." }, { status: 400 });
   }
 
-  await requireReviewAssignmentAccess(assignmentId);
+  await requireOpsAccess();
 
   const rows = await readGovernancePacketAssignment(assignmentId);
 
