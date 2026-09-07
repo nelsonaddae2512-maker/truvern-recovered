@@ -5,6 +5,7 @@ import EvidenceUpload from "./evidence-upload.client";
 
 type QuestionCardProps = {
   assessmentId: number;
+  vendorToken?: string;
   response: {
     id: number;
     questionId: number;
@@ -48,6 +49,7 @@ function initialEvidence(value: unknown) {
 
 export default function VendorAssessmentQuestionCard({
   assessmentId,
+  vendorToken,
   response,
 }: QuestionCardProps) {
   const [answer, setAnswer] = useState(initialAnswer(response.answer));
@@ -65,7 +67,9 @@ export default function VendorAssessmentQuestionCard({
     setError("");
 
     const result = await fetch(
-      `/api/vendor-assessments/${assessmentId}/responses`,
+      vendorToken
+        ? `/api/vendor-framework-assessment/${encodeURIComponent(vendorToken)}/responses`
+        : `/api/vendor-assessments/${assessmentId}/responses`,
       {
         method: "PATCH",
         headers: {
@@ -211,6 +215,7 @@ export default function VendorAssessmentQuestionCard({
         <EvidenceUpload
           assessmentId={assessmentId}
           responseId={response.id}
+          vendorToken={vendorToken}
         />
       </div>
 

@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 type Props = {
   assessmentId: number;
   responseId: number;
+  vendorToken?: string;
 };
 
 type UploadRecord = {
@@ -15,7 +16,7 @@ type UploadRecord = {
   sizeBytes: number | null;
 };
 
-export default function EvidenceUpload({ assessmentId, responseId }: Props) {
+export default function EvidenceUpload({ assessmentId, responseId, vendorToken }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploads, setUploads] = useState<UploadRecord[]>([]);
   const [message, setMessage] = useState("");
@@ -33,7 +34,11 @@ export default function EvidenceUpload({ assessmentId, responseId }: Props) {
     }
 
     startTransition(async () => {
-      const presignResult = await fetch(`/api/vendor-assessments/${assessmentId}/evidence/upload`, {
+      const evidenceApiUrl = vendorToken
+        ? `/api/vendor-framework-assessment/${encodeURIComponent(vendorToken)}/evidence/upload`
+        : `/api/vendor-assessments/${assessmentId}/evidence/upload`;
+
+      const presignResult = await fetch(evidenceApiUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

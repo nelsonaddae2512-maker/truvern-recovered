@@ -1430,6 +1430,7 @@ model TruvernFrameworkAssessment {
   vendorId           Int?
   assessmentRunId    Int?
   reviewAssignmentId Int?
+  vendorToken        String?                          @unique
   title              String
   status             TruvernAssessmentLifecycleStatus @default(DRAFT)
   score              Int?

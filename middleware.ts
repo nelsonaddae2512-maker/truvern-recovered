@@ -14,6 +14,11 @@ const isPublicRoute = createRouteMatcher([
   "/features",
   "/trust-network",
   "/assessment/demo",
+
+  // Token-authenticated comprehensive vendor assessment workflow.
+  // Bearer authorization is performed inside these handlers.
+  "/vendor-framework-assessment(.*)",
+  "/api/vendor-framework-assessment(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
 

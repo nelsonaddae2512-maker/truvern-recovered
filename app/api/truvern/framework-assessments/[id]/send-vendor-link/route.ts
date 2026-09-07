@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { generateVendorFrameworkAssessmentToken } from "@/lib/auth/vendor-framework-assessment-token";
 import {
   COMMUNICATION_MAILBOX_KEYS,
   sendCommunication,
@@ -117,7 +119,60 @@ export async function POST(req: Request, { params }: Params) {
       : null;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const vendorUrl = `${appUrl}/vendor-assessments/${assessment.id}`;
+  let vendorToken = assessment.vendorToken;
+
+  if (!vendorToken) {
+    for (let attempt = 0; attempt < 3 && !vendorToken; attempt += 1) {
+      const candidateToken = generateVendorFrameworkAssessmentToken();
+
+      try {
+        const claimed = await prisma.truvernFrameworkAssessment.updateMany({
+          where: {
+            id: assessment.id,
+            vendorToken: null,
+          },
+          data: {
+            vendorToken: candidateToken,
+          },
+        });
+
+        if (claimed.count === 1) {
+          vendorToken = candidateToken;
+          break;
+        }
+
+        const current = await prisma.truvernFrameworkAssessment.findUnique({
+          where: { id: assessment.id },
+          select: { vendorToken: true },
+        });
+
+        vendorToken = current?.vendorToken ?? null;
+      } catch (error) {
+        const code =
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error
+            ? String((error as { code?: unknown }).code ?? "")
+            : "";
+
+        if (code !== "P2002") {
+          throw error;
+        }
+      }
+    }
+  }
+
+  if (!vendorToken) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Unable to establish secure vendor assessment access.",
+      },
+      { status: 500 },
+    );
+  }
+
+  const vendorUrl = `${appUrl}/vendor-framework-assessment/${vendorToken}`;
 
   const subject = `Vendor governance assessment request - ${assessment.title}`;
 
