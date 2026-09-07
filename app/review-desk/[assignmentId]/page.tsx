@@ -287,6 +287,7 @@ export default async function ReviewEngagementPage({ params }: Props) {
     },
     select: {
       id: true,
+      vendorToken: true,
     },
   });
 
@@ -334,9 +335,10 @@ export default async function ReviewEngagementPage({ params }: Props) {
   const governanceMemoryRows = await readVendorGovernanceMemory(vendorId);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const latestVendorUrl = latestManagedAssessment?.id
-    ? `${appUrl}/vendor-assessments/${latestManagedAssessment.id}`
-    : null;
+  const latestVendorUrl =
+    latestManagedAssessment?.vendorToken
+      ? `${appUrl}/vendor-framework-assessment/${latestManagedAssessment.vendorToken}`
+      : null;
 
   const creditLedgerRows = await readPostedReviewCreditLedger(
     assignmentId,
