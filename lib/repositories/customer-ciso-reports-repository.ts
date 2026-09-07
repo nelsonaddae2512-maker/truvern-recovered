@@ -107,3 +107,65 @@ export async function readCustomerCisoReports(
     }),
   );
 }
+
+export type CustomerFinalReleaseManifestRow = {
+  id: number;
+  reviewAssignmentId: number;
+  organizationId: number;
+  releaseState: string;
+};
+
+export async function readCustomerFinalReleaseManifest(input: {
+  organizationId: number;
+  reviewAssignmentId: number;
+}): Promise<CustomerFinalReleaseManifestRow | null> {
+  const manifest =
+    await prisma.governanceReleaseManifest.findFirst({
+      where: {
+        organizationId:
+          input.organizationId,
+        reviewAssignmentId:
+          input.reviewAssignmentId,
+        releaseState: {
+          in: [
+            "RELEASED",
+            "CONFIRMED",
+          ],
+        },
+      },
+      select: {
+        id: true,
+        reviewAssignmentId: true,
+        organizationId: true,
+        releaseState: true,
+      },
+      orderBy: [
+        {
+          confirmedAt: "desc",
+        },
+        {
+          releasedAt: "desc",
+        },
+        {
+          createdAt: "desc",
+        },
+      ],
+    });
+
+  if (
+    !manifest ||
+    manifest.reviewAssignmentId == null
+  ) {
+    return null;
+  }
+
+  return {
+    id: manifest.id,
+    reviewAssignmentId:
+      manifest.reviewAssignmentId,
+    organizationId:
+      manifest.organizationId,
+    releaseState:
+      manifest.releaseState,
+  };
+}

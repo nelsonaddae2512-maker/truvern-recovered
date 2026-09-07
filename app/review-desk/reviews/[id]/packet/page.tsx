@@ -5,6 +5,7 @@ import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
 import { governanceLabel } from "@/lib/governance/labels";
 import { buildCisoReportProjection } from "@/lib/governance/ciso-report";
+import { readCustomerFinalReleaseManifest } from "@/lib/repositories/customer-ciso-reports-repository";
 import PrintPacketButton from "@/components/review-desk/print-packet-button.client";
 
 
@@ -84,9 +85,40 @@ export default async function GovernancePacketPage({ params }: Props) {
 
   if (!assignmentId) return notFound();
 
-  await requireReviewAssignmentAccess(assignmentId);
+  const access =
+    await requireReviewAssignmentAccess(
+      assignmentId,
+    );
 
-  const row =
+  if (
+    ["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(
+      access.actor.role,
+    )
+  ) {
+    const organizationId =
+      access.actor.organizationId;
+
+    if (!organizationId) {
+      return notFound();
+    }
+
+    const finalManifest =
+      await readCustomerFinalReleaseManifest({
+        organizationId,
+        reviewAssignmentId:
+          assignmentId,
+      });
+
+    if (!finalManifest) {
+      return notFound();
+    }
+  }
+
+    const customerPacketView =
+    ["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(
+      access.actor.role,
+    );
+const row =
     await findGovernancePacketRow(
       assignmentId,
     );
@@ -343,14 +375,22 @@ function relativeTime(value?: string | number | Date | null) {
 
           <div className="flex flex-col gap-3 print:hidden">
   <Link
-    href={`/review-desk/reviews/${assignmentId}/packet/pdf`}
+    href={
+      customerPacketView
+        ? `/ciso-reports/${assignmentId}/pdf`
+        : `/review-desk/reviews/${assignmentId}/packet/pdf`
+    }
     className="rounded-2xl bg-slate-950 px-5 py-3 text-center text-sm font-semibold text-white"
   >
     Download Board PDF
   </Link>
 
   <Link
-  href={`/review-desk/reviews/${assignmentId}/packet/pdf?inline=1`}
+  href={
+    customerPacketView
+      ? `/ciso-reports/${assignmentId}/pdf?inline=1`
+      : `/review-desk/reviews/${assignmentId}/packet/pdf?inline=1`
+  }
   target="_blank"
   className="rounded-2xl bg-slate-950 px-5 py-3 text-center text-sm font-semibold text-white"
 >
@@ -396,7 +436,7 @@ function relativeTime(value?: string | number | Date | null) {
                 {cisoReport.schema}
                 {cisoReportAsOf ? (
                   <>
-                    {" "}· Assessment as of {formatDate(cisoReportAsOf)}
+                    {" "}Ã‚Â· Assessment as of {formatDate(cisoReportAsOf)}
                   </>
                 ) : null}
               </p>
@@ -593,7 +633,7 @@ function relativeTime(value?: string | number | Date | null) {
           <h2 className="text-lg font-bold">Conditions & follow-ups</h2>
           <ul className="mt-4 space-y-2 text-slate-700">
             {conditions.length ? conditions.map((item: string, idx: number) => (
-              <li key={`${item}-${idx}`}>â€¢ {item}</li>
+              <li key={`${item}-${idx}`}>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {item}</li>
             )) : <li>Not recorded</li>}
           </ul>
         </section>

@@ -6,6 +6,7 @@ import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import { createGovernanceChecksum } from "@/lib/governance-checksum";
 import { readGovernancePacketAssignment, readGovernancePacketEvidence } from "@/lib/repositories/governance-packet-pdf-repository";
 import { buildCisoReportProjection } from "@/lib/governance/ciso-report";
+import { readCustomerFinalReleaseManifest } from "@/lib/repositories/customer-ciso-reports-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,7 +74,52 @@ export async function GET(request: Request, { params }: Props) {
     return NextResponse.json({ ok: false, error: "Invalid assignment id." }, { status: 400 });
   }
 
-  await requireReviewAssignmentAccess(assignmentId);
+  const access =
+    await requireReviewAssignmentAccess(
+      assignmentId,
+    );
+
+  if (
+    ["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(
+      access.actor.role,
+    )
+  ) {
+    const organizationId =
+      access.actor.organizationId;
+
+    if (!organizationId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Released CISO report not found.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const finalManifest =
+      await readCustomerFinalReleaseManifest({
+        organizationId,
+        reviewAssignmentId:
+          assignmentId,
+      });
+
+    if (!finalManifest) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Released CISO report not found.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+  }
 
   const rows = await readGovernancePacketAssignment(assignmentId);
 
@@ -773,7 +819,7 @@ doc
 doc.moveDown(0.5);
 
 doc.fontSize(9).fillColor("#64748b").text(
-  "Truvern Governance Systems â€¢ Immutable Governance Record",
+  "Truvern Governance Systems Ã¢â‚¬Â¢ Immutable Governance Record",
   { align: "center" },
 );
 
@@ -819,7 +865,7 @@ const signatureBlocks = [
   {
     label: "Immutable seal attestation",
     name: checksum === renderedChecksum ? "Seal verified" : "Seal pending review",
-    meta: `SIG ${signatureFingerprint.slice(0, 16)}... â€¢ CHK ${checksum.slice(0, 12)}...`,
+    meta: `SIG ${signatureFingerprint.slice(0, 16)}... Ã¢â‚¬Â¢ CHK ${checksum.slice(0, 12)}...`,
   },
 ];
 
@@ -868,7 +914,7 @@ doc.y = signatureTop + signatureHeight + 8;
 doc.x = pageLeft;
 
 doc.fontSize(9).fillColor("#64748b").text(
-  "Truvern Governance Systems â€¢ Immutable Governance Record",
+  "Truvern Governance Systems Ã¢â‚¬Â¢ Immutable Governance Record",
   { align: "center" },
 );
 
@@ -908,7 +954,7 @@ doc
 doc
   .fontSize(7.5)
   .fillColor("#64748b")
-  .text(`Release record: assignment-${assignmentId} â€¢ Checksum ${checksum.slice(0, 16)}...`, pageLeft + 14, verifyTop + 46, {
+  .text(`Release record: assignment-${assignmentId} Ã¢â‚¬Â¢ Checksum ${checksum.slice(0, 16)}...`, pageLeft + 14, verifyTop + 46, {
     width: pageWidth - 120,
   });
 
@@ -949,7 +995,7 @@ doc.x = pageLeft;
       .fontSize(8)
       .fillColor("#94a3b8")
       .text(
-        `Truvern Governance Systems â€¢ Immutable Governance Record â€¢ Page ${i + 1} of ${range.count}`,
+        `Truvern Governance Systems Ã¢â‚¬Â¢ Immutable Governance Record Ã¢â‚¬Â¢ Page ${i + 1} of ${range.count}`,
         54,
         footerY,
         {

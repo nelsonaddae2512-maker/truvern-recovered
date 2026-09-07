@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { requireDbOrganization } from "@/lib/org-db";
@@ -163,14 +163,14 @@ export default async function CisoReportsPage() {
                         <td className="px-6 py-5">
                           <div className="flex justify-end gap-2">
                             <Link
-                              href={`/review-desk/reviews/${report.reviewAssignmentId}/packet`}
+                              href={`/ciso-reports/${report.reviewAssignmentId}`}
                               className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
                             >
                               Open report
                             </Link>
 
                             <Link
-                              href={`/review-desk/reviews/${report.reviewAssignmentId}/packet/pdf`}
+                              href={`/ciso-reports/${report.reviewAssignmentId}/pdf`}
                               target="_blank"
                               className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
                             >
