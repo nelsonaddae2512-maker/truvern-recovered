@@ -21,7 +21,7 @@ export default function CreateFrameworkAssessmentButton({
   function beginAssessment() {
     if (isComprehensiveNist) {
       router.push(
-        "/vendors?truvernComprehensiveReview=1",
+        "/truvern/ops/comprehensive-reviews",
       );
       return;
     }
