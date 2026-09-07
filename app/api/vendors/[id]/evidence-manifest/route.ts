@@ -1,4 +1,6 @@
 ﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireDbOrganization } from "@/lib/org-db";
 import { getEvidenceManifestForVendor } from "@/lib/evidence/queries";
 
 export const runtime = "nodejs";
@@ -18,6 +20,32 @@ export async function GET(_request: Request, context: Context) {
       return NextResponse.json(
         { ok: false, error: "Missing or invalid vendor id." },
         { status: 400 },
+      );
+    }
+
+    const org = await requireDbOrganization();
+
+    if ("_needsOrgSelection" in org) {
+      return NextResponse.json(
+        { ok: false, error: "Organization required." },
+        { status: 403 },
+      );
+    }
+
+    const vendor = await prisma.vendor.findFirst({
+      where: {
+        id: vendorId,
+        organizationId: org.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!vendor) {
+      return NextResponse.json(
+        { ok: false, error: "Vendor not found." },
+        { status: 404 },
       );
     }
 

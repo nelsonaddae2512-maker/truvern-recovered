@@ -1,4 +1,5 @@
 ﻿import { NextResponse } from "next/server";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import { maybePersistTransparencyCheckpoint } from "@/lib/governance/auto-checkpoint-policy";
 
 export const runtime = "nodejs";
@@ -11,6 +12,7 @@ function safeStr(v: unknown) {
 
 export async function POST() {
   try {
+    await requireOpsAccess();
     const result = await maybePersistTransparencyCheckpoint({
       force: true,
     });
