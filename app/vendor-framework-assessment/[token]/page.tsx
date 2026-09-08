@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import VendorAssessmentQuestionCard from "@/components/vendor-assessment/question-card";
+import VendorFrameworkAssessmentWorkspace from "@/components/vendor-assessment/vendor-framework-assessment-workspace.client";
 import { findVendorFrameworkAssessmentByToken } from "@/lib/auth/vendor-framework-assessment-token";
 
 export const runtime = "nodejs";
@@ -11,17 +11,6 @@ type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function hasAnswer(value: unknown) {
-  if (value === null || value === undefined) {
-    return false;
-  }
-
-  if (typeof value === "string") {
-    return value.trim().length > 0;
-  }
-
-  return true;
-}
 
 export default async function VendorFrameworkAssessmentPage({
   params,
@@ -37,10 +26,6 @@ export default async function VendorFrameworkAssessmentPage({
     notFound();
   }
 
-  const answeredCount =
-    assessment.responses.filter(
-      (response) => hasAnswer(response.answer),
-    ).length;
 
   const missingCount =
     typeof query.missing === "string"
@@ -63,25 +48,6 @@ export default async function VendorFrameworkAssessmentPage({
             {assessment.framework.name}
           </p>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-400">
-                Status
-              </div>
-              <div className="mt-1 font-semibold">
-                {assessment.status}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-400">
-                Progress
-              </div>
-              <div className="mt-1 font-semibold">
-                {answeredCount} / {assessment.responses.length}
-              </div>
-            </div>
-          </div>
 
           {missingCount ? (
             <div className="mt-5 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
@@ -90,16 +56,12 @@ export default async function VendorFrameworkAssessmentPage({
           ) : null}
         </section>
 
-        <section className="space-y-4">
-          {assessment.responses.map((response) => (
-            <VendorAssessmentQuestionCard
-              key={response.id}
-              assessmentId={assessment.id}
-              response={response}
-              vendorToken={token}
-            />
-          ))}
-        </section>
+        <VendorFrameworkAssessmentWorkspace
+          assessmentId={assessment.id}
+          initialStatus={assessment.status}
+          responses={assessment.responses}
+          token={token}
+        />
 
         {!assessment.submittedAt ? (
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">

@@ -6,6 +6,7 @@ import EvidenceUpload from "./evidence-upload.client";
 type QuestionCardProps = {
   assessmentId: number;
   vendorToken?: string;
+  onSaved?: (responseId: number, answered: boolean) => void;
   response: {
     id: number;
     questionId: number;
@@ -50,6 +51,7 @@ function initialEvidence(value: unknown) {
 export default function VendorAssessmentQuestionCard({
   assessmentId,
   vendorToken,
+  onSaved,
   response,
 }: QuestionCardProps) {
   const [answer, setAnswer] = useState(initialAnswer(response.answer));
@@ -97,6 +99,7 @@ export default function VendorAssessmentQuestionCard({
     }
 
     setSaved(true);
+    onSaved?.(response.id, answer.trim().length > 0);
 
     setTimeout(() => {
       setSaved(false);
