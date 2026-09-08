@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -13,9 +14,8 @@ type DatabaseRow = {
 };
 
 export async function GET() {
-  await requireOpsAccess();
-
   try {
+    await requireOpsAccess();
     const databaseRows =
       await prisma.$queryRawUnsafe<DatabaseRow[]>(`
         select
@@ -290,6 +290,13 @@ export async function GET() {
       },
     });
   } catch (error) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
+
     return NextResponse.json(
       {
         ok: false,
