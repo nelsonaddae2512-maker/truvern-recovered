@@ -154,9 +154,24 @@ export default function VendorAssessmentQuestionCard({
           </h3>
 
           {response.question.helpText ? (
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              {response.question.helpText}
-            </p>
+            <details className="group mt-3 rounded-2xl border border-white/10 bg-slate-950/30">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-cyan-100">
+                <span>NIST guidance</span>
+                <span
+                  aria-hidden="true"
+                  className="text-xs font-medium text-slate-500"
+                >
+                  <span className="group-open:hidden">Show</span>
+                  <span className="hidden group-open:inline">Hide</span>
+                </span>
+              </summary>
+
+              <div className="border-t border-white/10 px-4 py-4">
+                <p className="text-sm leading-6 text-slate-400">
+                  {response.question.helpText}
+                </p>
+              </div>
+            </details>
           ) : null}
         </div>
 
