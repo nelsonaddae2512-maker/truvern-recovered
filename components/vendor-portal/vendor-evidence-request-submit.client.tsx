@@ -30,6 +30,23 @@ export default function VendorEvidenceRequestSubmitClient(props: {
   const [error, setError] = useState<string>("");
   const [okMsg, setOkMsg] = useState<string>("");
 
+  const normalizedStatus = String(props.status || "").toUpperCase();
+
+  const waitingForReview = [
+    "SUBMITTED",
+    "IN_REVIEW",
+    "RECEIVED",
+  ].includes(normalizedStatus);
+
+  const submissionClosed = [
+    "APPROVED",
+    "COMPLETED",
+    "FULFILLED",
+    "RESOLVED",
+    "CLOSED",
+    "CANCELLED",
+  ].includes(normalizedStatus);
+
   const canSubmit = useMemo(() => {
     return items.some((x) => x.title.trim() && x.file);
   }, [items]);
@@ -98,6 +115,46 @@ export default function VendorEvidenceRequestSubmitClient(props: {
     } catch (e: any) {
       setError(e?.message || "Upload failed.");
     }
+  }
+
+  if (waitingForReview) {
+    return (
+      <section className="glass-soft rounded-2xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10 text-cyan-100">
+            ✓
+          </div>
+
+          <div>
+            <h2 className="text-lg font-semibold text-white">
+              Evidence submitted
+            </h2>
+
+            <p className="mt-1 text-sm leading-6 text-cyan-50/80">
+              Your evidence was received successfully and is waiting for Truvern review.
+            </p>
+
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              You do not need to upload it again. Truvern will notify you if additional evidence or remediation is required.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (submissionClosed) {
+    return (
+      <section className="glass-soft rounded-2xl border border-emerald-300/20 bg-emerald-300/5 p-5">
+        <h2 className="text-lg font-semibold text-white">
+          Evidence request complete
+        </h2>
+
+        <p className="mt-1 text-sm leading-6 text-emerald-50/80">
+          This evidence request no longer requires an upload.
+        </p>
+      </section>
+    );
   }
 
   return (

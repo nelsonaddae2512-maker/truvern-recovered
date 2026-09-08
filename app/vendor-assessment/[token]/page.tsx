@@ -213,17 +213,32 @@ export default async function VendorAssessmentPortalPage({
       .filter((id) => id > 0),
   );
 
+  const evidenceRequestById = new Map(
+    evidenceRequestRows.map((request: any) => [
+      Number(request.id),
+      request,
+    ]),
+  );
+
   const remediationPackageCards = vendorRemediationPackages.map((pkg) => {
     const payload = pkg.payload && typeof pkg.payload === "object" ? pkg.payload : {};
+    const evidenceRequestId = Number(pkg.evidenceRequestId ?? 0);
+    const persistedRequest =
+      evidenceRequestId > 0
+        ? evidenceRequestById.get(evidenceRequestId)
+        : null;
 
     return {
       id: Number(pkg.evidenceRequestId ?? pkg.id),
       packageId: pkg.id,
       title: payload.vendorTitle || payload.title || pkg.title,
-      status: String(pkg.status || "REQUESTED").toUpperCase(),
+      status: String(
+        persistedRequest?.status ?? pkg.status ?? "REQUESTED",
+      ).toUpperCase(),
       kind: "REMEDIATION",
-      dueAt: pkg.dueAt,
-      fulfilledAt: null,
+      dueAt: persistedRequest?.dueAt ?? pkg.dueAt,
+      fulfilledAt: persistedRequest?.fulfilledAt ?? null,
+      fulfilledEvidenceId: persistedRequest?.fulfilledEvidenceId ?? null,
       createdAt: pkg.createdAt,
       packagePayload: payload,
       packageTitle: pkg.title,
@@ -232,6 +247,7 @@ export default async function VendorAssessmentPortalPage({
       notes:
         payload.vendorSummary ||
         payload.businessReason ||
+        persistedRequest?.notes ||
         "Truvern needs additional remediation evidence before the review can be completed.",
     };
   });
