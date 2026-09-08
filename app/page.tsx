@@ -13,7 +13,7 @@ const outcomes = [
   },
   {
     title: "Expert review operations",
-    body: "Route reviews through internal teams or Truvern-managed governance experts with release-ready outputs.",
+    body: "Run reviews with your own team through Self-Managed Review or engage Truvern reviewers through Truvern Review.",
   },
   {
     title: "Board-ready records",
@@ -26,7 +26,7 @@ const lifecycleSteps = [
   {
     step: "01",
     title: "Add vendor",
-    body: "Submit a vendor directly to Truvern for managed governance review operations.",
+    body: "Add a vendor and choose Self-Managed Review or Truvern Review based on how you want the assessment operated.",
   },
   {
     step: "02",
@@ -60,7 +60,7 @@ const buyerTypes = [
   "Security and GRC teams",
   "Procurement organizations",
   "Legal and compliance teams",
-  "Companies without SELF-Truvern Review staff",
+  "Teams that need additional vendor review capacity",
   "Enterprise vendor governance programs",
   "Organizations needing audit-defensible vendor reviews",
 ];
@@ -85,13 +85,13 @@ export default function HomePage() {
             </div>
 
             <h1 className="mt-8 max-w-4xl text-6xl font-semibold leading-[0.98] tracking-[-0.055em] text-white md:text-7xl">
-              Buy governance outcomes, not software access.
+              Run vendor governance your way.
             </h1>
 
             <p className="mt-8 max-w-3xl text-xl leading-9 text-slate-300">
-              Truvern helps teams collect vendor evidence, execute assessments,
-              manage review workflows, and produce verification-ready governance
-              outputs for leadership, audits, and board reporting.
+              Truvern brings vendor assessments, evidence, findings, remediation,
+              attestations, and governance release into one workflow. Run reviews
+              with your own team or engage Truvern to operate the review for you.
             </p>
 
             <div className="mt-9 flex flex-wrap gap-4">
