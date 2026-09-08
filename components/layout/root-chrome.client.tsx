@@ -505,6 +505,8 @@ export default function RootChrome({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const vendorFrameworkAssessmentPage =
+    pathname.startsWith("/vendor-framework-assessment/");
   const publicPage =
     isPublicRoute(pathname) ||
     pathname.startsWith("/sign-in") ||
@@ -590,6 +592,10 @@ export default function RootChrome({
       });
     };
   }, [publicPage, signOut]);
+
+  if (vendorFrameworkAssessmentPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_45%),linear-gradient(to_bottom,#020617,#020617)]">
