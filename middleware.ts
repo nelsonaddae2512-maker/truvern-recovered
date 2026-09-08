@@ -13,6 +13,10 @@ const isPublicRoute = createRouteMatcher([
   "/contact",
   "/features",
   "/trust-network",
+  "/terms",
+  "/privacy",
+  "/dpa",
+  "/subprocessors",
   "/assessment/demo",
 
   // Token-authenticated comprehensive vendor assessment workflow.
