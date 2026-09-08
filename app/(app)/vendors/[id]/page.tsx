@@ -704,7 +704,11 @@ return (
                       </td>
 
                       <td className="px-5 py-4">
-                        {row.reviewerName || row.reviewerUserId || "Unassigned"}
+                        {row.reviewerName ||
+                          row.reviewerUserId ||
+                          (String(row.assignmentType || "").toUpperCase() === "TRUVERN"
+                            ? "Truvern Review Team"
+                            : "Unassigned")}
                       </td>
 
                       <td className="px-5 py-4 text-slate-400">
