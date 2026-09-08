@@ -7,7 +7,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const CANARY_ID = 2;
 
 const CANARY_TITLE =
   "TRUVERN R18 GOVERNANCE RELEASE CANARY — DO NOT USE";
@@ -23,10 +22,28 @@ export async function GET() {
 
   try {
     const assessment =
-      await prisma.truvernFrameworkAssessment.findUnique({
+      await prisma.truvernFrameworkAssessment.findFirst({
         where: {
-          id: CANARY_ID,
+          title: CANARY_TITLE,
+          organizationId: null,
+          vendorId: null,
+          assessmentRunId: null,
+          reviewAssignmentId: null,
+          submittedAt: null,
+          releasedAt: null,
+          status: "DRAFT",
+          framework: {
+            is: {
+              slug: FRAMEWORK_SLUG,
+              version: FRAMEWORK_VERSION,
+            },
+          },
         },
+        orderBy: [
+          {
+            id: "desc",
+          },
+        ],
 
         select: {
           id: true,
@@ -112,7 +129,7 @@ export async function GET() {
         where: {
           finding: {
             assessmentId:
-              CANARY_ID,
+              assessment.id,
           },
         },
       });
@@ -159,7 +176,6 @@ export async function GET() {
       ).length;
 
     const identityCertified =
-      assessment.id === CANARY_ID &&
       assessment.title === CANARY_TITLE &&
       assessment.framework.slug === FRAMEWORK_SLUG &&
       assessment.framework.version === FRAMEWORK_VERSION;
