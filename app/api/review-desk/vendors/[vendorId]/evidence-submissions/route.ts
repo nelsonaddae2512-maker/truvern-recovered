@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { findEvidenceRequests } from "@/lib/repositories/evidence-request-repository";
 import { findEvidence } from "@/lib/repositories/evidence-repository";
+import { createEvidenceDownloadUrl } from "@/lib/storage/evidence-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,25 +83,39 @@ export async function GET(_req: Request, context: RouteContext) {
       fulfilledEvidence.map((evidence) => [evidence.id, evidence]),
     );
 
-    const rows = requests.map((request) => {
-      const evidence = request.fulfilledEvidenceId
-        ? evidenceById.get(request.fulfilledEvidenceId) ?? null
-        : null;
+    const rows = await Promise.all(
+      requests.map(async (request) => {
+        const evidence = request.fulfilledEvidenceId
+          ? evidenceById.get(request.fulfilledEvidenceId) ?? null
+          : null;
 
-      return {
-        requestId: request.id,
-        requestTitle: request.title,
-        requestStatus: String(request.status),
-        fulfilledEvidenceId: request.fulfilledEvidenceId,
-        fulfilledAt: request.fulfilledAt,
-        reviewNote: request.reviewNote,
-        evidenceId: evidence?.id ?? null,
-        evidenceTitle: evidence?.title ?? null,
-        evidenceNotes: evidence?.notes ?? null,
-        evidenceUrl: evidence?.url ?? null,
-        evidenceUploadedAt: evidence?.createdAt ?? null,
-      };
-    });
+        const storedEvidenceUrl =
+          evidence?.url?.trim() ?? "";
+
+        const evidenceUrl =
+          !storedEvidenceUrl
+            ? null
+            : storedEvidenceUrl.startsWith("/") ||
+                storedEvidenceUrl.startsWith("http://") ||
+                storedEvidenceUrl.startsWith("https://")
+              ? storedEvidenceUrl
+              : await createEvidenceDownloadUrl(storedEvidenceUrl);
+
+        return {
+          requestId: request.id,
+          requestTitle: request.title,
+          requestStatus: String(request.status),
+          fulfilledEvidenceId: request.fulfilledEvidenceId,
+          fulfilledAt: request.fulfilledAt,
+          reviewNote: request.reviewNote,
+          evidenceId: evidence?.id ?? null,
+          evidenceTitle: evidence?.title ?? null,
+          evidenceNotes: evidence?.notes ?? null,
+          evidenceUrl,
+          evidenceUploadedAt: evidence?.createdAt ?? null,
+        };
+      }),
+    );
 
     return NextResponse.json({
       ok: true,
@@ -107,6 +123,9 @@ export async function GET(_req: Request, context: RouteContext) {
       submissions: rows,
     });
   } catch (error: any) {
+    const authError = governanceAuthErrorResponse(error);
+    if (authError) return authError;
+
     console.error("Review desk evidence submissions lookup failed:", error);
 
     return NextResponse.json(
