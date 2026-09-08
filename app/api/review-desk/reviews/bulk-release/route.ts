@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { logActivityEvent } from "@/lib/activity-log";
+import { readGovernanceReleaseGateCounts } from "@/lib/repositories/governance-release-gate-repository";
 import {
   requireGovernanceCapability,
   requireReviewerAccess,
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
   let released = 0;
   let skippedAlreadyReleased = 0;
   let skippedNotCompleted = 0;
+  let skippedBlocked = 0;
   let skippedNoOutcome = 0;
 
   for (const row of latestRows) {
@@ -125,13 +127,43 @@ export async function POST(req: Request) {
       continue;
     }
 
-    const isReleaseReady =
+    const isOutcomeComplete =
       intent === "COMPLETE" ||
       releaseState === "COMPLETED" ||
-      assignmentStatus === "SUBMITTED";
+      releaseState === "READY_FOR_RELEASE";
 
-    if (!isReleaseReady) {
+    if (!isOutcomeComplete) {
       skippedNotCompleted += 1;
+      continue;
+    }
+
+    const gateRows =
+      await readGovernanceReleaseGateCounts(
+        row.assignmentId,
+      );
+
+    const totalPackages =
+      Number(gateRows?.[0]?.totalPackages ?? 0);
+
+    const readyPackages =
+      Number(gateRows?.[0]?.readyPackages ?? 0);
+
+    const blockedPackages =
+      Number(gateRows?.[0]?.blockedPackages ?? 0);
+
+    const responseBlocked =
+      responses.releaseBlocked === true ||
+      releaseState === "BLOCKED";
+
+    const packageGateReady =
+      totalPackages === 0 ||
+      (
+        readyPackages === totalPackages &&
+        blockedPackages === 0
+      );
+
+    if (responseBlocked || !packageGateReady) {
+      skippedBlocked += 1;
       continue;
     }
 
@@ -196,6 +228,7 @@ export async function POST(req: Request) {
     released,
     skippedAlreadyReleased,
     skippedNotCompleted,
+    skippedBlocked,
     skippedNoOutcome: skippedNoOutcome + Math.max(0, missing),
   });
 }

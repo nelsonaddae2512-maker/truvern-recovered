@@ -10,6 +10,7 @@ import {
   updateReviewAssignment,
 } from "@/lib/repositories/review-assignment-repository";
 import { findReviewRequest } from "@/lib/repositories/review-request-repository";
+import { readGovernanceReleaseGateCounts } from "@/lib/repositories/governance-release-gate-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -164,6 +165,47 @@ try {
       !Array.isArray(existing.responses)
         ? (existing.responses as Record<string, any>)
         : {};
+    if (intent === "RELEASE") {
+      const gateRows =
+        await readGovernanceReleaseGateCounts(
+          assignmentId,
+        );
+
+      const totalPackages =
+        Number(gateRows?.[0]?.totalPackages ?? 0);
+
+      const readyPackages =
+        Number(gateRows?.[0]?.readyPackages ?? 0);
+
+      const blockedPackages =
+        Number(gateRows?.[0]?.blockedPackages ?? 0);
+
+      const responseBlocked =
+        existingResponses?.releaseBlocked === true ||
+        upper(existingResponses?.releaseState) === "BLOCKED";
+
+      const packageGateReady =
+        totalPackages === 0 ||
+        (
+          readyPackages === totalPackages &&
+          blockedPackages === 0
+        );
+
+      if (responseBlocked || !packageGateReady) {
+        return json(409, {
+          ok: false,
+          error:
+            "Governance release is blocked until all required remediation, evidence, attestations, and release-readiness checks are resolved.",
+          releaseBlocked: true,
+          releaseGate: {
+            totalPackages,
+            readyPackages,
+            blockedPackages,
+          },
+        });
+      }
+    }
+
     const incomingStructuredAssessment =
       body?.structuredAssessment &&
       typeof body.structuredAssessment === "object"
