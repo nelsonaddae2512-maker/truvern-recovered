@@ -16,6 +16,24 @@ export async function readGovernanceReleaseGateAssignments(): Promise<any[]> {
   `;
 }
 
+export async function readGovernanceReleaseGateAssignment(
+  reviewAssignmentId: number,
+): Promise<any[]> {
+  return prisma.$queryRaw<any[]>`
+    select distinct
+      rp."reviewAssignmentId",
+      rp."vendorId",
+      rp."organizationId",
+      wi.id as "workflowId"
+    from "RemediationPackage" rp
+    left join "WorkflowInstance" wi
+      on wi."reviewAssignmentId" = rp."reviewAssignmentId"
+     and wi."vendorId" = rp."vendorId"
+     and wi.type = 'VENDOR_GOVERNANCE_REVIEW'
+    where rp."reviewAssignmentId" = ${reviewAssignmentId}
+  `;
+}
+
 export async function readGovernanceReleaseGateCounts(
   reviewAssignmentId: any,
 ): Promise<any[]> {

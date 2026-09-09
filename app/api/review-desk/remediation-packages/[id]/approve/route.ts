@@ -6,6 +6,8 @@ import {
 } from "@/lib/auth/truvern-governance";
 import { emitWorkflowEvent } from "@/lib/workflow/workflow-events";
 import { WorkflowEvent } from "@/lib/workflow/workflow-constants";
+import { runReleaseReadinessForPackage } from "@/lib/workflow/release-readiness-engine";
+import { runGovernanceReleaseGateForAssignment } from "@/lib/workflow/governance-release-gate-engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +40,7 @@ export async function POST(request: Request, props: Props) {
         select: {
           id: true,
           organizationId: true,
+          reviewAssignmentId: true,
         },
       });
 
@@ -83,10 +86,27 @@ export async function POST(request: Request, props: Props) {
       },
     });
 
+    const releaseReadiness =
+      await runReleaseReadinessForPackage(packageId);
+
+    const governanceReleaseGate =
+      pkg.reviewAssignmentId != null
+        ? await runGovernanceReleaseGateForAssignment(
+            pkg.reviewAssignmentId,
+          )
+        : {
+            ok: true,
+            checked: 0,
+            ready: 0,
+            blocked: 0,
+          };
+
     return NextResponse.json({
       ...result,
       ok: true,
       packageId,
+      releaseReadiness,
+      governanceReleaseGate,
     });
   } catch (error: any) {
     return NextResponse.json(

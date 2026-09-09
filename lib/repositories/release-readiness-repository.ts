@@ -23,6 +23,32 @@ export async function readReleaseReadinessPackages(): Promise<any[]> {
   `;
 }
 
+export async function readReleaseReadinessPackage(
+  packageId: number,
+): Promise<any[]> {
+  return prisma.$queryRaw<any[]>`
+    select
+      rp.id as "packageId",
+      rp."reviewAssignmentId",
+      rp."vendorId",
+      rp."organizationId",
+      rp.status as "packageStatus",
+      rp.title as "packageTitle",
+      qi.id as "queueItemId",
+      qi."workflowId",
+      qi.queue,
+      qi.status as "queueStatus",
+      qi.payload
+    from "RemediationPackage" rp
+    left join "WorkflowQueueItem" qi
+      on qi.payload->>'remediationPackageId' = rp.id::text
+    where rp.id = ${packageId}
+      and qi.status = 'OPEN'
+      and qi.queue = 'READY_FOR_RELEASE_CHECK'
+      and rp.status in ('APPROVED','COMPLETED')
+  `;
+}
+
 export async function readReleaseReadinessTaskCounts(
   packageId: number,
 ): Promise<any[]> {
