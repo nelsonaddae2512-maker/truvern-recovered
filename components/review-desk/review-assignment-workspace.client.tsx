@@ -1007,35 +1007,43 @@ const initialFinalAssessment =
     };
   })();
 
-  function applyGovernanceRecommendation() {
-    setDecision(governanceEngine.recommendedDecision);
-    setRiskLevel(governanceEngine.residualRisk);
+  async function applyGovernanceRecommendation() {
+    const recommendationSnapshot = {
+      decision: governanceEngine.recommendedDecision,
+      riskLevel: governanceEngine.residualRisk,
+      executiveSummary:
+        executiveSummary.trim()
+          ? executiveSummary
+          : governanceEngine.narrative,
+      finalAssessment:
+        finalAssessment.trim()
+          ? finalAssessment
+          : [
+              governanceEngine.narrative,
+              "",
+              `Recommended governance decision: ${governanceLabel(governanceEngine.recommendedDecision)}.`,
+              `Residual risk: ${governanceLabel(governanceEngine.residualRisk)}.`,
+              "Validate evidence posture, remediation status, breach disclosures, federal investigation disclosures, and compensating controls before final release.",
+            ].join("\n"),
+      recommendationsText:
+        recommendationsText.trim()
+          ? recommendationsText
+          : [
+              "Confirm whether the vendor organization has been under federal investigation within the last 24 months.",
+              "Confirm whether the vendor organization has experienced a security breach within the last 24 months.",
+              "Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.",
+              "Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.",
+              "Validate all unresolved evidence and remediation items before final release.",
+            ].join("\n"),
+    };
 
-    if (!executiveSummary.trim()) {
-      setExecutiveSummary(governanceEngine.narrative);
-    }
+    setDecision(recommendationSnapshot.decision);
+    setRiskLevel(recommendationSnapshot.riskLevel);
+    setExecutiveSummary(recommendationSnapshot.executiveSummary);
+    setFinalAssessment(recommendationSnapshot.finalAssessment);
+    setRecommendationsText(recommendationSnapshot.recommendationsText);
 
-    if (!finalAssessment.trim()) {
-      setFinalAssessment([
-        governanceEngine.narrative,
-        "",
-        `Recommended governance decision: ${governanceLabel(governanceEngine.recommendedDecision)}.`,
-        `Residual risk: ${governanceLabel(governanceEngine.residualRisk)}.`,
-        "Validate evidence posture, remediation status, breach disclosures, federal investigation disclosures, and compensating controls before final release.",
-      ].join("\n"));
-    }
-
-    if (!recommendationsText.trim()) {
-      setRecommendationsText([
-        "Confirm whether the vendor organization has been under federal investigation within the last 24 months.",
-        "Confirm whether the vendor organization has experienced a security breach within the last 24 months.",
-        "Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.",
-        "Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.",
-        "Validate all unresolved evidence and remediation items before final release.",
-      ].join("\n"));
-    }
-
-    setMessage("Governance recommendation applied.");
+    await submitOutcome("SAVE_DRAFT", recommendationSnapshot);
   }
 
 
@@ -1352,18 +1360,42 @@ const initialFinalAssessment =
       setSaving(false);
     }
   }
-  async function submitOutcome(intent: "SAVE_DRAFT" | "COMPLETE" | "RELEASE") {
+  async function submitOutcome(
+    intent: "SAVE_DRAFT" | "COMPLETE" | "RELEASE",
+    stateOverride?: {
+      decision: string;
+      riskLevel: string;
+      executiveSummary: string;
+      finalAssessment: string;
+      recommendationsText: string;
+    },
+  ) {
     if (editingLocked) return;
 
     try {
       setSaving(true);
       setMessage("");
 
-      const cleanedFinalAssessment = finalAssessment
+      const outcomeDecision =
+        stateOverride?.decision ?? decision;
+
+      const outcomeRiskLevel =
+        stateOverride?.riskLevel ?? riskLevel;
+
+      const outcomeExecutiveSummary =
+        stateOverride?.executiveSummary ?? executiveSummary;
+
+      const outcomeFinalAssessment =
+        stateOverride?.finalAssessment ?? finalAssessment;
+
+      const outcomeRecommendationsText =
+        stateOverride?.recommendationsText ?? recommendationsText;
+
+      const cleanedFinalAssessment = outcomeFinalAssessment
         .split("CONDITIONS & FOLLOW-UPS")[0]
         .trim();
 
-      const cleanedExecutiveSummary = executiveSummary
+      const cleanedExecutiveSummary = outcomeExecutiveSummary
         .replace(/GOVERNANCE DECISION[\s\S]*/gi, "")
         .replace(/Decision:.*$/gim, "")
         .replace(/Residual risk assessment:.*$/gim, "")
@@ -1372,9 +1404,9 @@ const initialFinalAssessment =
       const missingReleaseFields = [
         !cleanedExecutiveSummary ? "Executive summary" : null,
         !cleanedFinalAssessment ? "Final assessment" : null,
-        !recommendationsText.trim() ? "Conditions & follow-ups" : null,
-        !riskLevel ? "Risk level" : null,
-        !decision ? "Governance decision" : null,
+        !outcomeRecommendationsText.trim() ? "Conditions & follow-ups" : null,
+        !outcomeRiskLevel ? "Risk level" : null,
+        !outcomeDecision ? "Governance decision" : null,
       ].filter(Boolean);
 
       if (
@@ -1404,14 +1436,14 @@ const initialFinalAssessment =
         cleanedExecutiveSummary,
         "",
         "GOVERNANCE DECISION",
-        `Decision: ${governanceLabel(decision) || "Pending"}`,
-        `Residual risk assessment: ${governanceLabel(riskLevel) || "Medium"}`,
+        `Decision: ${governanceLabel(outcomeDecision) || "Pending"}`,
+        `Residual risk assessment: ${governanceLabel(outcomeRiskLevel) || "Medium"}`,
         "",
         "TRUVERN GOVERNANCE REVIEW",
         cleanedFinalAssessment,
         "",
         "CONDITIONS & FOLLOW-UPS",
-        recommendationsText.trim(),
+        outcomeRecommendationsText.trim(),
       ]
         .filter((part) => part !== null && part !== undefined)
         .join("\n");
@@ -1422,14 +1454,14 @@ const initialFinalAssessment =
         body: JSON.stringify({
           intent,
           assignmentType: assignment.assignmentType,
-          riskLevel,
-          decision,
+          riskLevel: outcomeRiskLevel,
+          decision: outcomeDecision,
           findings: releaseFindings,
           structuredAssessment: {
             ...(latestOutcome.generatedDraft?.structuredAssessment || {}),
             executiveSummary: cleanedExecutiveSummary,
             finalAssessment: cleanedFinalAssessment,
-            conditionsAndFollowUps: recommendationsText
+            conditionsAndFollowUps: outcomeRecommendationsText
               .split("\n")
               .map((v: string) => v.trim())
               .filter(Boolean),
