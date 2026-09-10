@@ -5,6 +5,7 @@ import {
   requireReviewerAccess
 } from "@/lib/auth/truvern-governance";
 import { emitWorkflowEvent } from "@/lib/workflow/workflow-events";
+import { completePackageDecisionTaskForPackage } from "@/lib/repositories/workflow-task-repository";
 import { WorkflowEvent } from "@/lib/workflow/workflow-constants";
 import { runReleaseReadinessForPackage } from "@/lib/workflow/release-readiness-engine";
 import { runGovernanceReleaseGateForAssignment } from "@/lib/workflow/governance-release-gate-engine";
@@ -86,6 +87,13 @@ export async function POST(request: Request, props: Props) {
       },
     });
 
+    const packageDecisionTasks =
+      await completePackageDecisionTaskForPackage(
+        packageId,
+        "APPROVED",
+        body?.rationale || body?.summary || "Remediation package approved by reviewer.",
+      );
+
     const releaseReadiness =
       await runReleaseReadinessForPackage(packageId);
 
@@ -105,6 +113,7 @@ export async function POST(request: Request, props: Props) {
       ...result,
       ok: true,
       packageId,
+      packageDecisionTasksCompleted: packageDecisionTasks.length,
       releaseReadiness,
       governanceReleaseGate,
     });

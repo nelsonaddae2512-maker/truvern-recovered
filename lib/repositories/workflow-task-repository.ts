@@ -169,6 +169,26 @@ export async function readWorkflowTaskCompletionCounts(
   `;
 }
 
+export async function completePackageDecisionTaskForPackage(
+  packageId: any,
+  result: any,
+  notes: any,
+): Promise<any[]> {
+  return prisma.$queryRaw<any[]>`
+    update "WorkflowTask"
+    set
+      status = 'COMPLETED',
+      result = ${result},
+      notes = ${notes},
+      "completedAt" = now(),
+      "updatedAt" = now()
+    where "packageId" = ${packageId}
+      and type = 'PACKAGE_DECISION'
+      and status in ('OPEN', 'IN_PROGRESS')
+    returning *
+  `;
+}
+
 export async function completeWorkflowTaskRow(
   result: any,
   notes: any,

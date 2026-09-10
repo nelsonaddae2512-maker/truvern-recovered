@@ -1,5 +1,3 @@
-import { emitWorkflowEvent } from "@/lib/workflow/workflow-events";
-import { WorkflowEvent } from "@/lib/workflow/workflow-constants";
 import {
   claimWorkflowTaskRow,
   completeWorkflowTaskRow,
@@ -162,27 +160,8 @@ async function maybeCompletePackageFromTasks(packageId: number | null | undefine
   const total = Number(rows?.[0]?.total ?? 0);
   const completed = Number(rows?.[0]?.completed ?? 0);
 
-  if (total > 0 && completed >= total) {
-    await emitWorkflowEvent({
-      event: WorkflowEvent.PackageApproved,
-      packageId,
-      actor: "WORKFLOW_TASK_ENGINE",
-      summary: "All workflow tasks completed; remediation package moved to release check.",
-      payload: {
-        totalTasks: total,
-        completedTasks: completed,
-      },
-    });
-
-    return {
-      completed: true,
-      totalTasks: total,
-      completedTasks: completed,
-    };
-  }
-
   return {
-    completed: false,
+    completed: total > 0 && completed >= total,
     totalTasks: total,
     completedTasks: completed,
   };
