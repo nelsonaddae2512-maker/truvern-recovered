@@ -22,6 +22,29 @@ export async function readAiReviewWorkerTasks(): Promise<any[]> {
   `;
 }
 
+export async function readAiReviewWorkerTasksForPackage(
+  packageId: number,
+): Promise<any[]> {
+  return prisma.$queryRaw<any[]>`
+    select
+      wt.id,
+      wt."packageId",
+      wt."workflowId",
+      wt."reviewAssignmentId",
+      wt."vendorId",
+      wt."organizationId",
+      wt.title,
+      wt.payload,
+      rp.title as "packageTitle",
+      rp.payload as "packagePayload"
+    from "WorkflowTask" wt
+    left join "RemediationPackage" rp on rp.id = wt."packageId"
+    where wt.type = 'AI_PRE_REVIEW'
+      and wt.status in ('OPEN','IN_PROGRESS')
+      and wt."packageId" = ${packageId}
+    order by wt.priority desc, wt."createdAt" asc
+  `;
+}
 export async function updateAiReviewWorkerTask(
   payloadJson: string,
   taskId: number,

@@ -2,13 +2,11 @@ import { completeWorkflowTask } from "@/lib/workflow/workflow-task-engine";
 import {
   insertAiReviewWorkerCompletionEvent,
   readAiReviewWorkerTasks,
+  readAiReviewWorkerTasksForPackage,
   updateAiReviewWorkerTask,
 } from "@/lib/repositories/ai-review-worker-repository";
 
-export async function runAiReviewWorker() {
-  const tasks: any[] =
-    await readAiReviewWorkerTasks();
-
+async function runAiReviewTasks(tasks: any[]) {
   let completed = 0;
 
   for (const task of tasks) {
@@ -70,4 +68,20 @@ export async function runAiReviewWorker() {
     checked: tasks.length,
     completed,
   };
+}
+
+export async function runAiReviewWorker() {
+  const tasks: any[] =
+    await readAiReviewWorkerTasks();
+
+  return runAiReviewTasks(tasks);
+}
+
+export async function runAiReviewWorkerForPackage(
+  packageId: number,
+) {
+  const tasks: any[] =
+    await readAiReviewWorkerTasksForPackage(packageId);
+
+  return runAiReviewTasks(tasks);
 }

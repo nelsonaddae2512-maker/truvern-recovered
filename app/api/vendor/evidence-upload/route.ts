@@ -6,6 +6,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { emitWorkflowEvent } from "@/lib/workflow/workflow-events";
 import { WorkflowEvent } from "@/lib/workflow/workflow-constants";
 import { generateWorkflowTasksForPackage } from "@/lib/workflow/workflow-task-engine";
+import { runAiReviewWorkerForPackage } from "@/lib/workflow/ai-review-worker";
 import {
   ALLOWED_EVIDENCE_TYPES,
   EVIDENCE_MAX_BYTES,
@@ -274,6 +275,8 @@ export async function POST(request: Request) {
           packageId: remediationPackageId,
           actor: "VENDOR_UPLOAD_AUTOMATION",
         });
+
+        await runAiReviewWorkerForPackage(remediationPackageId);
       } catch (taskError) {
         console.warn("Workflow task generation after vendor upload failed:", taskError);
       }
