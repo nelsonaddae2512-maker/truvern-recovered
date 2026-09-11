@@ -7,14 +7,43 @@ export async function readAiReviewWorkerTasks(): Promise<any[]> {
       wt."packageId",
       wt."workflowId",
       wt."reviewAssignmentId",
+      ra."assignmentType"::text as "assignmentType",
       wt."vendorId",
       wt."organizationId",
       wt.title,
       wt.payload,
       rp.title as "packageTitle",
-      rp.payload as "packagePayload"
+      rp.payload as "packagePayload",
+      rp."evidenceRequestId",
+      er."fulfilledEvidenceId",
+      er.title as "evidenceRequestTitle",
+      er.description as "evidenceRequestDescription",
+      er."vendorResponse",
+      er."reviewerNotes",
+      er."resolutionNotes",
+      ev.id as "evidenceId",
+      ev.title as "evidenceTitle",
+      ev.description as "evidenceDescription",
+      coalesce(ev."fileUrl", ev.url) as "evidenceStorageKey",
+      ev.kind::text as "evidenceKind",
+      ev."uploadedAt" as "evidenceUploadedAt",
+      ev."documentDate" as "evidenceDocumentDate",
+      ev."validUntil" as "evidenceValidUntil"
     from "WorkflowTask" wt
+    left join "ReviewAssignment" ra
+      on ra.id = wt."reviewAssignmentId"
+      and ra."organizationId" = wt."organizationId"
+      and ra."vendorId" = wt."vendorId"
     left join "RemediationPackage" rp on rp.id = wt."packageId"
+    left join "EvidenceRequest" er
+      on er.id = rp."evidenceRequestId"
+      and er."vendorId" = rp."vendorId"
+      and er."organizationId" = rp."organizationId"
+    left join "Evidence" ev
+      on ev.id = er."fulfilledEvidenceId"
+      and ev."evidenceRequestId" = er.id
+      and ev."vendorId" = rp."vendorId"
+      and ev."organizationId" = rp."organizationId"
     where wt.type = 'AI_PRE_REVIEW'
       and wt.status in ('OPEN','IN_PROGRESS')
     order by wt.priority desc, wt."createdAt" asc
@@ -31,14 +60,43 @@ export async function readAiReviewWorkerTasksForPackage(
       wt."packageId",
       wt."workflowId",
       wt."reviewAssignmentId",
+      ra."assignmentType"::text as "assignmentType",
       wt."vendorId",
       wt."organizationId",
       wt.title,
       wt.payload,
       rp.title as "packageTitle",
-      rp.payload as "packagePayload"
+      rp.payload as "packagePayload",
+      rp."evidenceRequestId",
+      er."fulfilledEvidenceId",
+      er.title as "evidenceRequestTitle",
+      er.description as "evidenceRequestDescription",
+      er."vendorResponse",
+      er."reviewerNotes",
+      er."resolutionNotes",
+      ev.id as "evidenceId",
+      ev.title as "evidenceTitle",
+      ev.description as "evidenceDescription",
+      coalesce(ev."fileUrl", ev.url) as "evidenceStorageKey",
+      ev.kind::text as "evidenceKind",
+      ev."uploadedAt" as "evidenceUploadedAt",
+      ev."documentDate" as "evidenceDocumentDate",
+      ev."validUntil" as "evidenceValidUntil"
     from "WorkflowTask" wt
+    left join "ReviewAssignment" ra
+      on ra.id = wt."reviewAssignmentId"
+      and ra."organizationId" = wt."organizationId"
+      and ra."vendorId" = wt."vendorId"
     left join "RemediationPackage" rp on rp.id = wt."packageId"
+    left join "EvidenceRequest" er
+      on er.id = rp."evidenceRequestId"
+      and er."vendorId" = rp."vendorId"
+      and er."organizationId" = rp."organizationId"
+    left join "Evidence" ev
+      on ev.id = er."fulfilledEvidenceId"
+      and ev."evidenceRequestId" = er.id
+      and ev."vendorId" = rp."vendorId"
+      and ev."organizationId" = rp."organizationId"
     where wt.type = 'AI_PRE_REVIEW'
       and wt.status in ('OPEN','IN_PROGRESS')
       and wt."packageId" = ${packageId}
