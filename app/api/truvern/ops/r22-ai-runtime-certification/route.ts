@@ -12,9 +12,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
-  try {
-    await requireOpsAccess();
+  await requireOpsAccess();
 
+  try {
     return NextResponse.json(
       {
         ok: true,
@@ -33,16 +33,11 @@ export async function GET() {
         },
       },
     );
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "AI runtime certification failed.";
-
+  } catch {
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: "AI runtime certification failed.",
       },
       {
         status: 500,
