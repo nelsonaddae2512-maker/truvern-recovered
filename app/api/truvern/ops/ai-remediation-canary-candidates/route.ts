@@ -17,9 +17,8 @@ type CandidateRow = {
   taskStatus: string;
   taskPriority: number;
   taskCreatedAt: Date;
-  packageTitle: string;
-  packageStatus: string;
-  evidenceRequestId: number | null;
+  hasEvidenceRequest: boolean;
+  matchingTasksInPackage: number;
   assignmentType: string | null;
 };
 
@@ -38,9 +37,14 @@ export async function GET() {
         wt.status as "taskStatus",
         wt.priority as "taskPriority",
         wt."createdAt" as "taskCreatedAt",
-        rp.title as "packageTitle",
-        rp.status as "packageStatus",
-        rp."evidenceRequestId" as "evidenceRequestId",
+        (rp."evidenceRequestId" is not null) as "hasEvidenceRequest",
+        (
+          select count(*)::int
+          from "WorkflowTask" package_task
+          where package_task.type = 'AI_PRE_REVIEW'
+            and package_task.status in ('OPEN', 'IN_PROGRESS')
+            and package_task."packageId" = wt."packageId"
+        ) as "matchingTasksInPackage",
         ra."assignmentType" as "assignmentType"
       from "WorkflowTask" wt
       inner join "RemediationPackage" rp
@@ -67,7 +71,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: true,
-        certification: "R22.7F.10CE-R60",
+        certification: "R22.7F.10CE-R66",
         readOnly: true,
         candidateCount: candidates.length,
         candidates,
@@ -89,7 +93,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: false,
-        certification: "R22.7F.10CE-R60",
+        certification: "R22.7F.10CE-R66",
         error: "Candidate probe failed.",
       },
       {
