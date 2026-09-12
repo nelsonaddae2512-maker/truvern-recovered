@@ -103,25 +103,6 @@ export async function readAiReviewWorkerTasksForPackage(
     order by wt.priority desc, wt."createdAt" asc
   `;
 }
-export async function claimAiReviewCanaryTaskForPackage(
-  taskId: number,
-  packageId: number,
-): Promise<any[]> {
-  return prisma.$queryRaw<any[]>`
-    update "WorkflowTask"
-    set
-      "assignedTo" = 'AI_WORKER',
-      "assignedReviewerName" = 'Truvern AI remediation review',
-      status = 'IN_PROGRESS',
-      "startedAt" = coalesce("startedAt", now()),
-      "updatedAt" = now()
-    where id = ${taskId}
-      and "packageId" = ${packageId}
-      and type = 'AI_PRE_REVIEW'
-      and status = 'OPEN'
-    returning *
-  `;
-}
 export async function updateAiReviewWorkerTask(
   payloadJson: string,
   taskId: number,
