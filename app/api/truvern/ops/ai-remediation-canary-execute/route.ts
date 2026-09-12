@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import { runAiReviewWorkerForPackage } from "@/lib/workflow/ai-review-worker";
+import { claimAiReviewCanaryTaskForPackage } from "@/lib/repositories/ai-review-worker-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,10 +139,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const result =
-    await runAiReviewWorkerForPackage(
+  const claimed = await claimAiReviewCanaryTaskForPackage(
+      EXPECTED_TASK_ID,
       EXPECTED_PACKAGE_ID,
     );
+
+    if (claimed.length !== 1) {
+      return NextResponse.json(
+        {
+          ok: false,
+          certification: CERTIFICATION,
+          error:
+            "Canary task atomic claim failed. Task must be OPEN and unclaimed.",
+          expectedTaskId: EXPECTED_TASK_ID,
+          expectedPackageId: EXPECTED_PACKAGE_ID,
+          workerInvoked: false,
+          providerInvoked: false,
+          modelCalled: false,
+        },
+        { status: 409 },
+      );
+    }
+
+    const result =
+      await runAiReviewWorkerForPackage(
+        EXPECTED_PACKAGE_ID,
+      );
 
   return NextResponse.json({
     ok: true,
