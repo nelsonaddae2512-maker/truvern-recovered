@@ -46,7 +46,6 @@ export async function readAiReviewWorkerTasks(): Promise<any[]> {
       and ev."organizationId" = rp."organizationId"
     where wt.type = 'AI_PRE_REVIEW'
       and wt.status in ('OPEN','IN_PROGRESS')
-      and coalesce(wt."assignedTo", '') <> 'AI_WORKER'
     order by wt.priority desc, wt."createdAt" asc
     limit 25
   `;
@@ -100,30 +99,9 @@ export async function readAiReviewWorkerTasksForPackage(
       and ev."organizationId" = rp."organizationId"
     where wt.type = 'AI_PRE_REVIEW'
       and wt.status in ('OPEN','IN_PROGRESS')
-      and coalesce(wt."assignedTo", '') <> 'AI_WORKER'
       and wt."packageId" = ${packageId}
     order by wt.priority desc, wt."createdAt" asc
   `;
-}
-export async function claimAiReviewWorkerTaskForProvider(
-  taskId: number,
-): Promise<boolean> {
-  const rows = await prisma.$queryRaw<Array<{ id: number }>>`
-    update "WorkflowTask"
-    set
-      "assignedTo" = 'AI_WORKER',
-      "assignedReviewerName" = 'Truvern AI Review Worker',
-      status = 'IN_PROGRESS',
-      "startedAt" = coalesce("startedAt", now()),
-      "updatedAt" = now()
-    where id = ${taskId}
-      and type = 'AI_PRE_REVIEW'
-      and status = 'OPEN'
-      and "assignedTo" is null
-    returning id
-  `;
-
-  return rows.length === 1;
 }
 export async function updateAiReviewWorkerTask(
   payloadJson: string,
