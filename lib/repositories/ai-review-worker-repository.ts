@@ -495,3 +495,148 @@ export async function quarantineExpiredAiReviewWorkerLease(
     };
   });
 }
+export type AiReviewRecoveryResolutionResult = {
+  taskId: number;
+  packageId: number | null;
+  workflowId: number | null;
+  organizationId: number;
+  vendorId: number | null;
+  reviewAssignmentId: number | null;
+  resolvedAt: string;
+};
+
+export async function resolveQuarantinedAiReviewWorkerTaskWithoutAiResult(
+  taskId: number,
+  actorUserId: string,
+  resolutionReason: string,
+): Promise<AiReviewRecoveryResolutionResult | null> {
+  if (!Number.isInteger(taskId) || taskId <= 0) {
+    throw new Error("AI_REVIEW_RECOVERY_RESOLUTION_TASK_ID_INVALID");
+  }
+
+  const normalizedActorUserId = actorUserId.trim();
+  const normalizedResolutionReason = resolutionReason.trim();
+
+  if (!normalizedActorUserId) {
+    throw new Error("AI_REVIEW_RECOVERY_RESOLUTION_ACTOR_REQUIRED");
+  }
+
+  if (!normalizedResolutionReason) {
+    throw new Error("AI_REVIEW_RECOVERY_RESOLUTION_REASON_REQUIRED");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{
+      id: number;
+      workflowId: number | null;
+      organizationId: number;
+      vendorId: number | null;
+      reviewAssignmentId: number | null;
+      packageId: number | null;
+      resolvedAt: Date;
+    }>>`
+      update "WorkflowTask"
+      set
+        status = 'COMPLETED',
+        result = 'AI_PRE_REVIEW_RECOVERY_RESOLVED_WITHOUT_AI_RESULT',
+        payload =
+          jsonb_set(
+            coalesce(payload, '{}'::jsonb),
+            '{aiReviewRecovery}',
+            coalesce(payload -> 'aiReviewRecovery', '{}'::jsonb)
+              || jsonb_build_object(
+                'state',
+                'RESOLVED_WITHOUT_AI_RESULT',
+                'resolvedAt',
+                now(),
+                'resolvedBy',
+                ${normalizedActorUserId},
+                'resolutionReason',
+                ${normalizedResolutionReason}
+              ),
+            true
+          ),
+        "completedAt" = now(),
+        "updatedAt" = now()
+      where id = ${taskId}
+        and type = 'AI_PRE_REVIEW'
+        and status = 'IN_PROGRESS'
+        and "assignedTo" = 'TRUVERN_AI_RECOVERY'
+        and coalesce(
+          payload #>> '{aiReviewRecovery,state}',
+          ''
+        ) = 'UNCERTAIN_EXTERNAL_SIDE_EFFECT'
+        and coalesce(
+          payload #>> '{aiReviewLease,token}',
+          ''
+        ) <> ''
+      returning
+        id,
+        "workflowId",
+        "organizationId",
+        "vendorId",
+        "reviewAssignmentId",
+        "packageId",
+        "updatedAt" as "resolvedAt"
+    `;
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    if (rows.length !== 1) {
+      throw new Error(
+        "AI_REVIEW_RECOVERY_RESOLUTION_CARDINALITY_INVALID",
+      );
+    }
+
+    const task = rows[0];
+
+    await tx.$executeRaw`
+      insert into "WorkflowEvent" (
+        "workflowId",
+        "organizationId",
+        "vendorId",
+        "reviewAssignmentId",
+        type,
+        actor,
+        summary,
+        payload,
+        "createdAt"
+      )
+      values (
+        ${task.workflowId},
+        ${task.organizationId},
+        ${task.vendorId},
+        ${task.reviewAssignmentId},
+        'AI_PRE_REVIEW_RECOVERY_RESOLVED',
+        ${normalizedActorUserId},
+        'Uncertain AI pre-review recovery resolved without asserting an AI result.',
+        jsonb_build_object(
+          'taskId',
+          ${task.id},
+          'packageId',
+          ${task.packageId},
+          'state',
+          'RESOLVED_WITHOUT_AI_RESULT',
+          'result',
+          'AI_PRE_REVIEW_RECOVERY_RESOLVED_WITHOUT_AI_RESULT',
+          'resolutionReason',
+          ${normalizedResolutionReason}
+        ),
+        now()
+      )
+    `;
+
+    return {
+      taskId: task.id,
+      packageId: task.packageId,
+      workflowId: task.workflowId,
+      organizationId: task.organizationId,
+      vendorId: task.vendorId,
+      reviewAssignmentId: task.reviewAssignmentId,
+      resolvedAt: task.resolvedAt.toISOString(),
+    };
+  });
+}
+
