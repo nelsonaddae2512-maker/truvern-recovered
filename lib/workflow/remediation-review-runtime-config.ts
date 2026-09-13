@@ -16,6 +16,13 @@ export type RemediationReviewCommercialEligibility = {
   reason: RemediationReviewEligibilityReason;
 };
 
+export function isRemediationReviewWorkerExecutionEnabled(): boolean {
+  return (
+    String(
+      process.env.TRUVERN_AI_REMEDIATION_WORKER_EXECUTION_ENABLED ?? "",
+    ).trim() === "1"
+  );
+}
 export function isRemediationReviewRuntimeEnabled(): boolean {
   return (
     String(

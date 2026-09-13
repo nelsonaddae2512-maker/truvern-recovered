@@ -10,6 +10,7 @@ import {
   getConfiguredRemediationReviewApiKey,
   getConfiguredRemediationReviewModel,
   isRemediationReviewRuntimeEnabled,
+  isRemediationReviewWorkerExecutionEnabled,
 } from "@/lib/workflow/remediation-review-runtime-config";
 import {
   extractTrustedEvidenceText,
@@ -60,6 +61,12 @@ function boundRemediationReviewEvidenceText(
   };
 }
 async function runAiReviewTasks(tasks: any[]) {
+  if (!isRemediationReviewWorkerExecutionEnabled()) {
+    return {
+      completed: 0,
+      quiesced: true,
+    };
+  }
   let completed = 0;
 
   for (const task of tasks) {
