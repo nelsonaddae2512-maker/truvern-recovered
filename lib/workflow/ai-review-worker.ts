@@ -23,6 +23,7 @@ import {
   insertAiReviewWorkerCompletionEvent,
   readAiReviewWorkerTasks,
   readAiReviewWorkerTasksForPackage,
+  claimAiReviewWorkerTaskForProvider,
   updateAiReviewWorkerTask,
 } from "@/lib/repositories/ai-review-worker-repository";
 
@@ -331,6 +332,15 @@ async function runAiReviewTasks(tasks: any[]) {
       runtimeEnabled &&
       configuredApiKey
     ) {
+      const ownsProviderExecution =
+        await claimAiReviewWorkerTaskForProvider(
+          Number(task.id),
+        );
+
+      if (!ownsProviderExecution) {
+        continue;
+      }
+
       providerMetadata = {
         attempted: true,
         providerVersion:
@@ -375,6 +385,8 @@ async function runAiReviewTasks(tasks: any[]) {
           failureCode:
             "PROVIDER_REQUEST_FAILED",
         };
+
+        continue;
       }
     }
     const result = {
