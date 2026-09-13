@@ -364,3 +364,134 @@ export async function insertAiReviewWorkerCompletionEvent(
     )
   `;
 }
+export type AiReviewRecoveryQuarantineResult = {
+  taskId: number;
+  packageId: number | null;
+  workflowId: number | null;
+  organizationId: number;
+  vendorId: number | null;
+  reviewAssignmentId: number | null;
+  quarantinedAt: string;
+};
+
+export async function quarantineExpiredAiReviewWorkerLease(
+  taskId: number,
+  actorUserId: string,
+): Promise<AiReviewRecoveryQuarantineResult | null> {
+  if (!Number.isInteger(taskId) || taskId <= 0) {
+    throw new Error("AI_REVIEW_RECOVERY_TASK_ID_INVALID");
+  }
+
+  const normalizedActorUserId = actorUserId.trim();
+
+  if (!normalizedActorUserId) {
+    throw new Error("AI_REVIEW_RECOVERY_ACTOR_REQUIRED");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{
+      id: number;
+      workflowId: number | null;
+      organizationId: number;
+      vendorId: number | null;
+      reviewAssignmentId: number | null;
+      packageId: number | null;
+      quarantinedAt: Date;
+    }>>`
+      update "WorkflowTask"
+      set
+        "assignedTo" = 'TRUVERN_AI_RECOVERY',
+        "assignedReviewerName" = 'Truvern AI Recovery',
+        payload =
+          coalesce(payload, '{}'::jsonb)
+          || jsonb_build_object(
+            'aiReviewRecovery',
+            jsonb_build_object(
+              'state',
+              'UNCERTAIN_EXTERNAL_SIDE_EFFECT',
+              'quarantinedAt',
+              now(),
+              'quarantinedBy',
+              ${normalizedActorUserId},
+              'reason',
+              'EXPIRED_AI_WORKER_LEASE'
+            )
+          ),
+        "updatedAt" = now()
+      where id = ${taskId}
+        and type = 'AI_PRE_REVIEW'
+        and status = 'IN_PROGRESS'
+        and "assignedTo" = 'AI_WORKER'
+        and coalesce(payload #>> '{aiReviewLease,token}', '') <> ''
+        and case
+          when coalesce(payload #>> '{aiReviewLease,expiresAt}', '')
+            ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+          then (payload #>> '{aiReviewLease,expiresAt}')::timestamptz <= now()
+          else false
+        end
+        and coalesce(payload #>> '{aiReviewRecovery,state}', '') = ''
+      returning
+        id,
+        "workflowId",
+        "organizationId",
+        "vendorId",
+        "reviewAssignmentId",
+        "packageId",
+        "updatedAt" as "quarantinedAt"
+    `;
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    if (rows.length !== 1) {
+      throw new Error("AI_REVIEW_RECOVERY_CARDINALITY_INVALID");
+    }
+
+    const task = rows[0];
+
+    await tx.$executeRaw`
+      insert into "WorkflowEvent" (
+        "workflowId",
+        "organizationId",
+        "vendorId",
+        "reviewAssignmentId",
+        type,
+        actor,
+        summary,
+        payload,
+        "createdAt"
+      )
+      values (
+        ${task.workflowId},
+        ${task.organizationId},
+        ${task.vendorId},
+        ${task.reviewAssignmentId},
+        'AI_PRE_REVIEW_RECOVERY_QUARANTINED',
+        ${normalizedActorUserId},
+        'Expired AI pre-review lease quarantined for manual recovery.',
+        jsonb_build_object(
+          'taskId',
+          ${task.id},
+          'packageId',
+          ${task.packageId},
+          'state',
+          'UNCERTAIN_EXTERNAL_SIDE_EFFECT',
+          'reason',
+          'EXPIRED_AI_WORKER_LEASE'
+        ),
+        now()
+      )
+    `;
+
+    return {
+      taskId: task.id,
+      packageId: task.packageId,
+      workflowId: task.workflowId,
+      organizationId: task.organizationId,
+      vendorId: task.vendorId,
+      reviewAssignmentId: task.reviewAssignmentId,
+      quarantinedAt: task.quarantinedAt.toISOString(),
+    };
+  });
+}
