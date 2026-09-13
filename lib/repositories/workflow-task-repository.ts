@@ -150,6 +150,8 @@ export async function claimWorkflowTaskRow(
       "updatedAt" = now()
     where id = ${taskId}
       and status in ('OPEN', 'IN_PROGRESS')
+      and type <> 'AI_PRE_REVIEW'
+
     returning *
   `;
 }
@@ -203,6 +205,8 @@ export async function completeWorkflowTaskRow(
       "completedAt" = now(),
       "updatedAt" = now()
     where id = ${taskId}
+      and type <> 'AI_PRE_REVIEW'
+
     returning *
   `;
 }

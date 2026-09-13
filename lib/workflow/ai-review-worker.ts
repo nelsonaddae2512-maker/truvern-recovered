@@ -1,4 +1,4 @@
-import { completeWorkflowTask } from "@/lib/workflow/workflow-task-engine";
+import { randomUUID } from "node:crypto";
 import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
 import {
   DEFAULT_OPENAI_REMEDIATION_REVIEW_MODEL,
@@ -21,10 +21,10 @@ import {
   createRemediationReviewInput,
 } from "@/lib/workflow/remediation-review-contract";
 import {
-  insertAiReviewWorkerCompletionEvent,
+  claimAiReviewWorkerTaskLease,
+  finalizeOwnedAiReviewWorkerTask,
   readAiReviewWorkerTasks,
   readAiReviewWorkerTasksForPackage,
-  updateAiReviewWorkerTask,
 } from "@/lib/repositories/ai-review-worker-repository";
 
 const AI_REMEDIATION_REVIEW_TEXT_MAX_CHARS = 65_536;
@@ -67,9 +67,21 @@ async function runAiReviewTasks(tasks: any[]) {
       quiesced: true,
     };
   }
+
   let completed = 0;
 
   for (const task of tasks) {
+    const ownershipToken = randomUUID();
+
+    const lease = await claimAiReviewWorkerTaskLease(
+      Number(task.id),
+      ownershipToken,
+    );
+
+    if (!lease) {
+      continue;
+    }
+
     const packagePayload =
       task.packagePayload && typeof task.packagePayload === "object"
         ? task.packagePayload
@@ -418,28 +430,15 @@ async function runAiReviewTasks(tasks: any[]) {
       generatedAt: new Date().toISOString(),
     };
 
-    await updateAiReviewWorkerTask(
-      JSON.stringify({ aiReview: result }),
-      task.id,
+    const finalized = await finalizeOwnedAiReviewWorkerTask(
+      Number(task.id),
+      lease.token,
+      JSON.stringify(result),
     );
 
-    await completeWorkflowTask({
-      taskId: Number(task.id),
-      result: "AI_PRE_REVIEW_COMPLETED",
-      notes: JSON.stringify(result),
-    });
-
-    await insertAiReviewWorkerCompletionEvent(
-      task.workflowId,
-      task.organizationId,
-      task.vendorId,
-      task.reviewAssignmentId,
-      JSON.stringify({
-        taskId: task.id,
-        packageId: task.packageId,
-        result,
-      }),
-    );
+    if (!finalized) {
+      throw new Error("AI_REVIEW_OWNERSHIP_LOST_BEFORE_FINALIZE");
+    }
 
     completed++;
   }

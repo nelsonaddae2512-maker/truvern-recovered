@@ -547,6 +547,7 @@ export async function requestOpenAiRemediationReview(
     );
 
   let response: Response;
+  let payload: unknown;
 
   try {
     response =
@@ -595,18 +596,18 @@ export async function requestOpenAiRemediationReview(
             "no-store",
         },
       );
+
+    if (!response.ok) {
+      throw new Error(
+        `OpenAI remediation review returned HTTP ${response.status}.`,
+      );
+    }
+
+    payload =
+      await response.json();
   } finally {
     clearTimeout(timeout);
   }
-
-  if (!response.ok) {
-    throw new Error(
-      `OpenAI remediation review returned HTTP ${response.status}.`,
-    );
-  }
-
-  const payload: unknown =
-    await response.json();
 
   if (!isRecord(payload)) {
     throw new Error(

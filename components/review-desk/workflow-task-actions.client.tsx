@@ -121,10 +121,11 @@ export default function WorkflowTaskActions({
 
   const completed = status === "COMPLETED";
   const packageDecision = type === "PACKAGE_DECISION";
+  const aiPreReview = type === "AI_PRE_REVIEW";
 
   return (
     <div className="flex flex-wrap gap-2">
-      {!assignedTo && !completed ? (
+      {!assignedTo && !completed && !aiPreReview ? (
         <button
           type="button"
           disabled={busy}
@@ -135,7 +136,7 @@ export default function WorkflowTaskActions({
         </button>
       ) : null}
 
-      {assignedTo && !completed && !packageDecision ? (
+      {assignedTo && !completed && !packageDecision && !aiPreReview ? (
         <button
           type="button"
           disabled={busy}

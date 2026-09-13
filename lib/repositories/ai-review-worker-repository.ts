@@ -103,6 +103,106 @@ export async function readAiReviewWorkerTasksForPackage(
     order by wt.priority desc, wt."createdAt" asc
   `;
 }
+export type AiReviewWorkerLease = {
+  taskId: number;
+  token: string;
+  expiresAt: Date;
+};
+
+export async function claimAiReviewWorkerTaskLease(
+  taskId: number,
+  token: string,
+  leaseSeconds = 300,
+): Promise<AiReviewWorkerLease | null> {
+  if (!Number.isInteger(taskId) || taskId <= 0) {
+    throw new Error("AI_REVIEW_CLAIM_TASK_ID_INVALID");
+  }
+
+  const normalizedToken = token.trim();
+
+  if (!normalizedToken) {
+    throw new Error("AI review worker ownership token is required.");
+  }
+
+  if (
+    !Number.isInteger(leaseSeconds) ||
+    leaseSeconds < 60 ||
+    leaseSeconds > 3600
+  ) {
+    throw new Error(
+      "AI review worker diagnostic lease must be between 60 and 3600 seconds.",
+    );
+  }
+
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: number;
+      leaseExpiresAt: Date;
+    }>
+  >`
+    update "WorkflowTask"
+    set
+      "assignedTo" = 'AI_WORKER',
+      "assignedReviewerName" = 'Truvern AI remediation worker',
+      status = 'IN_PROGRESS',
+      "startedAt" = coalesce("startedAt", now()),
+      payload =
+        coalesce(payload, '{}'::jsonb) ||
+        jsonb_build_object(
+          'aiReviewLease',
+          jsonb_build_object(
+            'token', ${normalizedToken},
+            'claimedAt', now(),
+            'expiresAt',
+              now() + (${leaseSeconds} * interval '1 second')
+          )
+        ),
+      "updatedAt" = now()
+    where id = ${taskId}
+      and type = 'AI_PRE_REVIEW'
+      and status = 'OPEN'
+      and "assignedTo" is null
+      and coalesce(payload #>> '{aiReviewLease,token}', '') = ''
+    returning
+      id,
+      (
+        payload #>> '{aiReviewLease,expiresAt}'
+      )::timestamptz as "leaseExpiresAt"
+  `;
+
+  const claimed = rows[0];
+
+  if (!claimed) {
+    return null;
+  }
+
+  return {
+    taskId: claimed.id,
+    token: normalizedToken,
+    expiresAt: claimed.leaseExpiresAt,
+  };
+}
+
+export async function aiReviewWorkerLeaseIsOwned(
+  taskId: number,
+  token: string,
+): Promise<boolean> {
+  const rows = await prisma.$queryRaw<
+    Array<{ owned: boolean }>
+  >`
+    select exists (
+      select 1
+      from "WorkflowTask"
+      where id = ${taskId}
+        and type = 'AI_PRE_REVIEW'
+        and status = 'IN_PROGRESS'
+        and "assignedTo" = 'AI_WORKER'
+        and payload #>> '{aiReviewLease,token}' = ${token}
+    ) as owned
+  `;
+
+  return rows[0]?.owned === true;
+}
 export async function updateAiReviewWorkerTask(
   payloadJson: string,
   taskId: number,
@@ -120,6 +220,118 @@ export async function updateAiReviewWorkerTask(
   `;
 }
 
+export async function finalizeOwnedAiReviewWorkerTask(
+  taskId: number,
+  token: string,
+  resultJson: string,
+): Promise<boolean> {
+  if (!Number.isInteger(taskId) || taskId <= 0) {
+    throw new Error("AI_REVIEW_FINALIZE_TASK_ID_INVALID");
+  }
+
+  const normalizedToken = token.trim();
+
+  if (!normalizedToken) {
+    throw new Error("AI_REVIEW_FINALIZE_TOKEN_REQUIRED");
+  }
+
+  let parsedResult: unknown;
+
+  try {
+    parsedResult = JSON.parse(resultJson);
+  } catch {
+    throw new Error("AI_REVIEW_FINALIZE_RESULT_JSON_INVALID");
+  }
+
+  const canonicalResultJson = JSON.stringify(parsedResult);
+
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{
+      id: number;
+      workflowId: number | null;
+      organizationId: number;
+      vendorId: number | null;
+      reviewAssignmentId: number | null;
+      packageId: number | null;
+    }>>`
+      update "WorkflowTask"
+      set
+        status = 'COMPLETED',
+        result = 'AI_PRE_REVIEW_COMPLETED',
+        notes = ${canonicalResultJson},
+        payload =
+          (
+            (
+              coalesce(payload, '{}'::jsonb)
+              || jsonb_build_object(
+                'aiReview',
+                ${canonicalResultJson}::jsonb
+              )
+            )
+            - 'aiReviewLease'
+          ),
+        "completedAt" = now(),
+        "updatedAt" = now()
+      where id = ${taskId}
+        and type = 'AI_PRE_REVIEW'
+        and status = 'IN_PROGRESS'
+        and "assignedTo" = 'AI_WORKER'
+        and coalesce(payload #>> '{aiReviewLease,token}', '') =
+            ${normalizedToken}
+      returning
+        id,
+        "workflowId",
+        "organizationId",
+        "vendorId",
+        "reviewAssignmentId",
+        "packageId"
+    `;
+
+    if (rows.length === 0) {
+      return false;
+    }
+
+    if (rows.length !== 1) {
+      throw new Error("AI_REVIEW_FINALIZE_CARDINALITY_INVALID");
+    }
+
+    const task = rows[0];
+
+    await tx.$executeRaw`
+      insert into "WorkflowEvent" (
+        "workflowId",
+        "organizationId",
+        "vendorId",
+        "reviewAssignmentId",
+        type,
+        actor,
+        summary,
+        payload,
+        "createdAt"
+      )
+      values (
+        ${task.workflowId},
+        ${task.organizationId},
+        ${task.vendorId},
+        ${task.reviewAssignmentId},
+        'AI_PRE_REVIEW_COMPLETED',
+        'AI_WORKER',
+        'AI pre-review completed',
+        jsonb_build_object(
+          'taskId',
+          ${task.id},
+          'packageId',
+          ${task.packageId},
+          'result',
+          ${canonicalResultJson}::jsonb
+        ),
+        now()
+      )
+    `;
+
+    return true;
+  });
+}
 export async function insertAiReviewWorkerCompletionEvent(
   workflowId: number | null,
   organizationId: number,
