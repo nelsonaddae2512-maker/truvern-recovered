@@ -77,7 +77,7 @@ export async function POST(request: Request) {
           select count(*)::int
           from "WorkflowTask" package_task
           where package_task.type = 'AI_PRE_REVIEW'
-            and package_task.status in ('OPEN', 'IN_PROGRESS')
+            and package_task.status = 'OPEN'
             and package_task."packageId" = wt."packageId"
         ) as "matchingTasksInPackage"
       from "WorkflowTask" wt
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       where wt.id = ${EXPECTED_TASK_ID}
         and wt."packageId" = ${EXPECTED_PACKAGE_ID}
         and wt.type = 'AI_PRE_REVIEW'
-        and wt.status in ('OPEN', 'IN_PROGRESS')
+        and wt.status = 'OPEN'
       limit 2
     `;
 

@@ -42,7 +42,7 @@ export async function GET() {
           select count(*)::int
           from "WorkflowTask" package_task
           where package_task.type = 'AI_PRE_REVIEW'
-            and package_task.status in ('OPEN', 'IN_PROGRESS')
+            and package_task.status = 'OPEN'
             and package_task."packageId" = wt."packageId"
         ) as "matchingTasksInPackage",
         ra."assignmentType" as "assignmentType"
@@ -57,7 +57,7 @@ export async function GET() {
         and ra."vendorId" = wt."vendorId"
         and ra."organizationId" = wt."organizationId"
       where wt.type = 'AI_PRE_REVIEW'
-        and wt.status in ('OPEN', 'IN_PROGRESS')
+        and wt.status = 'OPEN'
         and wt."packageId" is not null
         and wt."reviewAssignmentId" is not null
         and wt."vendorId" is not null

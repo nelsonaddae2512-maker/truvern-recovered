@@ -45,7 +45,7 @@ export async function readAiReviewWorkerTasks(): Promise<any[]> {
       and ev."vendorId" = rp."vendorId"
       and ev."organizationId" = rp."organizationId"
     where wt.type = 'AI_PRE_REVIEW'
-      and wt.status in ('OPEN','IN_PROGRESS')
+      and wt.status = 'OPEN'
     order by wt.priority desc, wt."createdAt" asc
     limit 25
   `;
@@ -98,7 +98,7 @@ export async function readAiReviewWorkerTasksForPackage(
       and ev."vendorId" = rp."vendorId"
       and ev."organizationId" = rp."organizationId"
     where wt.type = 'AI_PRE_REVIEW'
-      and wt.status in ('OPEN','IN_PROGRESS')
+      and wt.status = 'OPEN'
       and wt."packageId" = ${packageId}
     order by wt.priority desc, wt."createdAt" asc
   `;
