@@ -525,6 +525,12 @@ export async function resolveQuarantinedAiReviewWorkerTaskWithoutAiResult(
     throw new Error("AI_REVIEW_RECOVERY_RESOLUTION_REASON_REQUIRED");
   }
 
+  if (normalizedResolutionReason.length > 2000) {
+    throw new Error(
+      "AI_REVIEW_RECOVERY_RESOLUTION_REASON_TOO_LONG",
+    );
+  }
+
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{
       id: number;
@@ -547,6 +553,8 @@ export async function resolveQuarantinedAiReviewWorkerTaskWithoutAiResult(
               || jsonb_build_object(
                 'state',
                 'RESOLVED_WITHOUT_AI_RESULT',
+                'resolution',
+                'CLOSE_WITHOUT_AI_RESULT',
                 'resolvedAt',
                 now(),
                 'resolvedBy',
@@ -619,6 +627,8 @@ export async function resolveQuarantinedAiReviewWorkerTaskWithoutAiResult(
           ${task.packageId},
           'state',
           'RESOLVED_WITHOUT_AI_RESULT',
+          'resolution',
+          'CLOSE_WITHOUT_AI_RESULT',
           'result',
           'AI_PRE_REVIEW_RECOVERY_RESOLVED_WITHOUT_AI_RESULT',
           'resolutionReason',
