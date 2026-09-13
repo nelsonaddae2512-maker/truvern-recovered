@@ -23,6 +23,7 @@ import {
 import {
   claimAiReviewWorkerTaskLease,
   finalizeOwnedAiReviewWorkerTask,
+  readAiReviewWorkerTaskById,
   readAiReviewWorkerTasks,
   readAiReviewWorkerTasksForPackage,
 } from "@/lib/repositories/ai-review-worker-repository";
@@ -60,8 +61,30 @@ function boundRemediationReviewEvidenceText(
       originalCharacterLength > AI_REMEDIATION_REVIEW_TEXT_MAX_CHARS,
   };
 }
-async function runAiReviewTasks(tasks: any[]) {
-  if (!isRemediationReviewWorkerExecutionEnabled()) {
+type AiReviewExecutionAuthorization =
+  | {
+      kind: "LOCKED_CANARY";
+      taskId: 18;
+      packageId: 31;
+    }
+  | undefined;
+
+async function runAiReviewTasks(
+  tasks: any[],
+  authorization?: AiReviewExecutionAuthorization,
+) {
+  const globalExecutionEnabled =
+    isRemediationReviewWorkerExecutionEnabled();
+
+  const lockedCanaryAuthorized =
+    authorization?.kind === "LOCKED_CANARY" &&
+    authorization.taskId === 18 &&
+    authorization.packageId === 31 &&
+    tasks.length === 1 &&
+    Number(tasks[0]?.id) === 18 &&
+    Number(tasks[0]?.packageId) === 31;
+
+  if (!globalExecutionEnabled && !lockedCanaryAuthorized) {
     return {
       completed: 0,
       quiesced: true,
@@ -464,4 +487,54 @@ export async function runAiReviewWorkerForPackage(
     await readAiReviewWorkerTasksForPackage(packageId);
 
   return runAiReviewTasks(tasks);
+}
+
+export async function runLockedAiReviewCanaryTask18Package31() {
+  if (isRemediationReviewWorkerExecutionEnabled()) {
+    throw new Error(
+      "LOCKED_CANARY_GLOBAL_EXECUTION_MUST_BE_DISABLED",
+    );
+  }
+
+  const task =
+    await readAiReviewWorkerTaskById(18);
+
+  if (!task) {
+    return {
+      ok: false,
+      checked: 0,
+      completed: 0,
+      error: "LOCKED_CANARY_TASK_NOT_OPEN",
+    };
+  }
+
+  if (
+    Number(task.id) !== 18 ||
+    Number(task.packageId) !== 31 ||
+    Number(task.reviewAssignmentId) !== 29 ||
+    Number(task.vendorId) !== 21 ||
+    Number(task.organizationId) !== 9 ||
+    String(task.assignmentType ?? "").trim().toUpperCase() !== "TRUVERN" ||
+    Number(task.evidenceRequestId) !== 36 ||
+    Number(task.fulfilledEvidenceId) !== 22 ||
+    Number(task.evidenceId) !== 22 ||
+    String(task.evidenceStorageKey ?? "").trim() !==
+      "truvern/vendor-evidence/21/requests/36/1788873748464-au1.txt"
+  ) {
+    return {
+      ok: false,
+      checked: 1,
+      completed: 0,
+      error: "LOCKED_CANARY_IDENTITY_MISMATCH",
+    };
+  }
+
+  return runAiReviewTasks(
+    [task],
+    {
+      kind: "LOCKED_CANARY",
+      taskId: 18,
+      packageId: 31,
+    },
+  );
 }

@@ -51,6 +51,76 @@ export async function readAiReviewWorkerTasks(): Promise<any[]> {
   `;
 }
 
+export async function readAiReviewWorkerTaskById(
+  taskId: number,
+): Promise<any | null> {
+  if (!Number.isInteger(taskId) || taskId <= 0) {
+    throw new Error("AI_REVIEW_READ_TASK_ID_INVALID");
+  }
+
+  const rows = await prisma.$queryRaw<any[]>`
+    select
+      wt.id,
+      wt."packageId",
+      wt."workflowId",
+      wt."reviewAssignmentId",
+      ra."assignmentType"::text as "assignmentType",
+      wt."vendorId",
+      wt."organizationId",
+      wt.title,
+      wt.payload,
+      rp.title as "packageTitle",
+      rp.payload as "packagePayload",
+      rp."evidenceRequestId",
+      er."fulfilledEvidenceId",
+      er.title as "evidenceRequestTitle",
+      er.description as "evidenceRequestDescription",
+      er."vendorResponse",
+      er."reviewerNotes",
+      er."resolutionNotes",
+      ev.id as "evidenceId",
+      ev.title as "evidenceTitle",
+      ev.description as "evidenceDescription",
+      coalesce(ev."fileUrl", ev.url) as "evidenceStorageKey",
+      ev.kind::text as "evidenceKind",
+      ev."uploadedAt" as "evidenceUploadedAt",
+      ev."documentDate" as "evidenceDocumentDate",
+      ev."validUntil" as "evidenceValidUntil"
+    from "WorkflowTask" wt
+    left join "ReviewAssignment" ra
+      on ra.id = wt."reviewAssignmentId"
+      and ra."organizationId" = wt."organizationId"
+      and ra."vendorId" = wt."vendorId"
+    left join "RemediationPackage" rp
+      on rp.id = wt."packageId"
+      and rp."reviewAssignmentId" = wt."reviewAssignmentId"
+      and rp."vendorId" = wt."vendorId"
+      and rp."organizationId" = wt."organizationId"
+    left join "EvidenceRequest" er
+      on er.id = rp."evidenceRequestId"
+      and er."vendorId" = rp."vendorId"
+      and er."organizationId" = rp."organizationId"
+    left join "Evidence" ev
+      on ev.id = er."fulfilledEvidenceId"
+      and ev."evidenceRequestId" = er.id
+      and ev."vendorId" = rp."vendorId"
+      and ev."organizationId" = rp."organizationId"
+    where wt.id = ${taskId}
+      and wt.type = 'AI_PRE_REVIEW'
+      and wt.status = 'OPEN'
+    limit 2
+  `;
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  if (rows.length !== 1) {
+    throw new Error("AI_REVIEW_EXACT_TASK_CARDINALITY_INVALID");
+  }
+
+  return rows[0];
+}
 export async function readAiReviewWorkerTasksForPackage(
   packageId: number,
 ): Promise<any[]> {
@@ -649,4 +719,3 @@ export async function resolveQuarantinedAiReviewWorkerTaskWithoutAiResult(
     };
   });
 }
-

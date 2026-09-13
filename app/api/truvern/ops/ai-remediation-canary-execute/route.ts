@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
-import { runAiReviewWorkerForPackage } from "@/lib/workflow/ai-review-worker";
+import { runLockedAiReviewCanaryTask18Package31 } from "@/lib/workflow/ai-review-worker";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -139,9 +139,47 @@ export async function POST(request: Request) {
   }
 
   const result =
-    await runAiReviewWorkerForPackage(
-      EXPECTED_PACKAGE_ID,
+    await runLockedAiReviewCanaryTask18Package31();
+
+  if (
+    "ok" in result &&
+    result.ok === false
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        certification: CERTIFICATION,
+        error:
+          "error" in result
+            ? result.error
+            : "CANARY_WORKER_FAILED_WITHOUT_ERROR",
+        expectedTaskId: EXPECTED_TASK_ID,
+        expectedPackageId: EXPECTED_PACKAGE_ID,
+        workerInvoked: true,
+        modelCalled: false,
+        result,
+      },
+      { status: 409 },
     );
+  }
+
+  if (
+    result.checked !== 1 ||
+    result.completed !== 1
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        certification: CERTIFICATION,
+        error: "CANARY_WORKER_DID_NOT_COMPLETE_EXACTLY_ONE",
+        expectedTaskId: EXPECTED_TASK_ID,
+        expectedPackageId: EXPECTED_PACKAGE_ID,
+        workerInvoked: true,
+        result,
+      },
+      { status: 409 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
