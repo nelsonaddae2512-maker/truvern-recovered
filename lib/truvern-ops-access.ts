@@ -1,4 +1,4 @@
-﻿import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 type TruvernAccess = {
@@ -65,7 +65,7 @@ export async function getCurrentTruvernAccess(): Promise<TruvernAccess> {
   }
 
   let email: string | null = null;
-  let userMetadata: any = {};
+  let privateMetadata: any = {};
 
   try {
     const client = await clerkClient();
@@ -77,26 +77,16 @@ export async function getCurrentTruvernAccess(): Promise<TruvernAccess> {
       user.emailAddresses[0]?.emailAddress ??
       null;
 
-    userMetadata = {
-      publicMetadata: user.publicMetadata,
-      privateMetadata: user.privateMetadata,
-      unsafeMetadata: user.unsafeMetadata,
-    };
+    privateMetadata = user.privateMetadata ?? {};
   } catch {
-    userMetadata = {};
+    privateMetadata = {};
   }
 
   const normalizedEmail = email?.toLowerCase() ?? null;
 
-  const roles = collectRoles(
-    session.sessionClaims,
-    (session.sessionClaims as any)?.metadata,
-    (session.sessionClaims as any)?.publicMetadata,
-    (session.sessionClaims as any)?.privateMetadata,
-    userMetadata.publicMetadata,
-    userMetadata.privateMetadata,
-    userMetadata.unsafeMetadata,
-  );
+  // Global Truvern authority must come only from backend-controlled
+  // private metadata or explicit server-side email allowlists.
+  const roles = collectRoles(privateMetadata);
 
   const opsEmails = [
     ...envEmails("TRUVERN_MASTER_EMAIL"),
@@ -112,22 +102,16 @@ export async function getCurrentTruvernAccess(): Promise<TruvernAccess> {
   ];
 
   const opsRoles = [
-    "admin",
-    "system_admin",
     "truvern_admin",
     "truvern_ops",
     "truvern_operator",
-    "operator",
-    "ops",
     "governance_ops",
   ];
 
   const reviewerRoles = [
     ...opsRoles,
-    "reviewer",
     "truvern_reviewer",
     "governance_reviewer",
-    "analyst",
   ];
 
   const isOpsByEmail =
