@@ -820,6 +820,8 @@ const initialFinalAssessment =
   const [newAnalystEmail, setNewAnalystEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [runningAiRemediationPackageId, setRunningAiRemediationPackageId] =
+    useState<number | null>(null);
   const [message, setMessage] = useState("");
 
   // PERSIST_FINDINGS_GENERATED_NOTIFICATION
@@ -1311,6 +1313,83 @@ const initialFinalAssessment =
     }
   }
 
+  async function runAiRemediationReview(
+    packageId: number,
+  ) {
+    if (
+      editingLocked ||
+      runningAiRemediationPackageId != null
+    ) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        "Run AI remediation review for this remediation package? This may invoke the configured AI provider and consume the current provider-attempt budget. Human reviewer validation remains required.",
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setRunningAiRemediationPackageId(
+        packageId,
+      );
+      setMessage("");
+
+      const res =
+        await fetch(
+          `/api/review-desk/reviews/${assignment.id}/run-ai-remediation`,
+          {
+            method: "POST",
+            headers: {
+              "content-type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              packageId,
+            }),
+          },
+        );
+
+      const data =
+        await res
+          .json()
+          .catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(
+          data?.error ||
+            `Failed to run AI remediation review. HTTP ${res.status}`,
+        );
+      }
+
+      const completed =
+        Number(data?.completed ?? 0);
+
+      setMessage(
+        completed === 1
+          ? "AI remediation review completed. Human reviewer validation is required."
+          : "No eligible AI remediation task was completed.",
+      );
+
+      if (completed === 1) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      }
+    } catch (error: any) {
+      setMessage(
+        error?.message ||
+          "Failed to run AI remediation review.",
+      );
+    } finally {
+      setRunningAiRemediationPackageId(
+        null,
+      );
+    }
+  }
   async function publishRemediation() {
     if (editingLocked || saving) return;
 
@@ -2282,6 +2361,34 @@ const initialFinalAssessment =
                       <RemediationPackageReviewerEditor
                         packageData={remediationPackage}
                       />
+                      {isTruvern &&
+                      showTruvernOperatorControls &&
+                      packageId != null &&
+                      !editingLocked ? (
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void runAiRemediationReview(
+                                packageId,
+                              )
+                            }
+                            disabled={
+                              runningAiRemediationPackageId != null
+                            }
+                            className="rounded-full border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-100 transition hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {runningAiRemediationPackageId ===
+                            packageId
+                              ? "Running AI remediation..."
+                              : "Run AI remediation review"}
+                          </button>
+
+                          <span className="text-xs text-slate-400">
+                            AI output requires human reviewer validation.
+                          </span>
+                        </div>
+                      ) : null}
 
                       {Array.isArray((request as any).requiredEvidence) &&
                       (request as any).requiredEvidence.length > 0 ? (
