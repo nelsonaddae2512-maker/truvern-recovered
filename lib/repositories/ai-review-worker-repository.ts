@@ -1,5 +1,11 @@
 import prisma from "@/lib/prisma";
 
+const AI_REMEDIATION_PROVIDER_BUDGET_EVENT_KIND =
+  "AI_REMEDIATION_PROVIDER_ATTEMPT_RESERVED";
+const AI_REMEDIATION_PROVIDER_BUDGET_WINDOW_HOURS = 24;
+const AI_REMEDIATION_PROVIDER_BUDGET_MAX_ATTEMPTS = 1;
+const AI_REMEDIATION_PROVIDER_BUDGET_EXHAUSTED =
+  "AI_REMEDIATION_PROVIDER_BUDGET_EXHAUSTED";
 export async function readAiReviewWorkerTasks(): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
@@ -237,6 +243,9 @@ export async function claimAiReviewWorkerTaskLease(
     const rows = await tx.$queryRaw<
       Array<{
         id: number;
+        organizationId: number;
+        vendorId: number | null;
+        packageId: number | null;
         leaseExpiresAt: Date;
       }>
     >`
@@ -265,6 +274,9 @@ export async function claimAiReviewWorkerTaskLease(
         and coalesce(payload #>> '{aiReviewLease,token}', '') = ''
       returning
         id,
+        "organizationId",
+        "vendorId",
+        "packageId",
         (
           payload #>> '{aiReviewLease,expiresAt}'
         )::timestamptz as "leaseExpiresAt"
@@ -275,6 +287,69 @@ export async function claimAiReviewWorkerTaskLease(
     if (!claimed) {
       return null;
     }
+
+    // Reserve one globally serialized provider-attempt budget slot while
+    // the existing transaction-scoped advisory lock is still held.
+    //
+    // If the rolling 24-hour budget is exhausted, throwing here rolls
+    // back the WorkflowTask claim in this same transaction.
+    const budgetRows = await tx.$queryRaw<Array<{ reservedCount: number }>>`
+      select count(*)::int as "reservedCount"
+      from "UsageEvent"
+      where kind = ${AI_REMEDIATION_PROVIDER_BUDGET_EVENT_KIND}
+        and "createdAt" >=
+          now() -
+          (${AI_REMEDIATION_PROVIDER_BUDGET_WINDOW_HOURS} * interval '1 hour')
+    `;
+
+    if (budgetRows.length !== 1) {
+      throw new Error("AI_REMEDIATION_PROVIDER_BUDGET_COUNT_INVALID");
+    }
+
+    const reservedCount = Number(budgetRows[0]?.reservedCount ?? -1);
+
+    if (
+      !Number.isInteger(reservedCount) ||
+      reservedCount < 0
+    ) {
+      throw new Error("AI_REMEDIATION_PROVIDER_BUDGET_COUNT_INVALID");
+    }
+
+    if (reservedCount >= AI_REMEDIATION_PROVIDER_BUDGET_MAX_ATTEMPTS) {
+      throw new Error(AI_REMEDIATION_PROVIDER_BUDGET_EXHAUSTED);
+    }
+
+    await tx.$executeRaw`
+      insert into "UsageEvent" (
+        "organizationId",
+        "vendorId",
+        kind,
+        details,
+        "createdAt"
+      )
+      values (
+        ${claimed.organizationId},
+        ${claimed.vendorId},
+        ${AI_REMEDIATION_PROVIDER_BUDGET_EVENT_KIND},
+        jsonb_build_object(
+          'taskId',
+          ${claimed.id},
+          'packageId',
+          ${claimed.packageId},
+          'organizationId',
+          ${claimed.organizationId},
+          'vendorId',
+          ${claimed.vendorId},
+          'windowHours',
+          ${AI_REMEDIATION_PROVIDER_BUDGET_WINDOW_HOURS},
+          'maxAttempts',
+          ${AI_REMEDIATION_PROVIDER_BUDGET_MAX_ATTEMPTS},
+          'reservationState',
+          'RESERVED_BEFORE_PROVIDER_EXECUTION'
+        ),
+        now()
+      )
+    `;
 
     return {
       taskId: claimed.id,
