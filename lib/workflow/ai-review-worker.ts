@@ -140,9 +140,15 @@ async function runAiReviewTasks(
       ownershipToken,
     );
 
-    if (!lease) {
+    if (lease.status === "GLOBAL_BLOCKED") {
+      break;
+    }
+
+    if (lease.status === "NOT_CLAIMABLE") {
       continue;
     }
+
+    const ownedLease = lease.lease;
 
     const packagePayload =
       task.packagePayload && typeof task.packagePayload === "object"
@@ -464,7 +470,7 @@ async function runAiReviewTasks(
 
     const finalized = await finalizeOwnedAiReviewWorkerTask(
       Number(task.id),
-      lease.token,
+      ownedLease.token,
       JSON.stringify(result),
     );
 

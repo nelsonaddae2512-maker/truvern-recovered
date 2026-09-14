@@ -186,11 +186,23 @@ export type AiReviewWorkerLease = {
   expiresAt: Date;
 };
 
+export type AiReviewWorkerClaimResult =
+  | {
+      status: "CLAIMED";
+      lease: AiReviewWorkerLease;
+    }
+  | {
+      status: "GLOBAL_BLOCKED";
+    }
+  | {
+      status: "NOT_CLAIMABLE";
+    };
+
 export async function claimAiReviewWorkerTaskLease(
   taskId: number,
   token: string,
   leaseSeconds = 300,
-): Promise<AiReviewWorkerLease | null> {
+): Promise<AiReviewWorkerClaimResult> {
   if (!Number.isInteger(taskId) || taskId <= 0) {
     throw new Error("AI_REVIEW_CLAIM_TASK_ID_INVALID");
   }
@@ -237,7 +249,9 @@ export async function claimAiReviewWorkerTaskLease(
     `;
 
     if (blockers.length > 0) {
-      return null;
+      return {
+        status: "GLOBAL_BLOCKED",
+      };
     }
 
     const rows = await tx.$queryRaw<
@@ -285,7 +299,9 @@ export async function claimAiReviewWorkerTaskLease(
     const claimed = rows[0];
 
     if (!claimed) {
-      return null;
+      return {
+        status: "NOT_CLAIMABLE",
+      };
     }
 
     // Reserve one globally serialized provider-attempt budget slot while
@@ -352,9 +368,12 @@ export async function claimAiReviewWorkerTaskLease(
     `;
 
     return {
-      taskId: claimed.id,
-      token: normalizedToken,
-      expiresAt: claimed.leaseExpiresAt,
+      status: "CLAIMED",
+      lease: {
+        taskId: claimed.id,
+        token: normalizedToken,
+        expiresAt: claimed.leaseExpiresAt,
+      },
     };
   });
 }
