@@ -205,55 +205,84 @@ export async function claimAiReviewWorkerTaskLease(
     );
   }
 
-  const rows = await prisma.$queryRaw<
-    Array<{
-      id: number;
-      leaseExpiresAt: Date;
-    }>
-  >`
-    update "WorkflowTask"
-    set
-      "assignedTo" = 'AI_WORKER',
-      "assignedReviewerName" = 'Truvern AI remediation worker',
-      status = 'IN_PROGRESS',
-      "startedAt" = coalesce("startedAt", now()),
-      payload =
-        coalesce(payload, '{}'::jsonb) ||
-        jsonb_build_object(
-          'aiReviewLease',
+  return prisma.$transaction(async (tx) => {
+    // Serialize AI remediation claim decisions across all application instances.
+    //
+    // The advisory lock is transaction-scoped and protects only the claim
+    // decision. It is released before provider/model execution begins.
+    await tx.$queryRaw`
+      select pg_advisory_xact_lock(
+        hashtext('truvern-ai-review-global-single-flight')
+      )
+    `;
+
+    // Fail closed while another AI execution or uncertain recovery is active.
+    const blockers = await tx.$queryRaw<Array<{ id: number }>>`
+      select id
+      from "WorkflowTask"
+      where type = 'AI_PRE_REVIEW'
+        and status = 'IN_PROGRESS'
+        and "assignedTo" in (
+          'AI_WORKER',
+          'TRUVERN_AI_RECOVERY'
+        )
+      order by id asc
+      limit 1
+    `;
+
+    if (blockers.length > 0) {
+      return null;
+    }
+
+    const rows = await tx.$queryRaw<
+      Array<{
+        id: number;
+        leaseExpiresAt: Date;
+      }>
+    >`
+      update "WorkflowTask"
+      set
+        "assignedTo" = 'AI_WORKER',
+        "assignedReviewerName" = 'Truvern AI remediation worker',
+        status = 'IN_PROGRESS',
+        "startedAt" = coalesce("startedAt", now()),
+        payload =
+          coalesce(payload, '{}'::jsonb) ||
           jsonb_build_object(
-            'token', ${normalizedToken},
-            'claimedAt', now(),
-            'expiresAt',
-              now() + (${leaseSeconds} * interval '1 second')
-          )
-        ),
-      "updatedAt" = now()
-    where id = ${taskId}
-      and type = 'AI_PRE_REVIEW'
-      and status = 'OPEN'
-      and "assignedTo" is null
-      and coalesce(payload #>> '{aiReviewLease,token}', '') = ''
-    returning
-      id,
-      (
-        payload #>> '{aiReviewLease,expiresAt}'
-      )::timestamptz as "leaseExpiresAt"
-  `;
+            'aiReviewLease',
+            jsonb_build_object(
+              'token', ${normalizedToken},
+              'claimedAt', now(),
+              'expiresAt',
+                now() + (${leaseSeconds} * interval '1 second')
+            )
+          ),
+        "updatedAt" = now()
+      where id = ${taskId}
+        and type = 'AI_PRE_REVIEW'
+        and status = 'OPEN'
+        and "assignedTo" is null
+        and coalesce(payload #>> '{aiReviewLease,token}', '') = ''
+      returning
+        id,
+        (
+          payload #>> '{aiReviewLease,expiresAt}'
+        )::timestamptz as "leaseExpiresAt"
+    `;
 
-  const claimed = rows[0];
+    const claimed = rows[0];
 
-  if (!claimed) {
-    return null;
-  }
+    if (!claimed) {
+      return null;
+    }
 
-  return {
-    taskId: claimed.id,
-    token: normalizedToken,
-    expiresAt: claimed.leaseExpiresAt,
-  };
+    return {
+      taskId: claimed.id,
+      token: normalizedToken,
+      expiresAt: claimed.leaseExpiresAt,
+    };
+  });
 }
-
 export async function aiReviewWorkerLeaseIsOwned(
   taskId: number,
   token: string,
