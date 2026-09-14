@@ -47,7 +47,7 @@ export async function readAiReviewWorkerTasks(): Promise<any[]> {
     where wt.type = 'AI_PRE_REVIEW'
       and wt.status = 'OPEN'
     order by wt.priority desc, wt."createdAt" asc
-    limit 25
+    limit 1
   `;
 }
 
@@ -171,6 +171,7 @@ export async function readAiReviewWorkerTasksForPackage(
       and wt.status = 'OPEN'
       and wt."packageId" = ${packageId}
     order by wt.priority desc, wt."createdAt" asc
+    limit 1
   `;
 }
 export type AiReviewWorkerLease = {

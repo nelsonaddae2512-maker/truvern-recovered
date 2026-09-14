@@ -1,6 +1,5 @@
 import { runWorkflowScheduler } from "@/lib/workflow/workflow-scheduler";
 import { runWorkflowOrchestrator } from "@/lib/workflow/workflow-orchestrator";
-import { runAiReviewWorker } from "@/lib/workflow/ai-review-worker";
 import { runReleaseReadinessEngine } from "@/lib/workflow/release-readiness-engine";
 import { runGovernanceReleaseGateEngine } from "@/lib/workflow/governance-release-gate-engine";
 
@@ -49,7 +48,6 @@ export async function runTruvernWorkflowExecution() {
 
   stages.push(await runStage("WORKFLOW_SCHEDULER", runWorkflowScheduler));
   stages.push(await runStage("WORKFLOW_ORCHESTRATOR", runWorkflowOrchestrator));
-  stages.push(await runStage("AI_REVIEW_WORKER", runAiReviewWorker));
   stages.push(await runStage("RELEASE_READINESS", runReleaseReadinessEngine));
   stages.push(await runStage("GOVERNANCE_RELEASE_GATE", runGovernanceReleaseGateEngine));
 
