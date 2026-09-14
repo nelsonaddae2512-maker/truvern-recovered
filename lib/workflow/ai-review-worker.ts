@@ -473,6 +473,7 @@ async function runAiReviewTasks(
     }
 
     completed++;
+    break;
   }
 
   return {

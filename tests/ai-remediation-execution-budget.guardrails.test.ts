@@ -6,6 +6,11 @@ const repositorySource = readFileSync(
   "utf8",
 );
 
+const workerSource = readFileSync(
+  "lib/workflow/ai-review-worker.ts",
+  "utf8",
+);
+
 const executionSource = readFileSync(
   "lib/workflow/workflow-execution-engine.ts",
   "utf8",
@@ -28,7 +33,7 @@ function extractFunction(
 }
 
 describe("AI remediation execution budget guardrails", () => {
-  it("bounds the global AI review queue to one task per invocation", () => {
+  it("bounds the global AI review queue to five candidates per invocation", () => {
     const globalReader = extractFunction(
       repositorySource,
       "export async function readAiReviewWorkerTasks()",
@@ -37,10 +42,27 @@ describe("AI remediation execution budget guardrails", () => {
 
     expect(globalReader).toContain("wt.type = 'AI_PRE_REVIEW'");
     expect(globalReader).toContain("wt.status = 'OPEN'");
-    expect(globalReader).toMatch(/\blimit\s+1\b/i);
+    expect(globalReader).toMatch(/\blimit\s+5\b/i);
     expect(globalReader).not.toMatch(/\blimit\s+25\b/i);
   });
 
+  it("stops global processing after the first finalized AI review task", () => {
+    const workerExecution = extractFunction(
+      workerSource,
+      "async function runAiReviewTasks(",
+      "export async function runAiReviewWorker()",
+    );
+
+    expect(workerExecution).toMatch(
+      /completed\+\+;\s*break;/,
+    );
+
+    expect(
+      workerExecution.match(
+        /claimAiReviewWorkerTaskLease\(/g,
+      ) ?? [],
+    ).toHaveLength(1);
+  });
   it("bounds the package AI review queue to one task per invocation", () => {
     const packageReader = extractFunction(
       repositorySource,

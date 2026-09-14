@@ -136,7 +136,7 @@ describe(
     );
 
     it(
-      "retains one global worker task per invocation",
+      "retains a bounded global candidate scan",
       () => {
         const repositorySource =
           readFileSync(
@@ -168,7 +168,7 @@ describe(
           );
 
         expect(reader).
-          toMatch(/\blimit\s+1\b/i);
+          toMatch(/\blimit\s+5\b/i);
       },
     );
   },

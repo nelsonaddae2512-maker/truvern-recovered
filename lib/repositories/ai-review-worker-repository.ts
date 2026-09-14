@@ -53,7 +53,7 @@ export async function readAiReviewWorkerTasks(): Promise<any[]> {
     where wt.type = 'AI_PRE_REVIEW'
       and wt.status = 'OPEN'
     order by wt.priority desc, wt."createdAt" asc
-    limit 1
+    limit 5
   `;
 }
 
