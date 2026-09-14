@@ -94,6 +94,45 @@ async function runAiReviewTasks(
   let completed = 0;
 
   for (const task of tasks) {
+    const assignmentType =
+      typeof task.assignmentType === "string"
+        ? task.assignmentType.trim().toUpperCase()
+        : "";
+
+    let organizationPlanTier:
+      | Awaited<ReturnType<typeof resolveOrganizationPlanTier>>
+      | null = null;
+
+    if (assignmentType === "INTERNAL") {
+      organizationPlanTier =
+        await resolveOrganizationPlanTier(
+          Number(task.organizationId),
+        );
+    }
+
+    const commercialEligibility =
+      evaluateRemediationReviewCommercialEligibility({
+        assignmentType,
+        organizationPlanTier,
+      });
+
+    const runtimeEnabled =
+      isRemediationReviewRuntimeEnabled();
+
+    const configuredApiKey =
+      getConfiguredRemediationReviewApiKey();
+
+    const configuredModel =
+      getConfiguredRemediationReviewModel();
+
+    if (
+      !commercialEligibility.eligible ||
+      !runtimeEnabled ||
+      !configuredApiKey
+    ) {
+      continue;
+    }
+
     const ownershipToken = randomUUID();
 
     const lease = await claimAiReviewWorkerTaskLease(
@@ -295,36 +334,6 @@ async function runAiReviewTasks(
       },
     });
 
-    const assignmentType =
-      typeof task.assignmentType === "string"
-        ? task.assignmentType.trim().toUpperCase()
-        : "";
-
-    let organizationPlanTier:
-      | Awaited<ReturnType<typeof resolveOrganizationPlanTier>>
-      | null = null;
-
-    if (assignmentType === "INTERNAL") {
-      organizationPlanTier =
-        await resolveOrganizationPlanTier(
-          Number(task.organizationId),
-        );
-    }
-
-    const commercialEligibility =
-      evaluateRemediationReviewCommercialEligibility({
-        assignmentType,
-        organizationPlanTier,
-      });
-
-    const runtimeEnabled =
-      isRemediationReviewRuntimeEnabled();
-
-    const configuredApiKey =
-      getConfiguredRemediationReviewApiKey();
-
-    const configuredModel =
-      getConfiguredRemediationReviewModel();
 
     let reviewResult =
       createHumanReviewRequiredResult({
