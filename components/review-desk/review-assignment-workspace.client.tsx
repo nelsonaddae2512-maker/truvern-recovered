@@ -822,6 +822,9 @@ const initialFinalAssessment =
   const [generatingDraft, setGeneratingDraft] = useState(false);
   const [runningAiRemediationPackageId, setRunningAiRemediationPackageId] =
     useState<number | null>(null);
+
+  const [expandedEvidenceRequestId, setExpandedEvidenceRequestId] =
+    useState<number | null>(null);
   const [message, setMessage] = useState("");
 
   // PERSIST_FINDINGS_GENERATED_NOTIFICATION
@@ -1683,7 +1686,7 @@ const initialFinalAssessment =
               {assignment.assignmentType || "INTERNAL"}
             </span>
             <span className={chipClass("slate")}>Assigned analyst: {reviewerName}</span>
-            <span className={chipClass("slate")}>Request #{request.id ?? "—"}</span>
+            <span className={chipClass("slate")}>Request #{request.id ?? "â€”"}</span>
             <span className={chipClass("slate")}>Assignment #{assignment.id}</span>
 
             {latestOutcome.id ? (
@@ -2140,7 +2143,7 @@ const initialFinalAssessment =
               <div className="flex items-center justify-center">
                 <div className="flex h-28 w-28 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-400/10 text-center">
                   <div>
-                    <div className="text-3xl">✓</div>
+                    <div className="text-3xl">âœ“</div>
                     <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-emerald-100">
                       Archived
                     </div>
@@ -2290,7 +2293,7 @@ const initialFinalAssessment =
         </div>
 
         {lifecycleRemediationRequests.length > 0 ? (
-          <div className="mt-5 grid gap-3">
+          <div className="mt-4 grid gap-2">
             {lifecycleRemediationRequests.map((request: any) => {
               const status = String(request.status || "REQUESTED").toUpperCase();
               const isResolved = ["RECEIVED", "APPROVED", "COMPLETED", "FULFILLED", "RESOLVED"].includes(status);
@@ -2321,209 +2324,339 @@ const initialFinalAssessment =
                 submittedEvidence?.requestId ??
                 (Number.isFinite(requestIdNumber) ? requestIdNumber : null);
 
+              const isExpanded =
+                expandedEvidenceRequestId === requestIdNumber;
+
+              const hasSubmittedEvidence =
+                Boolean(submittedEvidence?.fulfilledEvidenceId);
 
               return (
                 <div
                   key={request.id}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
                 >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
+                  <div className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.18em] ${remediationChipClass(status)}`}>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.16em] ${remediationChipClass(status)}`}
+                        >
                           {status}
                         </span>
 
-                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-200">
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] text-slate-300">
                           {request.kind}
                         </span>
 
-                        {isResolved ? (
-                          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-100">
-                            Release blocker cleared
-                          </span>
-                        ) : (
-                          <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-100">
-                            Blocking release
-                          </span>
-                        )}
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${
+                            isResolved
+                              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                              : "border-amber-400/20 bg-amber-400/10 text-amber-100"
+                          }`}
+                        >
+                          {isResolved ? "Ready for validation" : "Blocking release"}
+                        </span>
                       </div>
 
-                      <h5 className="mt-3 text-lg font-semibold text-white">
-                        {request.title}
-                      </h5>
+                      <div className="mt-2 flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-3">
+                        <h5 className="truncate text-base font-semibold text-white">
+                          {request.title}
+                        </h5>
 
-                      <p className="mt-1 text-sm text-slate-400">
-                        Evidence request #{request.id} · Due: {dueText} · Updated: {updatedText}
-                      </p>
+                        <p className="text-xs text-slate-500">
+                          Evidence #{request.id} · {dueText}
+                        </p>
+                      </div>
 
-                      {/* R82I_REMEDIATION_PACKAGE_EDITOR */}
-                      <RemediationPackageReviewerEditor
-                        packageData={remediationPackage}
-                      />
-                      {isTruvern &&
-                      showTruvernOperatorControls &&
-                      packageId != null &&
-                      !editingLocked ? (
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void runAiRemediationReview(
-                                packageId,
-                              )
-                            }
-                            disabled={
-                              runningAiRemediationPackageId != null
-                            }
-                            className="rounded-full border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-100 transition hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {runningAiRemediationPackageId ===
-                            packageId
-                              ? "Running AI remediation..."
-                              : "Run AI remediation review"}
-                          </button>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
+                        <span>
+                          {hasSubmittedEvidence
+                            ? "Vendor evidence received"
+                            : "Awaiting vendor response"}
+                        </span>
 
-                          <span className="text-xs text-slate-400">
-                            AI output requires human reviewer validation.
+                        {hasSubmittedEvidence ? (
+                          <span className="text-emerald-200">
+                            Evidence #
+                            {submittedEvidence.evidenceId ||
+                              submittedEvidence.fulfilledEvidenceId}
                           </span>
-                        </div>
-                      ) : null}
+                        ) : null}
 
-                      {Array.isArray((request as any).requiredEvidence) &&
-                      (request as any).requiredEvidence.length > 0 ? (
-                        <div className="mt-3 rounded-xl border border-cyan-400/15 bg-cyan-400/5 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
-                            Required evidence
-                          </p>
-                          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-cyan-50">
-                            {(request as any).requiredEvidence.map((item: any, index: number) => (
-                              <li key={`evidence-${request.id}-${index}`}>{String(item)}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-
-                      {Array.isArray((request as any).requiredAttestation) &&
-                      (request as any).requiredAttestation.length > 0 ? (
-                        <div className="mt-3 rounded-xl border border-violet-400/15 bg-violet-400/5 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-200">
-                            Required attestation
-                          </p>
-                          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-violet-50">
-                            {(request as any).requiredAttestation.map((item: any, index: number) => (
-                              <li key={`attestation-${request.id}-${index}`}>{String(item)}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
+                        <span>Updated {updatedText}</span>
+                      </div>
                     </div>
 
-                    <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-200">
-                      <div>
-                        {isResolved
-                          ? "Vendor evidence received. Ready for validation."
-                          : "Awaiting vendor remediation response."}
-                      </div>
-                      {submittedEvidence?.fulfilledEvidenceId ? (
-                        <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                            Vendor submitted evidence
-                          </p>
-                          <p className="mt-2 text-sm font-semibold text-white">
-                            {submittedEvidence.evidenceTitle || submittedEvidence.requestTitle || request.title || "Uploaded evidence"}
-                          </p>
-                          {submittedEvidence.evidenceNotes ? (
-                            <p className="mt-1 text-xs leading-5 text-emerald-50/80">
-                              {submittedEvidence.evidenceNotes}
-                            </p>
-                          ) : null}
-
-                          {(submittedEvidence.evidenceFileUrl || submittedEvidence.evidenceUrl) ? (
-                            <a
-                              href={(submittedEvidence.evidenceFileUrl || submittedEvidence.evidenceUrl || "").startsWith("http") || (submittedEvidence.evidenceFileUrl || submittedEvidence.evidenceUrl || "").startsWith("/") ? (submittedEvidence.evidenceFileUrl || submittedEvidence.evidenceUrl || "") : `/${submittedEvidence.evidenceFileUrl || submittedEvidence.evidenceUrl || ""}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-3 inline-flex rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/20"
-                            >
-                              Open submitted evidence
-                            </a>
-                          ) : null}
-                          <p className="mt-2 text-xs text-emerald-100/80">
-                            Evidence #{submittedEvidence.evidenceId || submittedEvidence.fulfilledEvidenceId}
-                            {submittedEvidence.evidenceUploadedAt
-                              ? ` · Uploaded ${new Date(submittedEvidence.evidenceUploadedAt).toLocaleString()}`
-                              : submittedEvidence.fulfilledAt
-                                ? ` · Submitted ${new Date(submittedEvidence.fulfilledAt).toLocaleString()}`
-                                : ""}
-                          </p>
-                          {/* Raw evidence URL intentionally hidden; use the open link above. */}
-                        </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      {submittedEvidence?.fulfilledEvidenceId &&
+                      (submittedEvidence.evidenceFileUrl ||
+                        submittedEvidence.evidenceUrl) ? (
+                        <a
+                          href={
+                            (
+                              submittedEvidence.evidenceFileUrl ||
+                              submittedEvidence.evidenceUrl ||
+                              ""
+                            ).startsWith("http") ||
+                            (
+                              submittedEvidence.evidenceFileUrl ||
+                              submittedEvidence.evidenceUrl ||
+                              ""
+                            ).startsWith("/")
+                              ? submittedEvidence.evidenceFileUrl ||
+                                submittedEvidence.evidenceUrl ||
+                                ""
+                              : `/${
+                                  submittedEvidence.evidenceFileUrl ||
+                                  submittedEvidence.evidenceUrl ||
+                                  ""
+                                }`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
+                        >
+                          View evidence
+                        </a>
                       ) : null}
 
-<div className="flex flex-wrap gap-2">
-                        {status !== "APPROVED" ? (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await fetch(`/api/evidence-requests/${reviewTargetId}/review`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "APPROVE" }),
-                              });
-
-                              window.location.reload();
-                            }}
-                            className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                          >
-                            Approve remediation
-                          </button>
-                        ) : null}
-
-                        {status !== "REJECTED" ? (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await fetch(`/api/evidence-requests/${reviewTargetId}/review`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "REJECT" }),
-                              });
-
-                              window.location.reload();
-                            }}
-                            className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
-                          >
-                            Reject
-                          </button>
-                        ) : null}
-
-                        {status === "APPROVED" || status === "REJECTED" ? (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await fetch(`/api/evidence-requests/${reviewTargetId}/review`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "REOPEN" }),
-                              });
-
-                              window.location.reload();
-                            }}
-                            className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
-                          >
-                            Reopen
-                          </button>
-                        ) : null}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedEvidenceRequestId(
+                            isExpanded ? null : requestIdNumber,
+                          )
+                        }
+                        aria-expanded={isExpanded}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-white/[0.09]"
+                      >
+                        {isExpanded ? "Hide details" : "Review"}
+                        <span
+                          aria-hidden="true"
+                          className={`text-[10px] transition-transform ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                        >
+                          ▼
+                        </span>
+                      </button>
                     </div>
                   </div>
+
+                  {isExpanded ? (
+                    <div className="border-t border-white/10 px-4 py-4">
+                      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+                        <div className="min-w-0">
+                          {/* R82I_REMEDIATION_PACKAGE_EDITOR */}
+                          <RemediationPackageReviewerEditor
+                            packageData={remediationPackage}
+                          />
+
+                          {isTruvern &&
+                          showTruvernOperatorControls &&
+                          packageId != null &&
+                          !editingLocked ? (
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void runAiRemediationReview(
+                                    packageId,
+                                  )
+                                }
+                                disabled={
+                                  runningAiRemediationPackageId != null
+                                }
+                                className="rounded-full border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-100 transition hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {runningAiRemediationPackageId ===
+                                packageId
+                                  ? "Running AI remediation..."
+                                  : "Run AI remediation review"}
+                              </button>
+
+                              <span className="text-xs text-slate-400">
+                                AI-assisted · Human approval required
+                              </span>
+                            </div>
+                          ) : null}
+
+                          {Array.isArray((request as any).requiredEvidence) &&
+                          (request as any).requiredEvidence.length > 0 ? (
+                            <details className="mt-3 rounded-xl border border-white/10 bg-black/15">
+                              <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-cyan-100">
+                                Required evidence ·{" "}
+                                {(request as any).requiredEvidence.length}
+                              </summary>
+
+                              <ul className="border-t border-white/10 px-8 py-3 text-sm leading-6 text-slate-200">
+                                {(request as any).requiredEvidence.map(
+                                  (item: any, index: number) => (
+                                    <li
+                                      className="list-disc"
+                                      key={`evidence-${request.id}-${index}`}
+                                    >
+                                      {String(item)}
+                                    </li>
+                                  ),
+                                )}
+                              </ul>
+                            </details>
+                          ) : null}
+
+                          {Array.isArray((request as any).requiredAttestation) &&
+                          (request as any).requiredAttestation.length > 0 ? (
+                            <details className="mt-2 rounded-xl border border-white/10 bg-black/15">
+                              <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-violet-100">
+                                Required attestation ·{" "}
+                                {(request as any).requiredAttestation.length}
+                              </summary>
+
+                              <ul className="border-t border-white/10 px-8 py-3 text-sm leading-6 text-slate-200">
+                                {(request as any).requiredAttestation.map(
+                                  (item: any, index: number) => (
+                                    <li
+                                      className="list-disc"
+                                      key={`attestation-${request.id}-${index}`}
+                                    >
+                                      {String(item)}
+                                    </li>
+                                  ),
+                                )}
+                              </ul>
+                            </details>
+                          ) : null}
+                        </div>
+
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            Vendor evidence
+                          </p>
+
+                          {submittedEvidence?.fulfilledEvidenceId ? (
+                            <>
+                              <p className="mt-2 text-sm font-semibold text-white">
+                                {submittedEvidence.evidenceTitle ||
+                                  submittedEvidence.requestTitle ||
+                                  request.title ||
+                                  "Uploaded evidence"}
+                              </p>
+
+                              {submittedEvidence.evidenceNotes ? (
+                                <p className="mt-1 text-xs leading-5 text-slate-300">
+                                  {submittedEvidence.evidenceNotes}
+                                </p>
+                              ) : null}
+
+                              <p className="mt-2 text-xs text-slate-400">
+                                Evidence #
+                                {submittedEvidence.evidenceId ||
+                                  submittedEvidence.fulfilledEvidenceId}
+                                {submittedEvidence.evidenceUploadedAt
+                                  ? ` · Uploaded ${new Date(
+                                      submittedEvidence.evidenceUploadedAt,
+                                    ).toLocaleString()}`
+                                  : submittedEvidence.fulfilledAt
+                                    ? ` · Submitted ${new Date(
+                                        submittedEvidence.fulfilledAt,
+                                      ).toLocaleString()}`
+                                    : ""}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="mt-2 text-sm text-slate-400">
+                              Awaiting vendor remediation response.
+                            </p>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {status !== "APPROVED" ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await fetch(
+                                    `/api/evidence-requests/${reviewTargetId}/review`,
+                                    {
+                                      method: "POST",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                      },
+                                      body: JSON.stringify({
+                                        action: "APPROVE",
+                                      }),
+                                    },
+                                  );
+
+                                  window.location.reload();
+                                }}
+                                className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                              >
+                                Approve
+                              </button>
+                            ) : null}
+
+                            {status !== "REJECTED" ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await fetch(
+                                    `/api/evidence-requests/${reviewTargetId}/review`,
+                                    {
+                                      method: "POST",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                      },
+                                      body: JSON.stringify({
+                                        action: "REJECT",
+                                      }),
+                                    },
+                                  );
+
+                                  window.location.reload();
+                                }}
+                                className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
+                              >
+                                Reject
+                              </button>
+                            ) : null}
+
+                            {status === "APPROVED" ||
+                            status === "REJECTED" ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await fetch(
+                                    `/api/evidence-requests/${reviewTargetId}/review`,
+                                    {
+                                      method: "POST",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                      },
+                                      body: JSON.stringify({
+                                        action: "REOPEN",
+                                      }),
+                                    },
+                                  );
+
+                                  window.location.reload();
+                                }}
+                                className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
+                              >
+                                Reopen
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-300">
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
             No evidence remediation requests have been issued for this vendor review yet.
           </div>
         )}
@@ -2848,10 +2981,10 @@ const initialFinalAssessment =
                   </p>
 
                   <ul className="mt-3 space-y-2 text-sm leading-7 text-emerald-50">
-                    <li>• Governance releases are archived into immutable audit history.</li>
-                    <li>• Historical governance records remain accessible for longitudinal review.</li>
-                    <li>• Release integrity is protected through deterministic governance snapshots.</li>
-                    <li>• Future cryptographic attestation support can extend external verification.</li>
+                    <li>â€¢ Governance releases are archived into immutable audit history.</li>
+                    <li>â€¢ Historical governance records remain accessible for longitudinal review.</li>
+                    <li>â€¢ Release integrity is protected through deterministic governance snapshots.</li>
+                    <li>â€¢ Future cryptographic attestation support can extend external verification.</li>
                   </ul>
                 </div>
 
@@ -3013,10 +3146,10 @@ const initialFinalAssessment =
                   </p>
 
                   <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-50">
-                    <li>• Customer reviewed governance findings and assessment details.</li>
-                    <li>• Customer reviewed release conditions and disclosure follow-ups.</li>
-                    <li>• Customer understands approval finalizes the governance artifact.</li>
-                    <li>• Customer understands this is not a legal certification or warranty.</li>
+                    <li>â€¢ Customer reviewed governance findings and assessment details.</li>
+                    <li>â€¢ Customer reviewed release conditions and disclosure follow-ups.</li>
+                    <li>â€¢ Customer understands approval finalizes the governance artifact.</li>
+                    <li>â€¢ Customer understands this is not a legal certification or warranty.</li>
                   </ul>
                 </div>
               </div>
@@ -3045,7 +3178,7 @@ const initialFinalAssessment =
                 Latest score
               </p>
               <p className="mt-2 text-2xl font-semibold text-white">
-                {governanceMemory[0]?.governanceScore ?? "—"}
+                {governanceMemory[0]?.governanceScore ?? "â€”"}
               </p>
             </div>
 
@@ -3114,10 +3247,10 @@ const initialFinalAssessment =
 
                     <div className="flex flex-wrap gap-2 text-xs">
                       <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-cyan-100">
-                        Score {memory.governanceScore ?? "—"}
+                        Score {memory.governanceScore ?? "â€”"}
                       </span>
                       <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-amber-100">
-                        Risk {memory.residualRisk || "—"}
+                        Risk {memory.residualRisk || "â€”"}
                       </span>
                       {memory.breachDisclosureDetected ? (
                         <span className="rounded-full border border-red-300/20 bg-red-400/10 px-3 py-1 text-red-100">
@@ -3830,10 +3963,10 @@ const initialFinalAssessment =
               </p>
 
               <ul className="mt-4 space-y-2 text-sm leading-6 text-amber-50">
-                <li>• Confirm whether the vendor organization has been under federal investigation within the last 24 months.</li>
-                <li>• Confirm whether the vendor organization has experienced a security breach within the last 24 months.</li>
-                <li>• Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.</li>
-                <li>• Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.</li>
+                <li>â€¢ Confirm whether the vendor organization has been under federal investigation within the last 24 months.</li>
+                <li>â€¢ Confirm whether the vendor organization has experienced a security breach within the last 24 months.</li>
+                <li>â€¢ Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.</li>
+                <li>â€¢ Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.</li>
               </ul>
             </div>
 
@@ -3843,10 +3976,10 @@ const initialFinalAssessment =
               </p>
 
               <ul className="mt-4 space-y-2 text-sm leading-6 text-amber-50">
-                <li>• Editing locks after governance release.</li>
-                <li>• Customer confirmation finalizes the governance artifact.</li>
-                <li>• Governance manifests and checksums become audit records.</li>
-                <li>• Reserved Truvern credits are consumed on confirmation.</li>
+                <li>â€¢ Editing locks after governance release.</li>
+                <li>â€¢ Customer confirmation finalizes the governance artifact.</li>
+                <li>â€¢ Governance manifests and checksums become audit records.</li>
+                <li>â€¢ Reserved Truvern credits are consumed on confirmation.</li>
               </ul>
             </div>
 
@@ -4545,7 +4678,7 @@ function RemediationPackageReviewerEditor({
       {questionPrompt ? (
         <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Source assessment question · Read only
+            Source assessment question Â· Read only
           </p>
 
           <p className="mt-2 text-sm leading-6 text-slate-200">
@@ -4623,7 +4756,7 @@ function RemediationPackageReviewerEditor({
 
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="text-xs font-medium text-slate-300">
-              Required evidence · one item per line
+              Required evidence Â· one item per line
 
               <textarea
                 value={requiredEvidence}
@@ -4637,7 +4770,7 @@ function RemediationPackageReviewerEditor({
             </label>
 
             <label className="text-xs font-medium text-slate-300">
-              Required attestations · one item per line
+              Required attestations Â· one item per line
 
               <textarea
                 value={requiredAttestations}

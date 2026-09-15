@@ -124,7 +124,7 @@ describe(
         );
 
         expect(workspace).toContain(
-          "AI output requires human reviewer validation.",
+          "AI-assisted · Human approval required",
         );
       },
     );
