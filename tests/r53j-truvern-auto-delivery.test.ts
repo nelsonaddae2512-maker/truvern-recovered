@@ -56,8 +56,12 @@ describe(
           "app/api/review-desk/assignments/route.ts",
         );
 
-        expect(source).toContain(
-          'mode:\n              "AUTO_ONCE"',
+        expect(source).toMatch(
+          /sendFrameworkAssessmentVendorLink\s*\(\s*\{[\s\S]*?mode\s*:\s*"AUTO_ONCE"/,
+        );
+
+        expect(source).toMatch(
+          /sendAssessmentVendorLink\s*\(\s*\{[\s\S]*?mode\s*:\s*"AUTO_ONCE"/,
         );
       },
     );

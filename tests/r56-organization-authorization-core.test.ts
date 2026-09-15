@@ -65,7 +65,7 @@ describe("R56 organization authorization core", () => {
     );
 
     const end = authSource.indexOf(
-      "export async function requireFrameworkAssessmentAccess",
+      "export async function requireReviewAssignmentAccess(",
       start,
     );
 

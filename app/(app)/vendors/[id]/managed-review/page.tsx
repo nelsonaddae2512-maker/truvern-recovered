@@ -34,7 +34,6 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
     await prisma.assessmentTemplate.findMany({
       where: {
         isActive: true,
-        name: "Truvern NIST 800-53 Governance Review",
         OR: [
           {
             organizationId: vendor.organizationId,
@@ -56,11 +55,57 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
         version: true,
         source: true,
         isSystem: true,
+        _count: {
+          select: {
+            questions: true,
+          },
+        },
       },
       orderBy: {
         name: "asc",
       },
     });
+
+  const canonicalFramework =
+    await prisma.truvernFramework.findUnique({
+      where: {
+        slug: "nist-800-53-rev5",
+      },
+      select: {
+        slug: true,
+        name: true,
+        version: true,
+        controls: {
+          select: {
+            questions: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+  const canonicalFrameworkQuestionCount =
+    canonicalFramework?.controls.reduce(
+      (total, control) =>
+        total + control.questions.length,
+      0,
+    ) ?? 0;
+
+  const canonicalFrameworkOption =
+    canonicalFramework?.slug === "nist-800-53-rev5" &&
+    canonicalFramework.version === "5.2.0" &&
+    canonicalFrameworkQuestionCount === 301
+      ? {
+          slug: canonicalFramework.slug,
+          name: "NIST SP 800-53 Rev. 5.2.0",
+          version: canonicalFramework.version,
+          questionCount: canonicalFrameworkQuestionCount,
+        }
+      : null;
+
   // MANAGED_REVIEW_CREDIT_BALANCE
   const creditRows = await prisma.$queryRaw<Array<{
     availableCredits: number;
@@ -167,7 +212,18 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
 
             <SendToTruvernManagedReview
               vendorId={vendor.id}
-              templates={truvernReviewTemplates}
+              templates={truvernReviewTemplates.map((template) => ({
+                id: template.id,
+                name: template.name,
+                description: template.description,
+                standard: template.standard,
+                category: template.category,
+                version: template.version,
+                source: String(template.source),
+                isSystem: template.isSystem,
+                questionCount: template._count.questions,
+              }))}
+              canonicalFramework={canonicalFrameworkOption}
               availableCredits={managedReviewCreditBalance.availableCredits}
               reservedCredits={managedReviewCreditBalance.reservedCredits}
               consumedCredits={managedReviewCreditBalance.consumedCredits}

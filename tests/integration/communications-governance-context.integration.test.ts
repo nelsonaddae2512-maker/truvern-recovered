@@ -1,4 +1,4 @@
-﻿import {
+import {
   describe,
   expect,
   it,
@@ -15,7 +15,7 @@ function readSource(...parts: string[]) {
 }
 
 describe("RC40L governance-linked communications", () => {
-  const standard = readSource(
+  const standardRoute = readSource(
     "app",
     "api",
     "assessments",
@@ -24,7 +24,7 @@ describe("RC40L governance-linked communications", () => {
     "route.ts",
   );
 
-  const framework = readSource(
+  const frameworkRoute = readSource(
     "app",
     "api",
     "truvern",
@@ -34,83 +34,143 @@ describe("RC40L governance-linked communications", () => {
     "route.ts",
   );
 
-  it("propagates standard assessment review context", () => {
-    expect(standard).toContain(
-      'findReviewAssignment',
+  const standardService = readSource(
+    "lib",
+    "communications",
+    "assessment-vendor-link.ts",
+  );
+
+  const frameworkService = readSource(
+    "lib",
+    "communications",
+    "framework-assessment-vendor-link.ts",
+  );
+
+  it("delegates API delivery to the communication services", () => {
+    expect(standardRoute).toContain(
+      "sendAssessmentVendorLink",
     );
 
-    expect(standard).toContain(
+    expect(frameworkRoute).toContain(
+      "sendFrameworkAssessmentVendorLink",
+    );
+  });
+
+  it("propagates standard assessment review context", () => {
+    expect(standardService).toContain(
       "reviewAssignmentId: true",
     );
 
-    expect(standard).toContain(
-      "id: assessment.reviewAssignmentId",
+    expect(standardService).toContain(
+      "assessment.reviewAssignmentId",
     );
 
-    expect(standard).toContain(
-      "reviewAssignment.organizationId ===",
+    expect(standardService).toContain(
+      "organizationId:",
     );
 
-    expect(standard).toContain(
-      "reviewAssignment.vendorId ===",
+    expect(standardService).toContain(
+      "assessment.organizationId",
     );
 
-    expect(standard).toContain(
-      "linkedReviewAssignment?.reviewRequestId ?? null",
+    expect(standardService).toContain(
+      "vendorId:",
     );
 
-    expect(standard).toContain(
-      "linkedReviewAssignment?.id ?? null",
+    expect(standardService).toContain(
+      "assessment.vendorId",
+    );
+
+    expect(standardService).toContain(
+      "reviewAssignment?.reviewRequestId ??",
+    );
+
+    expect(standardService).toContain(
+      "reviewAssignment?.id ??",
     );
   });
 
   it("propagates framework run, assignment, and request context", () => {
-    expect(framework).toContain(
-      'findReviewAssignment',
+    expect(frameworkService).toContain(
+      "findReviewAssignment",
     );
 
-    expect(framework).toContain(
-      "id: assessment.reviewAssignmentId",
+    expect(frameworkService).toContain(
+      "assessment.reviewAssignmentId",
     );
 
-    expect(framework).toContain(
-      "assessmentRunId: assessment.assessmentRunId",
+    expect(frameworkService).toContain(
+      "reviewAssignment.organizationId ===",
     );
 
-    expect(framework).toContain(
-      "linkedReviewAssignment?.reviewRequestId ?? null",
+    expect(frameworkService).toContain(
+      "reviewAssignment.vendorId === assessment.vendorId",
     );
 
-    expect(framework).toContain(
+    expect(frameworkService).toContain(
+      "assessmentRunId:",
+    );
+
+    expect(frameworkService).toContain(
+      "assessment.assessmentRunId",
+    );
+
+    expect(frameworkService).toContain(
+      "linkedReviewAssignment",
+    );
+
+    expect(frameworkService).toContain(
+      "?.reviewRequestId ?? null",
+    );
+
+    expect(frameworkService).toContain(
       "linkedReviewAssignment?.id ?? null",
     );
   });
 
   it("does not introduce direct Prisma model access in API routes", () => {
-    expect(standard).not.toContain(
+    expect(standardRoute).not.toContain(
       'import prisma from "@/lib/prisma"',
     );
 
-    expect(framework).not.toContain(
+    expect(frameworkRoute).not.toContain(
       'import prisma from "@/lib/prisma"',
     );
 
-    expect(standard).not.toContain(
+    expect(standardRoute).not.toContain(
       "prisma.reviewAssignment",
     );
 
-    expect(framework).not.toContain(
+    expect(frameworkRoute).not.toContain(
       "prisma.reviewAssignment",
     );
   });
 
   it("preserves deterministic conversation thread identities", () => {
-    expect(standard).toContain(
+    expect(standardService).toContain(
       "`assessment:${assessment.id}:vendor-link`",
     );
 
-    expect(framework).toContain(
+    expect(frameworkService).toContain(
       "`truvern-framework-assessment:${assessment.id}:vendor-link`",
+    );
+  });
+
+  it("sends governance context through the communications layer", () => {
+    expect(standardService).toContain(
+      "sendCommunication",
+    );
+
+    expect(frameworkService).toContain(
+      "sendCommunication",
+    );
+
+    expect(standardService).toContain(
+      "externalThreadId",
+    );
+
+    expect(frameworkService).toContain(
+      "externalThreadId",
     );
   });
 });

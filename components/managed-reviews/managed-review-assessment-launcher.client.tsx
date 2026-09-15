@@ -59,11 +59,11 @@ export default function ManagedReviewAssessmentLauncher({
           throw new Error("Assessment was created but no assessment id was returned.");
         }
 
-        const url = `${window.location.origin}/vendor-assessments/${id}`;
-
         setAssessmentId(id);
-        setVendorUrl(url);
-        setMessage("Framework assessment created successfully. Share the vendor workspace link below.");
+        setVendorUrl("");
+        setMessage(
+          "Framework assessment created successfully. Send the vendor review to generate the secure vendor workspace link.",
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create assessment.");
       }
@@ -127,9 +127,9 @@ export default function ManagedReviewAssessmentLauncher({
       </h3>
 
       <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-        Create the Truvern governance assessment and share the vendor workspace
-        link with the vendor contact. Email sending can be connected to this
-        workspace after the framework assessment email route is added.
+        Create the certified Truvern NIST SP 800-53 Rev. 5.2.0 governance
+        assessment, then send the secure vendor workspace link to the vendor
+        contact through Truvern communications.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">

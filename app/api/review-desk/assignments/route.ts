@@ -1,5 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sendAssessmentVendorLink } from "@/lib/communications/assessment-vendor-link";
+import { sendFrameworkAssessmentVendorLink } from "@/lib/communications/framework-assessment-vendor-link";
+import { findTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
+import { createTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
@@ -22,8 +25,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const TRUVERN_REVIEW_TEMPLATE_NAME =
-  "Truvern NIST 800-53 Governance Review";
+const CANONICAL_TRUVERN_FRAMEWORK_SLUG =
+  "nist-800-53-rev5";
+
+const CANONICAL_TRUVERN_FRAMEWORK_VERSION =
+  "5.2.0";
+
+const CANONICAL_TRUVERN_FRAMEWORK_QUESTION_COUNT =
+  301;
 
 type OrgJsonRow = {
   orgJson: Record<string, unknown> | null;
@@ -252,6 +261,20 @@ export async function POST(req: Request) {
     const templateId = safeInt(body?.templateId);
     const mode = safeMode(body?.mode);
 
+    const questionnaireKind =
+      body?.questionnaireKind === "framework"
+        ? "framework"
+        : body?.questionnaireKind === "template"
+          ? "template"
+          : templateId
+            ? "template"
+            : null;
+
+    const frameworkSlug =
+      typeof body?.frameworkSlug === "string"
+        ? body.frameworkSlug.trim()
+        : "";
+
     const reviewerUserId =
       typeof body?.reviewerUserId === "string"
         ? body.reviewerUserId.trim()
@@ -320,68 +343,146 @@ export async function POST(req: Request) {
           }
         | null = null;
 
+      let selectedFramework:
+        | {
+            id: number;
+            slug: string;
+            name: string;
+            version: string | null;
+            controls: Array<{
+              questions: Array<{
+                id: number;
+              }>;
+            }>;
+          }
+        | null = null;
+
       if (mode === "truvern") {
-        if (!templateId) {
+        if (questionnaireKind === "template") {
+          if (!templateId) {
+            return {
+              status: 400,
+              body: {
+                ok: false,
+                code: "TRUVERN_REVIEW_TEMPLATE_REQUIRED",
+                error:
+                  "Select an assessment template before requesting Truvern Review.",
+              },
+            };
+          }
+
+          selectedTemplate =
+            await readTruvernReviewTemplateSelection(
+              {
+                templateId,
+                organizationId: vendor.organizationId,
+              },
+              tx,
+            );
+
+          if (!selectedTemplate) {
+            return {
+              status: 400,
+              body: {
+                ok: false,
+                code: "INVALID_TRUVERN_REVIEW_TEMPLATE",
+                error:
+                  "The selected assessment template is unavailable or does not belong to your organization.",
+              },
+            };
+          }
+
+          if (selectedTemplate.questionCount < 1) {
+            return {
+              status: 400,
+              body: {
+                ok: false,
+                code: "EMPTY_TRUVERN_REVIEW_TEMPLATE",
+                error:
+                  "The selected assessment template contains no questions.",
+              },
+            };
+          }
+        } else if (questionnaireKind === "framework") {
+          if (
+            frameworkSlug !==
+            CANONICAL_TRUVERN_FRAMEWORK_SLUG
+          ) {
+            return {
+              status: 400,
+              body: {
+                ok: false,
+                code: "INVALID_TRUVERN_REVIEW_FRAMEWORK",
+                error:
+                  "The selected Truvern Review framework is unavailable.",
+              },
+            };
+          }
+
+          selectedFramework =
+            await findTruvernFramework(
+              {
+                where: {
+                  slug:
+                    CANONICAL_TRUVERN_FRAMEWORK_SLUG,
+                },
+                select: {
+                  id: true,
+                  slug: true,
+                  name: true,
+                  version: true,
+                  controls: {
+                    select: {
+                      questions: {
+                        select: {
+                          id: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              tx,
+            );
+
+          const frameworkQuestionCount =
+            selectedFramework?.controls.reduce(
+              (total, control) =>
+                total + control.questions.length,
+              0,
+            ) ?? 0;
+
+          if (
+            !selectedFramework ||
+            selectedFramework.slug !==
+              CANONICAL_TRUVERN_FRAMEWORK_SLUG ||
+            selectedFramework.version !==
+              CANONICAL_TRUVERN_FRAMEWORK_VERSION ||
+            frameworkQuestionCount !==
+              CANONICAL_TRUVERN_FRAMEWORK_QUESTION_COUNT
+          ) {
+            return {
+              status: 409,
+              body: {
+                ok: false,
+                code: "TRUVERN_REVIEW_FRAMEWORK_NOT_READY",
+                error:
+                  "NIST SP 800-53 Rev. 5.2.0 is not ready for Truvern Review.",
+              },
+            };
+          }
+        } else {
           return {
             status: 400,
             body: {
               ok: false,
-              code: "TRUVERN_REVIEW_TEMPLATE_REQUIRED",
+              code: "TRUVERN_REVIEW_QUESTIONNAIRE_REQUIRED",
               error:
-                "Select an assessment template before requesting Truvern Review.",
-            },
-          };
-        }
-
-        selectedTemplate =
-          await readTruvernReviewTemplateSelection(
-            {
-              templateId,
-              organizationId: vendor.organizationId,
-            },
-            tx,
-          );
-
-        if (!selectedTemplate) {
-          return {
-            status: 400,
-            body: {
-              ok: false,
-              code: "INVALID_TRUVERN_REVIEW_TEMPLATE",
-              error:
-                "The selected assessment template is unavailable or does not belong to your organization.",
-            },
-          };
-        }
-
-        if (
-          selectedTemplate.name !==
-          TRUVERN_REVIEW_TEMPLATE_NAME
-        ) {
-          return {
-            status: 400,
-            body: {
-              ok: false,
-              code: "TRUVERN_REVIEW_TEMPLATE_REQUIRED",
-              error:
-                "Truvern Review uses the Truvern NIST 800-53 Governance Review questionnaire.",
-            },
-          };
-        }
-
-        if (selectedTemplate.questionCount < 1) {
-          return {
-            status: 400,
-            body: {
-              ok: false,
-              code: "EMPTY_TRUVERN_REVIEW_TEMPLATE",
-              error:
-                "The selected assessment template contains no questions.",
+                "Select a questionnaire before requesting Truvern Review.",
             },
           };
         }
       }
-
       if (mode === "internal") {
         const activeInternalAssignment =
           await findFirstReviewAssignment({
@@ -490,7 +591,6 @@ export async function POST(req: Request) {
                 is: {
                   vendorId: vendor.id,
                   organizationId: vendor.organizationId,
-                  assessmentId,
                 },
               },
               OR: [
@@ -855,9 +955,16 @@ export async function POST(req: Request) {
       let resolvedAssessmentId =
         assessmentId ?? null;
 
+      let resolvedFrameworkAssessmentId:
+        number | null =
+        null;
+
       // AUTO_LAUNCH_TRUVERN_VENDOR_QUESTIONNAIRE
       // Truvern Review requests immediately create a vendor questionnaire token.
-      if (mode === "truvern") {
+      if (
+        mode === "truvern" &&
+        questionnaireKind === "template"
+      ) {
         const template = selectedTemplate;
 
         if (!template) {
@@ -1016,6 +1123,128 @@ export async function POST(req: Request) {
             where id = ${assignment.id}
           `;
         }
+
+      if (
+        mode === "truvern" &&
+        questionnaireKind === "framework"
+      ) {
+        const framework = selectedFramework;
+
+        if (!framework) {
+          throw new Error(
+            "Selected Truvern Review framework was not resolved.",
+          );
+        }
+
+        const existingFrameworkAssessment =
+          await tx.truvernFrameworkAssessment.findFirst({
+            where: {
+              reviewAssignmentId:
+                assignment.id,
+              organizationId:
+                vendor.organizationId,
+              vendorId:
+                vendor.id,
+              frameworkId:
+                framework.id,
+            },
+            select: {
+              id: true,
+            },
+            orderBy: {
+              id: "desc",
+            },
+          });
+
+        if (existingFrameworkAssessment?.id) {
+          resolvedFrameworkAssessmentId =
+            existingFrameworkAssessment.id;
+        } else {
+          const createdFrameworkAssessment =
+            await createTruvernFrameworkAssessment(
+              {
+                data: {
+                  frameworkId:
+                    framework.id,
+                  organizationId:
+                    vendor.organizationId,
+                  vendorId:
+                    vendor.id,
+                  reviewAssignmentId:
+                    assignment.id,
+                  title:
+                    `${framework.name} for ${vendor.name}`,
+                  status:
+                    "DRAFT",
+                  metadata: {
+                    source:
+                      "truvern-managed-review",
+                    frameworkSlug:
+                      framework.slug,
+                    frameworkVersion:
+                      framework.version,
+                    questionCount:
+                      CANONICAL_TRUVERN_FRAMEWORK_QUESTION_COUNT,
+                    managedReviewDueAt:
+                      addDays(14).toISOString(),
+                    managedReviewDueDays:
+                      14,
+                  },
+                },
+              },
+              tx,
+            );
+
+          resolvedFrameworkAssessmentId =
+            createdFrameworkAssessment.id;
+
+          const frameworkQuestions =
+            framework.controls.flatMap(
+              (control) =>
+                control.questions,
+            );
+
+          if (
+            frameworkQuestions.length !==
+            CANONICAL_TRUVERN_FRAMEWORK_QUESTION_COUNT
+          ) {
+            throw new Error(
+              "Canonical Truvern Review framework question count changed during launch.",
+            );
+          }
+
+          await tx.truvernAssessmentResponse.createMany({
+            data:
+              frameworkQuestions.map(
+                (question) => ({
+                  assessmentId:
+                    createdFrameworkAssessment.id,
+                  questionId:
+                    question.id,
+                  score:
+                    null,
+                  metadata: {
+                    prebuilt:
+                      true,
+                    createdFromFrameworkSlug:
+                      framework.slug,
+                  },
+                }),
+              ),
+            skipDuplicates:
+              true,
+          });
+        }
+
+        await tx.$executeRaw`
+          update "ReviewAssignment"
+          set "reviewerName" = 'Truvern Review Team',
+              "assignedReviewerName" = 'Truvern Review Team',
+              "assignedTo" = 'Truvern Review Team'
+          where id = ${assignment.id}
+        `;
+      }
+
       return {
         status: 200,
         body: {
@@ -1024,6 +1253,12 @@ export async function POST(req: Request) {
           assignmentId: assignment.id,
           assessmentId:
             resolvedAssessmentId,
+          frameworkAssessmentId:
+            resolvedFrameworkAssessmentId,
+          questionnaireKind:
+            mode === "truvern"
+              ? questionnaireKind
+              : null,
           mode,
           reservation,
           legalAcknowledgement,
@@ -1040,39 +1275,65 @@ export async function POST(req: Request) {
         const deliveryAssessmentId =
           result.body.assessmentId;
 
+        const deliveryFrameworkAssessmentId =
+          result.body.frameworkAssessmentId;
+
+        const deliveryQuestionnaireKind =
+          result.body.questionnaireKind;
+
+        let vendorDelivery:
+          Awaited<
+            ReturnType<
+              typeof sendAssessmentVendorLink
+            >
+          >;
+
         if (
-          !Number.isInteger(deliveryAssessmentId) ||
-          Number(deliveryAssessmentId) <= 0
+          deliveryQuestionnaireKind ===
+          "framework"
         ) {
-          console.error(
-            "TRUVERN_ASSIGNMENT_VENDOR_DELIVERY_ERROR",
-            {
-              assignmentId:
-                result.body.assignmentId,
-              error:
-                "Truvern Review committed without an exact assessment identity for vendor delivery.",
-            },
-          );
+          if (
+            !Number.isInteger(
+              deliveryFrameworkAssessmentId,
+            ) ||
+            Number(
+              deliveryFrameworkAssessmentId,
+            ) <= 0
+          ) {
+            throw new Error(
+              "Truvern Review committed without an exact framework assessment identity for vendor delivery.",
+            );
+          }
 
-          return json(result.status, {
-            ...result.body,
-            vendorDelivery: {
-              sent: false,
-              alreadySent: false,
-              error:
-                "Vendor delivery could not be completed automatically.",
-            },
-          });
+          vendorDelivery =
+            await sendFrameworkAssessmentVendorLink({
+              assessmentId:
+                Number(
+                  deliveryFrameworkAssessmentId,
+                ),
+              mode:
+                "AUTO_ONCE",
+            });
+        } else {
+          if (
+            !Number.isInteger(
+              deliveryAssessmentId,
+            ) ||
+            Number(deliveryAssessmentId) <= 0
+          ) {
+            throw new Error(
+              "Truvern Review committed without an exact assessment identity for vendor delivery.",
+            );
+          }
+
+          vendorDelivery =
+            await sendAssessmentVendorLink({
+              assessmentId:
+                Number(deliveryAssessmentId),
+              mode:
+                "AUTO_ONCE",
+            });
         }
-
-        const vendorDelivery =
-          await sendAssessmentVendorLink({
-            assessmentId:
-              Number(deliveryAssessmentId),
-            mode:
-              "AUTO_ONCE",
-          });
-
         return json(result.status, {
           ...result.body,
           vendorDelivery: {

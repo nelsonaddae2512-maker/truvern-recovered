@@ -14,6 +14,14 @@ type TruvernReviewTemplate = {
   version?: string | null;
   source?: string | null;
   isSystem?: boolean;
+  questionCount: number;
+};
+
+type CanonicalFrameworkOption = {
+  slug: string;
+  name: string;
+  version: string;
+  questionCount: number;
 };
 
 type Props = {
@@ -22,6 +30,7 @@ type Props = {
   reservedCredits?: number;
   consumedCredits?: number;
   templates?: TruvernReviewTemplate[];
+  canonicalFramework?: CanonicalFrameworkOption | null;
 };
 
 export default function SendToTruvernManagedReview({
@@ -30,17 +39,56 @@ export default function SendToTruvernManagedReview({
   reservedCredits = 0,
   consumedCredits = 0,
   templates = [],
+  canonicalFramework = null,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acceptedAcknowledgement, setAcceptedAcknowledgement] =
     useState(false);
+  const [selectedQuestionnaireKey, setSelectedQuestionnaireKey] =
+    useState("");
 
   const canonicalTemplate =
     templates.find(
       (template) =>
         template.name === TRUVERN_REVIEW_TEMPLATE_NAME,
+    ) ?? null;
+
+  const questionnaireOptions = [
+    ...templates.map((template) => ({
+      key: `template:${template.id}`,
+      kind: "template" as const,
+      templateId: template.id,
+      frameworkSlug: null,
+      name: template.name,
+      version: template.version ?? null,
+      standard: template.standard ?? null,
+      questionCount: template.questionCount,
+      isCanonicalTemplate:
+        template.name === TRUVERN_REVIEW_TEMPLATE_NAME,
+    })),
+    ...(canonicalFramework
+      ? [
+          {
+            key: `framework:${canonicalFramework.slug}`,
+            kind: "framework" as const,
+            templateId: null,
+            frameworkSlug: canonicalFramework.slug,
+            name: canonicalFramework.name,
+            version: canonicalFramework.version,
+            standard: "NIST SP 800-53",
+            questionCount: canonicalFramework.questionCount,
+            isCanonicalTemplate: false,
+          },
+        ]
+      : []),
+  ];
+
+  const selectedQuestionnaire =
+    questionnaireOptions.find(
+      (option) =>
+        option.key === selectedQuestionnaireKey,
     ) ?? null;
 
   const requiredCredits = 1;
@@ -75,6 +123,11 @@ export default function SendToTruvernManagedReview({
     stopEvent(event);
     setError(null);
     setAcceptedAcknowledgement(false);
+    setSelectedQuestionnaireKey(
+      canonicalTemplate
+        ? `template:${canonicalTemplate.id}`
+        : questionnaireOptions[0]?.key ?? "",
+    );
     setOpen(true);
   }
 
@@ -95,7 +148,7 @@ export default function SendToTruvernManagedReview({
 
     if (
       submitting ||
-      !canonicalTemplate ||
+      !selectedQuestionnaire ||
       !acceptedAcknowledgement
     ) {
       return;
@@ -114,9 +167,19 @@ export default function SendToTruvernManagedReview({
           },
           body: JSON.stringify({
             vendorId,
-            templateId: canonicalTemplate.id,
             mode: "truvern",
             acceptedAcknowledgement,
+            questionnaireKind:
+              selectedQuestionnaire.kind,
+            ...(selectedQuestionnaire.kind === "template"
+              ? {
+                  templateId:
+                    selectedQuestionnaire.templateId,
+                }
+              : {
+                  frameworkSlug:
+                    selectedQuestionnaire.frameworkSlug,
+                }),
           }),
         },
       );
@@ -204,30 +267,65 @@ export default function SendToTruvernManagedReview({
                   Truvern questionnaire
                 </div>
 
-                {canonicalTemplate ? (
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-white">
-                          {canonicalTemplate.name}
-                        </p>
+                {questionnaireOptions.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {questionnaireOptions.map((option) => {
+                      const selected =
+                        option.key === selectedQuestionnaireKey;
 
-                        <p className="mt-1 text-xs text-slate-400">
-                          20 sections · 120 questions · NIST SP
-                          800-53
-                        </p>
-                      </div>
+                      return (
+                        <label
+                          key={option.key}
+                          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                            selected
+                              ? "border-cyan-400/40 bg-cyan-500/10"
+                              : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="truvern-review-questionnaire"
+                            value={option.key}
+                            checked={selected}
+                            onChange={() =>
+                              setSelectedQuestionnaireKey(
+                                option.key,
+                              )
+                            }
+                            className="mt-1 h-4 w-4 shrink-0 border-white/20 bg-transparent text-cyan-400 focus:ring-cyan-400"
+                          />
 
-                      <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
-                        Required
-                      </span>
-                    </div>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-start justify-between gap-3">
+                              <span className="font-semibold text-white">
+                                {option.name}
+                              </span>
+
+                              {option.isCanonicalTemplate ? (
+                                <span className="shrink-0 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
+                                  Truvern
+                                </span>
+                              ) : null}
+                            </span>
+
+                            <span className="mt-1 block text-xs text-slate-400">
+                              {option.questionCount} questions
+                              {option.version
+                                ? ` · Version ${option.version}`
+                                : ""}
+                              {option.standard
+                                ? ` · ${option.standard}`
+                                : ""}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="mt-2 rounded-xl border border-rose-400/30 bg-rose-500/10 p-3 text-xs text-rose-100">
-                    The Truvern NIST 800-53 Governance Review
-                    template is unavailable. This review cannot
-                    be started.
+                    No eligible questionnaire is currently
+                    available for this Truvern Review.
                   </div>
                 )}
               </section>
@@ -336,9 +434,9 @@ export default function SendToTruvernManagedReview({
 
               <span className="leading-5">
                 I acknowledge the Truvern Review terms and
-                authorize Truvern to launch the required NIST
-                800-53 questionnaire, coordinate the vendor
-                review, and apply the applicable credit terms.
+                authorize Truvern to launch the selected
+                questionnaire, coordinate the vendor review,
+                and apply the applicable credit terms.
               </span>
             </label>
 
@@ -364,7 +462,7 @@ export default function SendToTruvernManagedReview({
                   disabled={
                     submitting ||
                     !acceptedAcknowledgement ||
-                    !canonicalTemplate
+                    !selectedQuestionnaire
                   }
                   className="rounded-xl bg-cyan-400 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
                 >
