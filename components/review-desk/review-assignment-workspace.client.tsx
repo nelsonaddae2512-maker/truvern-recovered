@@ -2330,6 +2330,15 @@ const initialFinalAssessment =
               const hasSubmittedEvidence =
                 Boolean(submittedEvidence?.fulfilledEvidenceId);
 
+              const validationState =
+                hasSubmittedEvidence
+                  ? isResolved
+                    ? "Vendor evidence ready for validation"
+                    : "Review vendor evidence"
+                  : isResolved
+                    ? "Request resolved"
+                    : "Blocking release";
+
               return (
                 <div
                   key={request.id}
@@ -2355,7 +2364,7 @@ const initialFinalAssessment =
                               : "border-amber-400/20 bg-amber-400/10 text-amber-100"
                           }`}
                         >
-                          {isResolved ? "Ready for validation" : "Blocking release"}
+                          {validationState}
                         </span>
                       </div>
 
@@ -2531,7 +2540,7 @@ const initialFinalAssessment =
 
                         <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            Vendor evidence
+                            Vendor submission
                           </p>
 
                           {submittedEvidence?.fulfilledEvidenceId ? (
@@ -2570,7 +2579,11 @@ const initialFinalAssessment =
                             </p>
                           )}
 
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            Reviewer decision
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
                             {status !== "APPROVED" ? (
                               <button
                                 type="button"
