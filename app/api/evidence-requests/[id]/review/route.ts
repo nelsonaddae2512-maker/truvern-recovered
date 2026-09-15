@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
 import { updateEvidenceRequestReviewStatus } from "@/lib/repositories/evidence-request-review-repository";
+import { findEvidenceRequest } from "@/lib/repositories/evidence-request-repository";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,31 @@ export async function POST(
 
     const params = await context.params;
     const id = Number(params.id);
+
+    if (!Number.isFinite(id) || id <= 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid remediation request id.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const existing = await findEvidenceRequest({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Remediation request not found.",
+        },
+        { status: 404 },
+      );
+    }
 
     const body = await request.json();
 
