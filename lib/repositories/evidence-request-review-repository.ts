@@ -13,6 +13,8 @@ export async function updateEvidenceRequestReviewStatus(
   },
   client: EvidenceRequestReviewClient = prisma,
 ) {
+  const now = new Date();
+
   return client.evidenceRequest.update({
     where: {
       id: input.id,
@@ -20,7 +22,14 @@ export async function updateEvidenceRequestReviewStatus(
     data: {
       status:
         input.status as Prisma.EvidenceRequestUpdateInput["status"],
-      updatedAt: new Date(),
+      reviewedAt:
+        input.status === "APPROVED" ||
+        input.status === "REJECTED"
+          ? now
+          : input.status === "REQUESTED"
+            ? null
+            : undefined,
+      updatedAt: now,
     },
     select: {
       id: true,
