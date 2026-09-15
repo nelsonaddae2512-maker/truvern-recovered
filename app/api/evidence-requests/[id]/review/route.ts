@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { isTruvernOperator } from "@/lib/truvern-ops-access";
 import { updateEvidenceRequestReviewStatus } from "@/lib/repositories/evidence-request-review-repository";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,19 @@ export async function POST(
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
         { status: 401 },
+      );
+    }
+
+    const canManageTruvernReview = await isTruvernOperator();
+
+    if (!canManageTruvernReview) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Only authorized Truvern operators can review remediation evidence.",
+        },
+        { status: 403 },
       );
     }
 
@@ -71,6 +85,3 @@ export async function POST(
     );
   }
 }
-
-
-
