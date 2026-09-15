@@ -180,6 +180,144 @@ describe("Truvern findings engine", () => {
       );
     });
 
+    it("creates an actionable control-specific finding description", () => {
+      const result = generateFindings([
+        item({
+          controlId: "PT-1",
+          controlCode: "PT-1",
+          family: "Penetration Testing",
+          prompt: "Does the organization perform penetration testing?",
+          score: 4,
+          maxScore: 10,
+        }),
+      ]);
+
+      const finding = findingByTitle(
+        result.findings,
+        "control gap detected",
+      );
+
+      expect(finding.description).toContain(
+        "PT-1 · Penetration Testing is not sufficiently demonstrated.",
+      );
+      expect(finding.description).toContain(
+        'The assessment response for "Does the organization perform penetration testing?"',
+      );
+      expect(finding.description).toContain(
+        "40% control score",
+      );
+      expect(finding.description).toContain(
+        "does not sufficiently demonstrate that the assessed control requirement is satisfied",
+      );
+
+      expect(finding.description).not.toContain(
+        "Recommendation:",
+      );
+      expect(finding.description).not.toContain(
+        "Release impact:",
+      );
+    });
+
+    it("creates a control-specific vendor remediation recommendation", () => {
+      const result = generateFindings([
+        item({
+          controlId: "PT-1",
+          controlCode: "PT-1",
+          family: "Penetration Testing",
+          prompt: "Does the organization perform penetration testing?",
+          score: 4,
+          maxScore: 10,
+        }),
+      ]);
+
+      const finding = findingByTitle(
+        result.findings,
+        "control gap detected",
+      );
+
+      expect(finding.recommendation).toContain(
+        'Address the control deficiency identified in "Does the organization perform penetration testing?"',
+      );
+      expect(finding.recommendation).toContain(
+        "PT-1 · Penetration Testing is implemented and operating",
+      );
+      expect(finding.recommendation).toContain(
+        "supporting remediation evidence for reviewer validation before governance release",
+      );
+    });
+
+    it("identifies missing required evidence in the control-gap description and recommendation", () => {
+      const result = generateFindings([
+        item({
+          controlId: "PT-1",
+          controlCode: "PT-1",
+          family: "Penetration Testing",
+          prompt: "Does the organization perform penetration testing?",
+          score: 4,
+          maxScore: 10,
+          requiresEvidence: true,
+          evidence: [],
+        }),
+      ]);
+
+      const finding = findingByTitle(
+        result.findings,
+        "control gap detected",
+      );
+
+      expect(finding.description).toContain(
+        "1 required evidence item(s) are missing for this control.",
+      );
+      expect(finding.recommendation).toContain(
+        "Provide the missing required evidence",
+      );
+    });
+
+    it("keeps descriptions distinct for different control requirements", () => {
+      const penetrationTesting = generateFindings([
+        item({
+          controlId: "PT-1",
+          controlCode: "PT-1",
+          family: "Penetration Testing",
+          prompt: "Does the organization perform penetration testing?",
+          score: 4,
+          maxScore: 10,
+        }),
+      ]);
+
+      const accessReview = generateFindings([
+        item({
+          controlId: "AC-2",
+          controlCode: "AC-2",
+          family: "Access Control",
+          prompt: "Are privileged access rights reviewed periodically?",
+          score: 4,
+          maxScore: 10,
+        }),
+      ]);
+
+      const ptFinding = findingByTitle(
+        penetrationTesting.findings,
+        "control gap detected",
+      );
+
+      const acFinding = findingByTitle(
+        accessReview.findings,
+        "control gap detected",
+      );
+
+      expect(ptFinding.description).not.toBe(
+        acFinding.description,
+      );
+
+      expect(ptFinding.description).toContain(
+        "penetration testing",
+      );
+
+      expect(acFinding.description).toContain(
+        "privileged access rights",
+      );
+    });
     it("uses strict remediation language for critical and high gaps", () => {
       const result = generateFindings([
         item({
@@ -193,7 +331,7 @@ describe("Truvern findings engine", () => {
       );
 
       expect(finding.recommendation).toContain(
-        "require reviewer validation before release",
+        "reviewer validation before governance release",
       );
     });
 
@@ -210,7 +348,7 @@ describe("Truvern findings engine", () => {
       );
 
       expect(finding.recommendation).toContain(
-        "clarification or compensating evidence",
+        "clarification, supporting evidence, or documented compensating controls",
       );
     });
   });

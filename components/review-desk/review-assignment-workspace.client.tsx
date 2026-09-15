@@ -1686,7 +1686,7 @@ const initialFinalAssessment =
               {assignment.assignmentType || "INTERNAL"}
             </span>
             <span className={chipClass("slate")}>Assigned analyst: {reviewerName}</span>
-            <span className={chipClass("slate")}>Request #{request.id ?? "â€”"}</span>
+            <span className={chipClass("slate")}>Request #{request.id ?? "—"}</span>
             <span className={chipClass("slate")}>Assignment #{assignment.id}</span>
 
             {latestOutcome.id ? (
@@ -2143,7 +2143,7 @@ const initialFinalAssessment =
               <div className="flex items-center justify-center">
                 <div className="flex h-28 w-28 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-400/10 text-center">
                   <div>
-                    <div className="text-3xl">âœ“</div>
+                    <div className="text-3xl">✓</div>
                     <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-emerald-100">
                       Archived
                     </div>
@@ -2994,10 +2994,10 @@ const initialFinalAssessment =
                   </p>
 
                   <ul className="mt-3 space-y-2 text-sm leading-7 text-emerald-50">
-                    <li>â€¢ Governance releases are archived into immutable audit history.</li>
-                    <li>â€¢ Historical governance records remain accessible for longitudinal review.</li>
-                    <li>â€¢ Release integrity is protected through deterministic governance snapshots.</li>
-                    <li>â€¢ Future cryptographic attestation support can extend external verification.</li>
+                    <li>• Governance releases are archived into immutable audit history.</li>
+                    <li>• Historical governance records remain accessible for longitudinal review.</li>
+                    <li>• Release integrity is protected through deterministic governance snapshots.</li>
+                    <li>• Future cryptographic attestation support can extend external verification.</li>
                   </ul>
                 </div>
 
@@ -3159,10 +3159,10 @@ const initialFinalAssessment =
                   </p>
 
                   <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-50">
-                    <li>â€¢ Customer reviewed governance findings and assessment details.</li>
-                    <li>â€¢ Customer reviewed release conditions and disclosure follow-ups.</li>
-                    <li>â€¢ Customer understands approval finalizes the governance artifact.</li>
-                    <li>â€¢ Customer understands this is not a legal certification or warranty.</li>
+                    <li>• Customer reviewed governance findings and assessment details.</li>
+                    <li>• Customer reviewed release conditions and disclosure follow-ups.</li>
+                    <li>• Customer understands approval finalizes the governance artifact.</li>
+                    <li>• Customer understands this is not a legal certification or warranty.</li>
                   </ul>
                 </div>
               </div>
@@ -3191,7 +3191,7 @@ const initialFinalAssessment =
                 Latest score
               </p>
               <p className="mt-2 text-2xl font-semibold text-white">
-                {governanceMemory[0]?.governanceScore ?? "â€”"}
+                {governanceMemory[0]?.governanceScore ?? "—"}
               </p>
             </div>
 
@@ -3260,10 +3260,10 @@ const initialFinalAssessment =
 
                     <div className="flex flex-wrap gap-2 text-xs">
                       <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-cyan-100">
-                        Score {memory.governanceScore ?? "â€”"}
+                        Score {memory.governanceScore ?? "—"}
                       </span>
                       <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-amber-100">
-                        Risk {memory.residualRisk || "â€”"}
+                        Risk {memory.residualRisk || "—"}
                       </span>
                       {memory.breachDisclosureDetected ? (
                         <span className="rounded-full border border-red-300/20 bg-red-400/10 px-3 py-1 text-red-100">
@@ -3976,10 +3976,10 @@ const initialFinalAssessment =
               </p>
 
               <ul className="mt-4 space-y-2 text-sm leading-6 text-amber-50">
-                <li>â€¢ Confirm whether the vendor organization has been under federal investigation within the last 24 months.</li>
-                <li>â€¢ Confirm whether the vendor organization has experienced a security breach within the last 24 months.</li>
-                <li>â€¢ Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.</li>
-                <li>â€¢ Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.</li>
+                <li>• Confirm whether the vendor organization has been under federal investigation within the last 24 months.</li>
+                <li>• Confirm whether the vendor organization has experienced a security breach within the last 24 months.</li>
+                <li>• Confirm whether the vendor organization has experienced material regulatory action within the last 24 months.</li>
+                <li>• Confirm unresolved litigation, ransomware disclosures, SEC disclosures, state AG actions, or FTC actions that may affect the final governance decision.</li>
               </ul>
             </div>
 
@@ -3989,10 +3989,10 @@ const initialFinalAssessment =
               </p>
 
               <ul className="mt-4 space-y-2 text-sm leading-6 text-amber-50">
-                <li>â€¢ Editing locks after governance release.</li>
-                <li>â€¢ Customer confirmation finalizes the governance artifact.</li>
-                <li>â€¢ Governance manifests and checksums become audit records.</li>
-                <li>â€¢ Reserved Truvern credits are consumed on confirmation.</li>
+                <li>• Editing locks after governance release.</li>
+                <li>• Customer confirmation finalizes the governance artifact.</li>
+                <li>• Governance manifests and checksums become audit records.</li>
+                <li>• Reserved Truvern credits are consumed on confirmation.</li>
               </ul>
             </div>
 
@@ -4691,7 +4691,7 @@ function RemediationPackageReviewerEditor({
       {questionPrompt ? (
         <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Source assessment question Â· Read only
+            Source assessment question · Read only
           </p>
 
           <p className="mt-2 text-sm leading-6 text-slate-200">
@@ -4769,7 +4769,7 @@ function RemediationPackageReviewerEditor({
 
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="text-xs font-medium text-slate-300">
-              Required evidence Â· one item per line
+              Required evidence · one item per line
 
               <textarea
                 value={requiredEvidence}
@@ -4783,7 +4783,7 @@ function RemediationPackageReviewerEditor({
             </label>
 
             <label className="text-xs font-medium text-slate-300">
-              Required attestations Â· one item per line
+              Required attestations · one item per line
 
               <textarea
                 value={requiredAttestations}

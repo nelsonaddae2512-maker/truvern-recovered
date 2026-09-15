@@ -243,8 +243,7 @@ export function generateFindings(items: TruvernScoringInput[]): TruvernFindingsR
       labelControl(
         control.controlCode,
         control.family,
-        semantic.prompt ??
-          control.controlKey,
+        control.controlKey,
       );
 
     const controlGap =
@@ -279,14 +278,30 @@ export function generateFindings(items: TruvernScoringInput[]): TruvernFindingsR
         family: control.family,
         severity,
         title: `${label} control gap detected`,
-        description:
+        description: [
+          `${label} is not sufficiently demonstrated.`,
           semantic.prompt
-            ? `Assessment question: ${semantic.prompt} This control scored ${control.percent}% based on ${control.answeredQuestions}/${control.totalQuestions} answered questions.`
-            : `This control scored ${control.percent}% based on ${control.answeredQuestions}/${control.totalQuestions} answered questions.`,
-        recommendation:
-          severity === "CRITICAL" || severity === "HIGH"
-            ? "Request remediation evidence from the vendor and require reviewer validation before release."
-            : "Request clarification or compensating evidence before final governance release.",
+            ? `The assessment response for "${semantic.prompt}" resulted in a ${control.percent}% control score based on ${control.answeredQuestions}/${control.totalQuestions} answered questions.`
+            : `The assessed control resulted in a ${control.percent}% control score based on ${control.answeredQuestions}/${control.totalQuestions} answered questions.`,
+          "The response does not sufficiently demonstrate that the assessed control requirement is satisfied.",
+          control.missingEvidence > 0
+            ? `${control.missingEvidence} required evidence item(s) are missing for this control.`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+        recommendation: [
+          semantic.prompt
+            ? `Address the control deficiency identified in "${semantic.prompt}" and provide updated information demonstrating how ${label} is implemented and operating.`
+            : `Address the identified control deficiency and provide updated information demonstrating how ${label} is implemented and operating.`,
+          control.missingEvidence > 0
+            ? "Provide the missing required evidence and supporting remediation evidence for reviewer validation before governance release."
+            : severity === "CRITICAL" || severity === "HIGH"
+              ? "Provide supporting remediation evidence for reviewer validation before governance release."
+              : "Provide clarification, supporting evidence, or documented compensating controls for governance review before release.",
+        ]
+          .filter(Boolean)
+          .join(" "),
         remediationRequired: severity === "CRITICAL" || severity === "HIGH" || severity === "MODERATE",
         attestationRequired: control.requiresAttestation || severity === "CRITICAL",
         evidenceRequired: control.missingEvidence > 0,
