@@ -1,18 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  governanceForbidden,
+  governanceUnauthorized,
+} from "@/lib/auth/governance-auth-errors";
 
 const mocks = vi.hoisted(() => ({
-  auth: vi.fn(),
-  isTruvernOperator: vi.fn(),
+  requireOpsAccess: vi.fn(),
   findEvidenceRequest: vi.fn(),
   updateEvidenceRequestReviewStatus: vi.fn(),
 }));
 
-vi.mock("@clerk/nextjs/server", () => ({
-  auth: mocks.auth,
-}));
-
-vi.mock("@/lib/truvern-ops-access", () => ({
-  isTruvernOperator: mocks.isTruvernOperator,
+vi.mock("@/lib/auth/truvern-governance", () => ({
+  requireOpsAccess: mocks.requireOpsAccess,
 }));
 
 vi.mock("@/lib/repositories/evidence-request-repository", () => ({
@@ -52,11 +51,12 @@ describe("evidence request review route guardrails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mocks.auth.mockResolvedValue({
+    mocks.requireOpsAccess.mockResolvedValue({
       userId: "user_1",
+      organizationId: null,
+      vendorId: null,
+      role: "OPS",
     });
-
-    mocks.isTruvernOperator.mockResolvedValue(true);
 
     mocks.findEvidenceRequest.mockResolvedValue({
       id: 1,
@@ -71,15 +71,14 @@ describe("evidence request review route guardrails", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    mocks.auth.mockResolvedValue({
-      userId: null,
-    });
+    mocks.requireOpsAccess.mockRejectedValue(
+      governanceUnauthorized("Authentication required."),
+    );
 
     const response =
       await POST(request(), context("1"));
 
     expect(response.status).toBe(401);
-    expect(mocks.isTruvernOperator).not.toHaveBeenCalled();
     expect(mocks.findEvidenceRequest).not.toHaveBeenCalled();
     expect(
       mocks.updateEvidenceRequestReviewStatus,
@@ -87,7 +86,9 @@ describe("evidence request review route guardrails", () => {
   });
 
   it("returns 403 for an authenticated non-Truvern operator", async () => {
-    mocks.isTruvernOperator.mockResolvedValue(false);
+    mocks.requireOpsAccess.mockRejectedValue(
+      governanceForbidden("Truvern Ops access required."),
+    );
 
     const response =
       await POST(request(), context("1"));

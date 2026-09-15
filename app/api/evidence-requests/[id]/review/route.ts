@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import {
+  governanceAuthErrorResponse,
+} from "@/lib/auth/governance-auth-errors";
+import {
+  requireOpsAccess,
+} from "@/lib/auth/truvern-governance";
 import { updateEvidenceRequestReviewStatus } from "@/lib/repositories/evidence-request-review-repository";
 import { findEvidenceRequest } from "@/lib/repositories/evidence-request-repository";
 export const runtime = "nodejs";
@@ -17,27 +21,7 @@ export async function POST(
   },
 ) {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
-    const canManageTruvernReview = await isTruvernOperator();
-
-    if (!canManageTruvernReview) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Only authorized Truvern operators can review remediation evidence.",
-        },
-        { status: 403 },
-      );
-    }
+    await requireOpsAccess();
 
     const params = await context.params;
     const id = Number(params.id);
@@ -102,6 +86,13 @@ export async function POST(
       status,
     });
   } catch (error: any) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
+
     return NextResponse.json(
       {
         ok: false,
