@@ -234,7 +234,7 @@ export default function SendToTruvernManagedReview({
             onClick={(event) =>
               event.stopPropagation()
             }
-            className="w-full max-w-3xl rounded-[1.75rem] border border-cyan-400/20 bg-[#020617] p-5 shadow-2xl shadow-cyan-500/20"
+            className="w-full max-w-3xl rounded-[1.75rem] border border-cyan-400/20 bg-[#020617] p-4 shadow-2xl shadow-cyan-500/20"
           >
             <div className="flex items-start justify-between gap-5">
               <div>
@@ -244,12 +244,12 @@ export default function SendToTruvernManagedReview({
 
                 <h3
                   id="send-to-truvern-title"
-                  className="mt-2 text-2xl font-black tracking-tight text-white"
+                  className="mt-1 text-xl font-black tracking-tight text-white"
                 >
                   Request Truvern Review
                 </h3>
 
-                <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
+                <p className="mt-1 max-w-2xl text-xs leading-4 text-slate-300">
                   Truvern manages questionnaire delivery,
                   evidence review, findings, remediation,
                   attestations, and final governance release.
@@ -261,14 +261,14 @@ export default function SendToTruvernManagedReview({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-[1.35fr_1fr]">
-              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1.35fr_1fr]">
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                   Truvern questionnaire
                 </div>
 
                 {questionnaireOptions.length > 0 ? (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-2 space-y-1.5">
                     {questionnaireOptions.map((option) => {
                       const selected =
                         option.key === selectedQuestionnaireKey;
@@ -276,7 +276,7 @@ export default function SendToTruvernManagedReview({
                       return (
                         <label
                           key={option.key}
-                          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                          className={`flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2 transition ${
                             selected
                               ? "border-cyan-400/40 bg-cyan-500/10"
                               : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
@@ -331,7 +331,7 @@ export default function SendToTruvernManagedReview({
               </section>
 
               <section
-                className={`rounded-2xl border p-4 ${
+                className={`rounded-2xl border p-3 ${
                   needsCredits
                     ? "border-amber-400/30 bg-amber-500/10"
                     : "border-emerald-400/20 bg-emerald-500/10"
@@ -355,12 +355,12 @@ export default function SendToTruvernManagedReview({
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
                       Required
                     </div>
-                    <div className="mt-1 text-xl font-black text-white">
+                    <div className="mt-0.5 text-lg font-black text-white">
                       {requiredCredits}
                     </div>
                   </div>
@@ -369,7 +369,7 @@ export default function SendToTruvernManagedReview({
                     <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
                       Available
                     </div>
-                    <div className="mt-1 text-xl font-black text-white">
+                    <div className="mt-0.5 text-lg font-black text-white">
                       {available}
                     </div>
                   </div>
@@ -378,7 +378,7 @@ export default function SendToTruvernManagedReview({
                     <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
                       Shortfall
                     </div>
-                    <div className="mt-1 text-xl font-black text-white">
+                    <div className="mt-0.5 text-lg font-black text-white">
                       {shortfall}
                     </div>
                   </div>
@@ -391,15 +391,49 @@ export default function SendToTruvernManagedReview({
                 {needsCredits ? (
                   <a
                     href="/billing/credits"
-                    className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-cyan-400 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300"
+                    className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-cyan-400 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300"
                   >
                     Purchase credits
                   </a>
                 ) : null}
+
+                {selectedQuestionnaire ? (
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Selected questionnaire
+                    </div>
+
+                    <div className="mt-1 text-sm font-semibold text-white">
+                      {selectedQuestionnaire.name}
+                    </div>
+
+                    <div className="mt-0.5 text-[10px] text-slate-400">
+                      {selectedQuestionnaire.questionCount} questions
+                      {selectedQuestionnaire.version
+                        ? ` · Version ${selectedQuestionnaire.version}`
+                        : ""}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={submit}
+                      disabled={
+                        submitting ||
+                        !acceptedAcknowledgement ||
+                        !selectedQuestionnaire
+                      }
+                      className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {submitting
+                        ? "Sending..."
+                        : "Request Truvern Review"}
+                    </button>
+                  </div>
+                ) : null}
               </section>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-slate-300">
+            <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] leading-4 text-slate-300">
               <span className="font-semibold text-white">
                 Review terms.
               </span>{" "}
@@ -420,7 +454,7 @@ export default function SendToTruvernManagedReview({
               </div>
             ) : null}
 
-            <label className="mt-3 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-slate-300">
+            <label className="mt-2 flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] text-slate-300">
               <input
                 type="checkbox"
                 checked={acceptedAcknowledgement}
@@ -432,7 +466,7 @@ export default function SendToTruvernManagedReview({
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-transparent text-cyan-400 focus:ring-cyan-400"
               />
 
-              <span className="leading-5">
+              <span className="leading-4">
                 I acknowledge the Truvern Review terms and
                 authorize Truvern to launch the selected
                 questionnaire, coordinate the vendor review,
@@ -440,37 +474,20 @@ export default function SendToTruvernManagedReview({
               </span>
             </label>
 
-            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-2 flex items-center justify-between gap-3">
               <div className="text-[10px] text-slate-500">
                 Server-side entitlement and credit validation
                 remains authoritative.
               </div>
 
-              <div className="flex gap-2 sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={submitting}
-                  className="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={
-                    submitting ||
-                    !acceptedAcknowledgement ||
-                    !selectedQuestionnaire
-                  }
-                  className="rounded-xl bg-cyan-400 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
-                >
-                  {submitting
-                    ? "Sending..."
-                    : "Request Truvern Review"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={submitting}
+                className="shrink-0 rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
