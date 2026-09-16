@@ -51,7 +51,7 @@ describe("generate-findings assessment linkage", () => {
     );
   });
 
-  it("prefers AssessmentAnswer over legacy ReviewResponse arrays", () => {
+  it("prefers ordinary answers, then framework responses, then legacy ReviewResponse arrays", () => {
     expect(source).toContain(
       'assessmentScoringResponses.length > 0',
     );
@@ -59,13 +59,34 @@ describe("generate-findings assessment linkage", () => {
       '? assessmentScoringResponses',
     );
     expect(source).toContain(
+      'frameworkScoringResponses.length > 0',
+    );
+    expect(source).toContain(
+      '? frameworkScoringResponses',
+    );
+    expect(source).toContain(
       ': legacyScoringResponses',
     );
   });
 
-  it("passes the linked assessment id into governance intelligence", () => {
+  it("loads and normalizes framework responses by review assignment", () => {
     expect(source).toContain(
-      'assessmentId: linkedAssessmentId ?? assignmentId',
+      'findTruvernFrameworkAssessments',
+    );
+    expect(source).toContain(
+      'reviewAssignmentId: assignmentId',
+    );
+    expect(source).toContain(
+      'normalizeFrameworkAssessmentFindingsInput(',
+    );
+    expect(source).toContain(
+      '"FRAMEWORK_ASSESSMENT_RESPONSES"',
+    );
+  });
+
+  it("passes ordinary or framework assessment identity into governance intelligence", () => {
+    expect(source).toMatch(
+      /assessmentId:\s*linkedAssessmentId\s*\?\?\s*frameworkAssessment\?\.id\s*\?\?\s*assignmentId/,
     );
   });
 
@@ -78,6 +99,12 @@ describe("generate-findings assessment linkage", () => {
     );
     expect(source).toContain(
       'assessmentAnswerCount:',
+    );
+    expect(source).toContain(
+      'frameworkAssessmentId:',
+    );
+    expect(source).toContain(
+      'frameworkResponseCount:',
     );
   });
 });

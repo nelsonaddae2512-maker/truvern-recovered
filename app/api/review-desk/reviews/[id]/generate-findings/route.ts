@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
 import { deriveCanonicalGovernanceOutcome, runGovernanceIntelligence } from "@/lib/governance/intelligence/governance-intelligence-engine";
+import { normalizeFrameworkAssessmentFindingsInput } from "@/lib/governance/framework-assessment-findings-input";
+import { findTruvernFrameworkAssessments } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { buildCanonicalGovernanceArtifact } from "@/lib/governance/canonical-governance-artifact";
 import type { TruvernScoringInput } from "@/lib/governance/scoring-engine";
 import { createReviewResponse, findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
@@ -441,6 +443,44 @@ export async function POST(_request: Request, props: Props) {
           })
         : [];
 
+    const frameworkAssessments =
+      await findTruvernFrameworkAssessments({
+        where: {
+          reviewAssignmentId: assignmentId,
+          status: "SUBMITTED",
+          vendorId: row.vendorId,
+          organizationId: row.organizationId,
+        },
+        include: {
+          responses: {
+            include: {
+              question: {
+                include: {
+                  control: true,
+                },
+              },
+            },
+            orderBy: {
+              id: "asc",
+            },
+          },
+        },
+        orderBy: [
+          { submittedAt: "desc" },
+          { id: "desc" },
+        ],
+        take: 1,
+      });
+
+    const frameworkAssessment =
+      frameworkAssessments[0] ?? null;
+
+    const frameworkScoringResponses: TruvernScoringInput[] =
+      frameworkAssessment
+        ? normalizeFrameworkAssessmentFindingsInput(
+            frameworkAssessment.responses,
+          )
+        : [];
     const assessmentScoringResponses: TruvernScoringInput[] =
       assessmentAnswerRows.map((answer) => ({
         questionId:
@@ -471,14 +511,18 @@ export async function POST(_request: Request, props: Props) {
     const scoringResponses =
       assessmentScoringResponses.length > 0
         ? assessmentScoringResponses
-        : legacyScoringResponses;
+        : frameworkScoringResponses.length > 0
+          ? frameworkScoringResponses
+          : legacyScoringResponses;
 
     const scoringSource =
       assessmentScoringResponses.length > 0
         ? "ASSESSMENT_ANSWERS"
-        : legacyScoringResponses.length > 0
-          ? "LEGACY_REVIEW_RESPONSE"
-          : "NONE";
+        : frameworkScoringResponses.length > 0
+          ? "FRAMEWORK_ASSESSMENT_RESPONSES"
+          : legacyScoringResponses.length > 0
+            ? "LEGACY_REVIEW_RESPONSE"
+            : "NONE";
 
     if (scoringResponses.length === 0) {
       return NextResponse.json(
@@ -488,7 +532,10 @@ export async function POST(_request: Request, props: Props) {
     }
 
     const intelligence = runGovernanceIntelligence({
-      assessmentId: linkedAssessmentId ?? assignmentId,
+      assessmentId:
+        linkedAssessmentId ??
+        frameworkAssessment?.id ??
+        assignmentId,
       vendorName: row.vendorName || "Vendor",
       frameworkName: "Truvern Governance Review",
       responses: scoringResponses,
@@ -592,8 +639,12 @@ export async function POST(_request: Request, props: Props) {
           row.reviewRequestId ?? null,
         assessmentId:
           linkedAssessmentId,
+        frameworkAssessmentId:
+          frameworkAssessment?.id ?? null,
         assessmentAnswerCount:
           assessmentScoringResponses.length,
+        frameworkResponseCount:
+          frameworkScoringResponses.length,
         legacyResponseCount:
           legacyScoringResponses.length,
       },
