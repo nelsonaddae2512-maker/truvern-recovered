@@ -35,6 +35,7 @@ export default function AppShellNav() {
   const [currentPlan, setCurrentPlan] =
     useState<"FREE" | "PRO" | "ENTERPRISE">("FREE");
   const [isOperator, setIsOperator] = useState(false);
+  const [hasCustomerAccess, setHasCustomerAccess] = useState(false);
 
   useEffect(() => {
     fetch("/api/billing/current-plan", { cache: "no-store" })
@@ -81,8 +82,19 @@ export default function AppShellNav() {
     pathname.startsWith("/truvern/ops");
 
   const links = isWorkspace ? workspaceLinks : publicLinks;
+  useEffect(() => {
+    fetch("/api/access/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((body) =>
+        setHasCustomerAccess(
+          Boolean(body?.hasCustomerAccess),
+        ),
+      )
+      .catch(() => setHasCustomerAccess(false));
+  }, []);
   const visibleLinks = links.filter(
     (link) =>
+      (link.href !== "/access" || hasCustomerAccess) &&
       (link.href !== "/truvern/ops" || isOperator) &&
       (link.href !== "/communications" ||
         currentPlan === "PRO" ||
@@ -177,6 +189,7 @@ export default function AppShellNav() {
     </header>
   );
 }
+
 
 
 

@@ -302,6 +302,7 @@ function AppNav({
 
   const [currentPlan, setCurrentPlan] = useState<"FREE" | "PRO" | "ENTERPRISE">("FREE");
   const [isOperator, setIsOperator] = useState(false);
+  const [hasCustomerAccess, setHasCustomerAccess] = useState(false);
 
   useEffect(() => {
     fetch("/api/billing/current-plan", { cache: "no-store" })
@@ -323,12 +324,23 @@ function AppNav({
       .catch(() => setIsOperator(false));
   }, []);
 
+  useEffect(() => {
+    fetch("/api/access/me", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) =>
+        setHasCustomerAccess(
+          Boolean(json?.hasCustomerAccess),
+        ),
+      )
+      .catch(() => setHasCustomerAccess(false));
+  }, []);
   const visibleAppLinks = appLinks.filter(
     (link) =>
-      link.href !== "/communications" ||
-      currentPlan === "PRO" ||
-      currentPlan === "ENTERPRISE" ||
-      isOperator,
+      (link.href !== "/access" || hasCustomerAccess) &&
+      (link.href !== "/communications" ||
+        currentPlan === "PRO" ||
+        currentPlan === "ENTERPRISE" ||
+        isOperator),
   );
 return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#020617]/95 backdrop-blur">
@@ -645,6 +657,7 @@ export default function RootChrome({
     </div>
   );
 }
+
 
 
 
