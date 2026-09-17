@@ -83,10 +83,11 @@ export default function AppShellNav() {
   const links = isWorkspace ? workspaceLinks : publicLinks;
   const visibleLinks = links.filter(
     (link) =>
-      link.href !== "/communications" ||
-      currentPlan === "PRO" ||
-      currentPlan === "ENTERPRISE" ||
-      isOperator,
+      (link.href !== "/truvern/ops" || isOperator) &&
+      (link.href !== "/communications" ||
+        currentPlan === "PRO" ||
+        currentPlan === "ENTERPRISE" ||
+        isOperator),
   );
 
   return (
