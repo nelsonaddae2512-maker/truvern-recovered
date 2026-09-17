@@ -86,24 +86,80 @@ export async function getCustomerOrganizationActor(): Promise<
     return null;
   }
 
-  const membership =
-    await prisma.orgMembership.findFirst({
-      where: {
-        userId: dbUserId,
-        role: {
-          in: [...CUSTOMER_ROLES],
+  const membershipSelect = {
+    organizationId: true,
+    role: true,
+  } as const;
+
+  const membershipWhere = {
+    userId: dbUserId,
+    role: {
+      in: [...CUSTOMER_ROLES],
+    },
+  };
+
+  let membership = null;
+
+  if (session.orgId) {
+    const selectedOrganization =
+      await prisma.organization.findFirst({
+        where: {
+          clerkOrgId: session.orgId,
         },
-      },
-      select: {
-        organizationId: true,
-        role: true,
-      },
-      orderBy: [
-        {
-          id: "asc",
+        select: {
+          id: true,
         },
-      ],
-    });
+      });
+
+    if (selectedOrganization) {
+      membership =
+        await prisma.orgMembership.findFirst({
+          where: {
+            ...membershipWhere,
+            organizationId:
+              selectedOrganization.id,
+          },
+          select: membershipSelect,
+        });
+    }
+  }
+
+  if (!membership) {
+    const dbUser =
+      await prisma.user.findUnique({
+        where: {
+          id: dbUserId,
+        },
+        select: {
+          organizationId: true,
+        },
+      });
+
+    if (dbUser?.organizationId) {
+      membership =
+        await prisma.orgMembership.findFirst({
+          where: {
+            ...membershipWhere,
+            organizationId:
+              dbUser.organizationId,
+          },
+          select: membershipSelect,
+        });
+    }
+  }
+
+  if (!membership) {
+    membership =
+      await prisma.orgMembership.findFirst({
+        where: membershipWhere,
+        select: membershipSelect,
+        orderBy: [
+          {
+            id: "asc",
+          },
+        ],
+      });
+  }
 
   if (!membership) {
     return null;
