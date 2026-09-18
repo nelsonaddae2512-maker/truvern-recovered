@@ -173,6 +173,18 @@ export async function persistInternalAssignmentReset(
     },
   });
 }
+export async function createReviewAssignment<
+  T extends Prisma.ReviewAssignmentCreateArgs,
+>(
+  args: Prisma.SelectSubset<
+    T,
+    Prisma.ReviewAssignmentCreateArgs
+  >,
+  client: ReviewAssignmentClient = prisma,
+): Promise<Prisma.ReviewAssignmentGetPayload<T>> {
+  return client.reviewAssignment.create(args);
+}
+
 export async function findReviewAssignment<
   T extends Prisma.ReviewAssignmentFindUniqueArgs,
 >(

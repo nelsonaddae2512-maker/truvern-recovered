@@ -6,6 +6,18 @@ type AssessmentClient = Pick<
   "assessment"
 >;
 
+export async function createAssessment<
+  T extends Prisma.AssessmentCreateArgs,
+>(
+  args: Prisma.SelectSubset<
+    T,
+    Prisma.AssessmentCreateArgs
+  >,
+  client: AssessmentClient = prisma,
+): Promise<Prisma.AssessmentGetPayload<T>> {
+  return client.assessment.create(args);
+}
+
 export async function findFirstAssessment<
   T extends Prisma.AssessmentFindFirstArgs,
 >(

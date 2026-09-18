@@ -6,6 +6,18 @@ type ReviewRequestClient = Pick<
   "reviewRequest"
 >;
 
+export async function createReviewRequest<
+  T extends Prisma.ReviewRequestCreateArgs,
+>(
+  args: Prisma.SelectSubset<
+    T,
+    Prisma.ReviewRequestCreateArgs
+  >,
+  client: ReviewRequestClient = prisma,
+): Promise<Prisma.ReviewRequestGetPayload<T>> {
+  return client.reviewRequest.create(args);
+}
+
 export async function findReviewRequest<
   T extends Prisma.ReviewRequestFindUniqueArgs,
 >(

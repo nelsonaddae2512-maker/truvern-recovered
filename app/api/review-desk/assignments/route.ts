@@ -8,14 +8,15 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { findOrganization } from "@/lib/repositories/organization-repository";
 import { findVendor } from "@/lib/repositories/vendor-repository";
-import { findFirstAssessment } from "@/lib/repositories/assessment-repository";
+import { createReviewRequest } from "@/lib/repositories/review-request-repository";
+import { createAssessment, findFirstAssessment } from "@/lib/repositories/assessment-repository";
 import {
   canLaunchGovernanceTemplate,
   governanceTemplateGateMessage,
 } from "@/lib/governance/template-access";
 import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
 import { createNotification } from "@/lib/notifications/create-notification";
-import { findFirstReviewAssignment } from "@/lib/repositories/review-assignment-repository";
+import { createReviewAssignment, findFirstReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 import { aggregateTruvernCreditLedger, createTruvernCreditLedgerEntry, findFirstTruvernCreditLedgerEntry } from "@/lib/repositories/review-credit-ledger-repository";
 import { acquireReviewAssignmentAdvisoryLock } from "@/lib/repositories/review-assignment-lock-repository";
 import { readTruvernReviewTemplateSelection } from "@/lib/repositories/truvern-review-template-repository";
@@ -708,13 +709,23 @@ export async function POST(req: Request) {
             }
           : null;
 
-      const requests = await tx.$queryRaw<Array<{ id: number }>>`
-        insert into "ReviewRequest" ("organizationId", "vendorId", "assessmentId", title, note, status, "updatedAt")
-        values (${vendor.organizationId}, ${vendor.id}, ${assessmentId}, ${title}, ${note}, 'REQUESTED'::text, now())
-        returning id
-      `;
-
-      const request = requests[0];
+      const request = await createReviewRequest(
+      {
+        data: {
+          organizationId: vendor.organizationId,
+          vendorId: vendor.id,
+          assessmentId,
+          title,
+          note,
+          status: "REQUESTED",
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+        },
+      },
+      tx,
+    );
 
       if (!request?.id) {
         return {
@@ -738,41 +749,35 @@ export async function POST(req: Request) {
           ? "Truvern expert review requested."
           : "Internal review started.";
 
-      const assignments = await tx.$queryRaw<Array<{ id: number }>>`
-        insert into "ReviewAssignment" (
-          "organizationId",
-          "vendorId",
-          "reviewRequestId",
-          "assignmentType",
-          "status",
-          "note",
-          "reviewerUserId",
-          "assignedReviewerName",
-          "reviewerName",
-          "assignedTo",
-          "startedAt",
-          "claimedAt",
-          "updatedAt"
-        )
-        values (
-          ${vendor.organizationId},
-          ${vendor.id},
-          ${request.id},
-          ${mode === "truvern" ? "TRUVERN" : "INTERNAL"},
-          ${assignmentStatus}::text,
-          ${assignmentNote},
-          ${reviewerUserId || null},
-          ${assignedReviewerName || null},
-          ${assignedReviewerName || null},
-          ${assignedReviewerName || null},
-          ${hasSelectedReviewer ? new Date() : null},
-          ${hasSelectedReviewer ? new Date() : null},
-          now()
-        )
-        returning id
-      `;
-
-      const assignment = assignments[0];
+      const assignment = await createReviewAssignment(
+      {
+        data: {
+          organizationId: vendor.organizationId,
+          vendorId: vendor.id,
+          reviewRequestId: request.id,
+          assignmentType:
+            mode === "truvern" ? "TRUVERN" : "INTERNAL",
+          status: assignmentStatus,
+          note: assignmentNote,
+          reviewerUserId: reviewerUserId || null,
+          assignedReviewerName:
+            assignedReviewerName || null,
+          reviewerName:
+            assignedReviewerName || null,
+          assignedTo:
+            assignedReviewerName || null,
+          startedAt:
+            hasSelectedReviewer ? new Date() : null,
+          claimedAt:
+            hasSelectedReviewer ? new Date() : null,
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+        },
+      },
+      tx,
+    );
 
       if (!assignment?.id) {
         return {
@@ -1040,45 +1045,31 @@ export async function POST(req: Request) {
             const token =
               randomBytes(24).toString("hex");
 
-            const createdAssessmentRows =
-              await tx.$queryRaw<Array<{ id: number }>>`
-                insert into "Assessment" (
-                  "organizationId",
-                  "vendorId",
-                  "templateId",
-                  "reviewAssignmentId",
-                  title,
-                  status,
-                  token,
-                  "vendorEmail",
-                  "vendorContactName",
-                  "launchedAt",
-                  "dueAt",
-                  "isVendorSubmitted",
-                  "createdAt",
-                  "updatedAt"
-                )
-                values (
-                  ${vendor.organizationId},
-                  ${vendor.id},
-                  ${template.id},
-                  ${assignment.id},
-                  ${`${template.name ?? "Truvern Review Questionnaire"} for ${vendor.name}`},
-                  'LAUNCHED'::"AssessmentStatus",
-                  ${token},
-                  ${null},
-                  ${null},
-                  now(),
-                  ${addDays(14)},
-                  false,
-                  now(),
-                  now()
-                )
-                returning id
-              `;
-
-            const createdAssessment =
-              createdAssessmentRows[0];
+            const createdAssessment = await createAssessment(
+          {
+            data: {
+              organizationId: vendor.organizationId,
+              vendorId: vendor.id,
+              templateId: template.id,
+              reviewAssignmentId: assignment.id,
+              title:
+                `${template.name ?? "Truvern Review Questionnaire"} for ${vendor.name}`,
+              status: "LAUNCHED",
+              token,
+              vendorEmail: null,
+              vendorContactName: null,
+              launchedAt: new Date(),
+              dueAt: addDays(14),
+              isVendorSubmitted: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            select: {
+              id: true,
+            },
+          },
+          tx,
+        );
 
             if (!createdAssessment?.id) {
               throw new Error(
