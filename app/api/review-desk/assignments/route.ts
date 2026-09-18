@@ -16,7 +16,7 @@ import {
 } from "@/lib/governance/template-access";
 import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
 import { createNotification } from "@/lib/notifications/create-notification";
-import { createReviewAssignment, findFirstReviewAssignment } from "@/lib/repositories/review-assignment-repository";
+import { createReviewAssignment, findFirstReviewAssignment, updateReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 import { aggregateTruvernCreditLedger, createTruvernCreditLedgerEntry, findFirstTruvernCreditLedgerEntry } from "@/lib/repositories/review-credit-ledger-repository";
 import { acquireReviewAssignmentAdvisoryLock } from "@/lib/repositories/review-assignment-lock-repository";
 import { readTruvernReviewTemplateSelection } from "@/lib/repositories/truvern-review-template-repository";
@@ -1100,13 +1100,19 @@ export async function POST(req: Request) {
           }
         }
 
-          await tx.$executeRaw`
-            update "ReviewAssignment"
-            set "reviewerName" = 'Truvern Review Team',
-                "assignedReviewerName" = 'Truvern Review Team',
-                "assignedTo" = 'Truvern Review Team'
-            where id = ${assignment.id}
-          `;
+          await updateReviewAssignment(
+            {
+              where: {
+                id: assignment.id,
+              },
+              data: {
+                reviewerName: "Truvern Review Team",
+                assignedReviewerName: "Truvern Review Team",
+                assignedTo: "Truvern Review Team",
+              },
+            },
+            tx,
+          );
         }
 
       if (
@@ -1221,13 +1227,19 @@ export async function POST(req: Request) {
           });
         }
 
-        await tx.$executeRaw`
-          update "ReviewAssignment"
-          set "reviewerName" = 'Truvern Review Team',
-              "assignedReviewerName" = 'Truvern Review Team',
-              "assignedTo" = 'Truvern Review Team'
-          where id = ${assignment.id}
-        `;
+        await updateReviewAssignment(
+          {
+            where: {
+              id: assignment.id,
+            },
+            data: {
+              reviewerName: "Truvern Review Team",
+              assignedReviewerName: "Truvern Review Team",
+              assignedTo: "Truvern Review Team",
+            },
+          },
+          tx,
+        );
       }
 
       return {
