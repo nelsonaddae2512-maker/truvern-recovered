@@ -6,6 +6,9 @@ import { createTruvernFrameworkAssessment } from "@/lib/repositories/truvern-fra
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { findOrganization } from "@/lib/repositories/organization-repository";
+import { findVendor } from "@/lib/repositories/vendor-repository";
+import { findFirstAssessment } from "@/lib/repositories/assessment-repository";
 import {
   canLaunchGovernanceTemplate,
   governanceTemplateGateMessage,
@@ -34,9 +37,6 @@ const CANONICAL_TRUVERN_FRAMEWORK_VERSION =
 const CANONICAL_TRUVERN_FRAMEWORK_QUESTION_COUNT =
   301;
 
-type OrgJsonRow = {
-  orgJson: Record<string, unknown> | null;
-};
 
 type TruvernEntitlement = {
   allowed: boolean;
@@ -174,14 +174,13 @@ async function getTruvernEntitlement(
   const consumedCredits =
     balanceAggregate._sum.consumedDelta ?? 0;
 
-  const orgRows = await tx.$queryRaw<OrgJsonRow[]>`
-    select to_jsonb(o) as "orgJson"
-    from "Organization" o
-    where o.id = ${organizationId}
-    limit 1
-  `;
-
-  const org = orgRows[0]?.orgJson ?? {};
+  const org =
+    (await findOrganization(
+      {
+        where: { id: organizationId },
+      },
+      tx,
+    )) ?? {};
   const eligiblePlan = resolveEligiblePlan(org);
   const override = hasActiveOverride(org);
 
@@ -300,16 +299,17 @@ export async function POST(req: Request) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const vendors = await tx.$queryRaw<
-        Array<{ id: number; name: string; organizationId: number }>
-      >`
-        select id, name, "organizationId"
-        from "Vendor"
-        where id = ${vendorId}
-        limit 1
-      `;
-
-      const vendor = vendors[0];
+      const vendor = await findVendor(
+        {
+          where: { id: vendorId },
+          select: {
+            id: true,
+            name: true,
+            organizationId: true,
+          },
+        },
+        tx,
+      );
 
       if (!vendor) {
         return { status: 404, body: { ok: false, error: "Vendor not found" } };
@@ -514,25 +514,23 @@ export async function POST(req: Request) {
           activeInternalAssignment?.id &&
           activeInternalAssignment.reviewRequestId
         ) {
-          const internalAssessmentRows =
-            await tx.$queryRaw<
-              Array<{
-                id: number;
-                reviewAssignmentId: number | null;
-              }>
-            >`
-              select
-                id,
-                "reviewAssignmentId"
-              from "Assessment"
-              where id = ${assessmentId}
-                and "organizationId" = ${vendor.organizationId}
-                and "vendorId" = ${vendor.id}
-              limit 1
-            `;
-
           const internalExistingAssessment =
-            internalAssessmentRows[0] ?? null;
+            assessmentId
+              ? await findFirstAssessment(
+                  {
+                    where: {
+                      id: assessmentId,
+                      organizationId: vendor.organizationId,
+                      vendorId: vendor.id,
+                    },
+                    select: {
+                      id: true,
+                      reviewAssignmentId: true,
+                    },
+                  },
+                  tx,
+                )
+              : null;
 
           if (!internalExistingAssessment) {
             throw new Error(
@@ -787,25 +785,23 @@ export async function POST(req: Request) {
       // assessment immediately. Truvern Review retains its
       // questionnaire-specific linkage path below.
       if (mode === "internal") {
-        const internalAssessmentRows =
-          await tx.$queryRaw<
-            Array<{
-              id: number;
-              reviewAssignmentId: number | null;
-            }>
-          >`
-            select
-              id,
-              "reviewAssignmentId"
-            from "Assessment"
-            where id = ${assessmentId}
-              and "organizationId" = ${vendor.organizationId}
-              and "vendorId" = ${vendor.id}
-            limit 1
-          `;
-
         const internalAssessment =
-          internalAssessmentRows[0] ?? null;
+          assessmentId
+            ? await findFirstAssessment(
+                {
+                  where: {
+                    id: assessmentId,
+                    organizationId: vendor.organizationId,
+                    vendorId: vendor.id,
+                  },
+                  select: {
+                    id: true,
+                    reviewAssignmentId: true,
+                  },
+                },
+                tx,
+              )
+            : null;
 
         if (!internalAssessment) {
           throw new Error(
@@ -974,26 +970,22 @@ export async function POST(req: Request) {
         }
 
         if (assessmentId) {
-          const assessmentRows = await tx.$queryRaw<
-            Array<{
-              id: number;
-              templateId: number | null;
-              reviewAssignmentId: number | null;
-            }>
-          >`
-            select
-              id,
-              "templateId",
-              "reviewAssignmentId"
-            from "Assessment"
-            where id = ${assessmentId}
-              and "organizationId" = ${vendor.organizationId}
-              and "vendorId" = ${vendor.id}
-            limit 1
-          `;
-
           const existingAssessment =
-            assessmentRows[0] ?? null;
+            await findFirstAssessment(
+              {
+                where: {
+                  id: assessmentId,
+                  organizationId: vendor.organizationId,
+                  vendorId: vendor.id,
+                },
+                select: {
+                  id: true,
+                  templateId: true,
+                  reviewAssignmentId: true,
+                },
+              },
+              tx,
+            );
 
           if (!existingAssessment) {
             throw new Error(
@@ -1030,18 +1022,20 @@ export async function POST(req: Request) {
             `;
           }
         } else {
-          const existingAssessmentRows = await tx.$queryRaw<
-            Array<{ id: number }>
-          >`
-            select id
-            from "Assessment"
-            where "reviewAssignmentId" = ${assignment.id}
-            limit 1
-          `;
+          const existingAssessment =
+            await findFirstAssessment(
+              {
+                where: {
+                  reviewAssignmentId: assignment.id,
+                },
+                select: { id: true },
+              },
+              tx,
+            );
 
-          if (existingAssessmentRows[0]?.id) {
+          if (existingAssessment?.id) {
             resolvedAssessmentId =
-              existingAssessmentRows[0].id;
+              existingAssessment.id;
           } else {
             const token =
               randomBytes(24).toString("hex");
