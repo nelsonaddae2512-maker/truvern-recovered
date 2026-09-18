@@ -45,6 +45,9 @@ export async function GET() {
         currentClerkIdFingerprint: null,
         matchingDbUserCount: null,
         matchingDbUserIds: [],
+        repairGuardConfigured: null,
+        repairGuardFormatValid: null,
+        repairGuardMatchesTarget: null,
       },
       401,
     );
@@ -62,11 +65,59 @@ export async function GET() {
     },
   });
 
+  const repairGuardRaw =
+    process.env.TRUVERN_IDENTITY_REPAIR_OLD_CLERK_SHA256?.
+      trim().
+      toLowerCase() ?? "";
+
+  const repairGuardConfigured =
+    repairGuardRaw.length > 0;
+
+  const repairGuardFormatValid =
+    /^[0-9a-f]{64}$/.test(repairGuardRaw);
+
+  const targetUser = await prisma.user.findUnique({
+    where: {
+      id: 1,
+    },
+    select: {
+      clerkId: true,
+      organizationId: true,
+      memberships: {
+        where: {
+          organizationId: 7,
+        },
+        select: {
+          organizationId: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  const targetShapeValid =
+    targetUser !== null &&
+    targetUser.organizationId === 7 &&
+    targetUser.clerkId !== null &&
+    targetUser.memberships.length === 1 &&
+    targetUser.memberships[0]?.organizationId === 7 &&
+    targetUser.memberships[0]?.role === "OWNER";
+
+  const repairGuardMatchesTarget =
+    repairGuardFormatValid &&
+    targetShapeValid &&
+    targetUser?.clerkId
+      ? sha256(targetUser.clerkId) === repairGuardRaw
+      : false;
+
   return noStoreJson({
     authenticated: true,
     currentClerkIdFingerprint: sha256(clerkUserId),
     matchingDbUserCount: matchingUsers.length,
     matchingDbUserIds: matchingUsers.map((user) => user.id),
+    repairGuardConfigured,
+    repairGuardFormatValid,
+    repairGuardMatchesTarget,
   });
 }
 
