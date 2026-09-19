@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   }
 
   const existing =
-    await prisma.$queryRawUnsafe<MigrationRow[]>(`
+    await prisma.$queryRaw<MigrationRow[]>`
       select
         id,
         migration_name,
@@ -62,9 +62,9 @@ export async function POST(request: Request) {
         rolled_back_at,
         applied_steps_count
       from "_prisma_migrations"
-      where migration_name = '${MIGRATION_NAME}'
+      where migration_name = ${MIGRATION_NAME}
       limit 1
-    `);
+    `;
 
   if (existing.length > 0) {
     return NextResponse.json(
@@ -84,14 +84,14 @@ export async function POST(request: Request) {
   }
 
   const tableRows =
-    await prisma.$queryRawUnsafe<TableRow[]>(`
+    await prisma.$queryRaw<TableRow[]>`
       select exists (
         select 1
         from information_schema.tables
         where table_schema = 'public'
           and table_name = 'AuditLog'
       ) as "exists"
-    `);
+    `;
 
   if (tableRows[0]?.exists !== true) {
     return NextResponse.json(
@@ -120,12 +120,12 @@ export async function POST(request: Request) {
   ];
 
   const columnRows =
-    await prisma.$queryRawUnsafe<ColumnRow[]>(`
+    await prisma.$queryRaw<ColumnRow[]>`
       select column_name
       from information_schema.columns
       where table_schema = 'public'
         and table_name = 'AuditLog'
-    `);
+    `;
 
   const actualColumns =
     new Set(
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
   `;
 
   const recorded =
-    await prisma.$queryRawUnsafe<MigrationRow[]>(`
+    await prisma.$queryRaw<MigrationRow[]>`
       select
         id,
         migration_name,
@@ -194,9 +194,9 @@ export async function POST(request: Request) {
         rolled_back_at,
         applied_steps_count
       from "_prisma_migrations"
-      where migration_name = '${MIGRATION_NAME}'
+      where migration_name = ${MIGRATION_NAME}
       limit 1
-    `);
+    `;
 
   return NextResponse.json(
     {

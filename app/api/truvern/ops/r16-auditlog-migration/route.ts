@@ -94,22 +94,19 @@ export async function POST(
   }
 
   const existingMigration =
-    await prisma.$queryRawUnsafe<
+    await prisma.$queryRaw<
       MigrationRow[]
-    >(
-      `
-        select
-          migration_name,
-          checksum,
-          finished_at,
-          rolled_back_at,
-          applied_steps_count
-        from "_prisma_migrations"
-        where migration_name = $1
-        limit 1
-      `,
-      MIGRATION_NAME,
-    );
+    >`
+      select
+        migration_name,
+        checksum,
+        finished_at,
+        rolled_back_at,
+        applied_steps_count
+      from "_prisma_migrations"
+      where migration_name = ${MIGRATION_NAME}
+      limit 1
+    `;
 
   if (
     existingMigration.length !== 0
@@ -133,16 +130,16 @@ export async function POST(
   }
 
   const auditTable =
-    await prisma.$queryRawUnsafe<
+    await prisma.$queryRaw<
       ExistsRow[]
-    >(`
+    >`
       select exists (
         select 1
         from information_schema.tables
         where table_schema = 'public'
           and table_name = 'AuditLog'
       ) as "exists"
-    `);
+    `;
 
   if (
     auditTable[0]?.exists === true
