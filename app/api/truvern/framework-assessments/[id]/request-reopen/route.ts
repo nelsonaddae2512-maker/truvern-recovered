@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
+import { requireVendorAssessmentAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications/create-notification";
 import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
@@ -29,74 +31,80 @@ function isLikelyClerkUserId(value: string) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const { id: rawId } = await context.params;
-  const id = parseId(rawId);
+  try {
+    const { id: rawId } = await context.params;
+    const id = parseId(rawId);
 
-  if (!id) {
-    return NextResponse.json(
-      { ok: false, error: "Invalid assessment id." },
-      { status: 400 },
-    );
-  }
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid assessment id." },
+        { status: 400 },
+      );
+    }
 
-  const assessment = await findTruvernFrameworkAssessment({
-    where: { id },
-    select: {
-      id: true,
-      title: true,
-      organizationId: true,
-      vendorId: true,
-      reviewAssignmentId: true,
-      metadata: true,
-    },
-  });
+    await requireVendorAssessmentAccess(id);
 
-  if (!assessment) {
-    return NextResponse.json(
-      { ok: false, error: "Assessment not found." },
-      { status: 404 },
-    );
-  }
-
-  const now = new Date().toISOString();
-
-  await updateTruvernFrameworkAssessment({
-    where: { id },
-    data: {
-      metadata: {
-        ...((assessment.metadata || {}) as Record<string, unknown>),
-        reopenRequested: true,
-        reopenRequestedAt: now,
-        reopenRequestSource: "vendor_portal",
-      },
-    },
-  });
-
-  const opsUsers = parseOpsUsers();
-
-  for (const opsUser of opsUsers) {
-    await createNotification({
-      userId: isLikelyClerkUserId(opsUser) ? opsUser : null,
-      organizationId: assessment.organizationId,
-      type: "REVIEW_ASSIGNED",
-      severity: "WARNING",
-      title: `Vendor requested assessment reopen`,
-      message: `${assessment.title} needs Truvern Ops review for reopening.`,
-      href: assessment.reviewAssignmentId
-        ? `/review-desk/${assessment.reviewAssignmentId}`
-        : `/vendor-assessments/${assessment.id}`,
-      metadataJson: {
-        assessmentId: assessment.id,
-        vendorId: assessment.vendorId,
-        reviewAssignmentId: assessment.reviewAssignmentId,
-        reopenRequested: true,
-        opsRecipient: opsUser,
+    const assessment = await findTruvernFrameworkAssessment({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        organizationId: true,
+        vendorId: true,
+        reviewAssignmentId: true,
+        metadata: true,
       },
     });
-  }
 
-  return NextResponse.redirect(
-    new URL(`/vendor-assessments/${assessment.id}?reopenRequested=1`, request.url),
-    { status: 303 },
-  );
+    if (!assessment) {
+      return NextResponse.json(
+        { ok: false, error: "Assessment not found." },
+        { status: 404 },
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    await updateTruvernFrameworkAssessment({
+      where: { id },
+      data: {
+        metadata: {
+          ...((assessment.metadata || {}) as Record<string, unknown>),
+          reopenRequested: true,
+          reopenRequestedAt: now,
+          reopenRequestSource: "vendor_portal",
+        },
+      },
+    });
+
+    const opsUsers = parseOpsUsers();
+
+    for (const opsUser of opsUsers) {
+      await createNotification({
+        userId: isLikelyClerkUserId(opsUser) ? opsUser : null,
+        organizationId: assessment.organizationId,
+        type: "REVIEW_ASSIGNED",
+        severity: "WARNING",
+        title: `Vendor requested assessment reopen`,
+        message: `${assessment.title} needs Truvern Ops review for reopening.`,
+        href: assessment.reviewAssignmentId
+          ? `/review-desk/${assessment.reviewAssignmentId}`
+          : `/vendor-assessments/${assessment.id}`,
+        metadataJson: {
+          assessmentId: assessment.id,
+          vendorId: assessment.vendorId,
+          reviewAssignmentId: assessment.reviewAssignmentId,
+          reopenRequested: true,
+          opsRecipient: opsUser,
+        },
+      });
+    }
+
+    return NextResponse.redirect(
+      new URL(`/vendor-assessments/${assessment.id}?reopenRequested=1`, request.url),
+      { status: 303 },
+    );
+  } catch (error) {
+    return governanceAuthErrorResponse(error);
+  }
 }
