@@ -50,21 +50,21 @@ export async function GET() {
     await requireOpsAccess();
 
     const databaseRows =
-      await prisma.$queryRawUnsafe<DatabaseIdentityRow[]>(`
+      await prisma.$queryRaw<DatabaseIdentityRow[]>`
         select
           current_database() as "databaseName",
           current_schema() as "schemaName",
           version() as "serverVersion"
-      `);
+      `;
 
     const usageEventTableRows =
-      await prisma.$queryRawUnsafe<UsageEventTableRow[]>(`
+      await prisma.$queryRaw<UsageEventTableRow[]>`
         select
           to_regclass('"UsageEvent"')::text as "tableName"
-      `);
+      `;
 
     const usageEventColumnRows =
-      await prisma.$queryRawUnsafe<UsageEventColumnRow[]>(`
+      await prisma.$queryRaw<UsageEventColumnRow[]>`
         select
           column_name as "columnName",
           data_type as "dataType",
@@ -74,18 +74,18 @@ export async function GET() {
         where table_schema = 'public'
           and table_name = 'UsageEvent'
         order by ordinal_position asc
-      `);
+      `;
 
     const providerBudgetRows =
-      await prisma.$queryRawUnsafe<CountRow[]>(`
+      await prisma.$queryRaw<CountRow[]>`
         select count(*)::bigint as count
         from "UsageEvent"
-        where kind = '${PROVIDER_BUDGET_EVENT_KIND}'
+        where kind = ${PROVIDER_BUDGET_EVENT_KIND}
           and "createdAt" >= now() - interval '24 hours'
-      `);
+      `;
 
     const queueRows =
-      await prisma.$queryRawUnsafe<QueueRow[]>(`
+      await prisma.$queryRaw<QueueRow[]>`
         select
           status::text as status,
           "assignedTo"::text as "assignedTo",
@@ -94,10 +94,10 @@ export async function GET() {
         where type::text = 'AI_PRE_REVIEW'
         group by status, "assignedTo"
         order by status, "assignedTo" nulls first
-      `);
+      `;
 
     const blockerRows =
-      await prisma.$queryRawUnsafe<CountRow[]>(`
+      await prisma.$queryRaw<CountRow[]>`
         select count(*)::bigint as count
         from "WorkflowTask"
         where type::text = 'AI_PRE_REVIEW'
@@ -106,10 +106,10 @@ export async function GET() {
             'AI_WORKER',
             'TRUVERN_AI_RECOVERY'
           )
-      `);
+      `;
 
     const lockedCanaryRows =
-      await prisma.$queryRawUnsafe<TaskStateRow[]>(`
+      await prisma.$queryRaw<TaskStateRow[]>`
         select
           id,
           "packageId",
@@ -119,7 +119,7 @@ export async function GET() {
         where id = 18
           and "packageId" = 31
         limit 1
-      `);
+      `;
 
     const providerReservationCount =
       Number(providerBudgetRows[0]?.count ?? 0n);

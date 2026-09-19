@@ -62,24 +62,24 @@ export async function GET() {
      */
 
     const auditTableRows =
-      await prisma.$queryRawUnsafe<TableRow[]>(`
+      await prisma.$queryRaw<TableRow[]>`
         select exists (
           select 1
           from information_schema.tables
           where table_schema = 'public'
             and table_name = 'AuditLog'
         ) as "exists"
-      `);
+      `;
 
     const governanceAuditTableExists =
       auditTableRows[0]?.exists === true;
 
     const auditColumnRows =
-      await prisma.$queryRawUnsafe<
+      await prisma.$queryRaw<
         Array<{
           column_name: string;
         }>
-      >(`
+      >`
         select column_name
         from information_schema.columns
         where table_schema = 'public'
@@ -94,7 +94,7 @@ export async function GET() {
             'metadata',
             'createdAt'
           )
-      `);
+      `;
 
     const requiredAuditColumns = [
       "organizationId",
@@ -129,7 +129,7 @@ export async function GET() {
       "5f031d334b625819bf84f65b9cd22e15bf4e24376d76c552a710fce14fc59ec8";
 
     const auditMigrationRows =
-      await prisma.$queryRawUnsafe<
+      await prisma.$queryRaw<
         Array<{
           migration_name: string;
           checksum: string;
@@ -137,20 +137,17 @@ export async function GET() {
           rolled_back_at: Date | null;
           applied_steps_count: number;
         }>
-      >(
-        `
-          select
-            migration_name,
-            checksum,
-            finished_at,
-            rolled_back_at,
-            applied_steps_count
-          from "_prisma_migrations"
-          where migration_name = $1
-          limit 1
-        `,
-        AUDIT_MIGRATION_NAME,
-      );
+      >`
+        select
+          migration_name,
+          checksum,
+          finished_at,
+          rolled_back_at,
+          applied_steps_count
+        from "_prisma_migrations"
+        where migration_name = ${AUDIT_MIGRATION_NAME}
+        limit 1
+      `;
 
     const auditMigration =
       auditMigrationRows[0] ?? null;
@@ -174,7 +171,7 @@ export async function GET() {
      */
 
     const frameworks =
-      await prisma.$queryRawUnsafe<FrameworkRow[]>(`
+      await prisma.$queryRaw<FrameworkRow[]>`
         select
           id,
           slug,
@@ -183,7 +180,7 @@ export async function GET() {
         from "TruvernFramework"
         where slug = 'nist-800-53-rev5'
         limit 2
-      `);
+      `;
 
     const framework =
       frameworks[0] ?? null;

@@ -17,11 +17,11 @@ export async function GET() {
   try {
     await requireOpsAccess();
     const databaseRows =
-      await prisma.$queryRawUnsafe<DatabaseRow[]>(`
+      await prisma.$queryRaw<DatabaseRow[]>`
         select
           current_database() as "databaseName",
           current_schema() as "schemaName"
-      `);
+      `;
 
     const assessments =
       await prisma.truvernFrameworkAssessment.findMany({
