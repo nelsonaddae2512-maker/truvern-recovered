@@ -18,7 +18,7 @@ function claimFunctionSource(): string {
     "export async function claimAiReviewWorkerTaskLease(";
 
   const endMarker =
-    "export async function aiReviewWorkerLeaseIsOwned(";
+    "export async function finalizeOwnedAiReviewWorkerTask(";
 
   const start = source.indexOf(startMarker);
   const end = source.indexOf(endMarker, start);

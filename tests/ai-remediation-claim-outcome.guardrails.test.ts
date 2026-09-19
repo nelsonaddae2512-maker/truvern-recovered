@@ -33,7 +33,7 @@ describe("AI remediation claim outcome guardrails", () => {
   const claimSource = extract(
     repositorySource,
     "export async function claimAiReviewWorkerTaskLease(",
-    "export async function aiReviewWorkerLeaseIsOwned(",
+    "export async function finalizeOwnedAiReviewWorkerTask(",
   );
 
   const workerExecution = extract(

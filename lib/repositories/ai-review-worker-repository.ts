@@ -377,43 +377,6 @@ export async function claimAiReviewWorkerTaskLease(
     };
   });
 }
-export async function aiReviewWorkerLeaseIsOwned(
-  taskId: number,
-  token: string,
-): Promise<boolean> {
-  const rows = await prisma.$queryRaw<
-    Array<{ owned: boolean }>
-  >`
-    select exists (
-      select 1
-      from "WorkflowTask"
-      where id = ${taskId}
-        and type = 'AI_PRE_REVIEW'
-        and status = 'IN_PROGRESS'
-        and "assignedTo" = 'AI_WORKER'
-        and payload #>> '{aiReviewLease,token}' = ${token}
-    ) as owned
-  `;
-
-  return rows[0]?.owned === true;
-}
-export async function updateAiReviewWorkerTask(
-  payloadJson: string,
-  taskId: number,
-): Promise<void> {
-  await prisma.$executeRaw`
-    update "WorkflowTask"
-    set
-      "assignedTo" = 'AI_WORKER',
-      "assignedReviewerName" = 'Truvern AI Review Worker',
-      status = 'IN_PROGRESS',
-      "startedAt" = coalesce("startedAt", now()),
-      payload = coalesce(payload, '{}'::jsonb) || ${payloadJson}::jsonb,
-      "updatedAt" = now()
-    where id = ${taskId}
-  `;
-}
-
 export async function finalizeOwnedAiReviewWorkerTask(
   taskId: number,
   token: string,
@@ -525,38 +488,6 @@ export async function finalizeOwnedAiReviewWorkerTask(
 
     return true;
   });
-}
-export async function insertAiReviewWorkerCompletionEvent(
-  workflowId: number | null,
-  organizationId: number,
-  vendorId: number | null,
-  reviewAssignmentId: number | null,
-  payloadJson: string,
-): Promise<void> {
-  await prisma.$executeRaw`
-    insert into "WorkflowEvent" (
-      "workflowId",
-      "organizationId",
-      "vendorId",
-      "reviewAssignmentId",
-      type,
-      actor,
-      summary,
-      payload,
-      "createdAt"
-    )
-    values (
-      ${workflowId},
-      ${organizationId},
-      ${vendorId},
-      ${reviewAssignmentId},
-      'AI_PRE_REVIEW_COMPLETED',
-      'AI_WORKER',
-      'AI pre-review task completed.',
-      ${payloadJson}::jsonb,
-      now()
-    )
-  `;
 }
 export type AiReviewRecoveryQuarantineResult = {
   taskId: number;

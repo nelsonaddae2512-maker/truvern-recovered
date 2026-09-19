@@ -14,7 +14,7 @@ const claimStart =
 
 const claimEnd =
   source.indexOf(
-    "export async function aiReviewWorkerLeaseIsOwned(",
+    "export async function finalizeOwnedAiReviewWorkerTask(",
     claimStart,
   );
 
