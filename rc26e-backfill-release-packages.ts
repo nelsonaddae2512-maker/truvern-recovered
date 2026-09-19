@@ -180,7 +180,7 @@ function submittedAnswerCount(payload: JsonObject): number | null {
 }
 
 async function main() {
-  const rows = await prisma.$queryRawUnsafe<Row[]>(`
+  const rows = await prisma.$queryRaw<Row[]>`
     select
       rr.id as "responseId",
       rr."reviewAssignmentId",
@@ -223,7 +223,7 @@ async function main() {
           )
 
     order by rr.id asc
-  `);
+  `;
 
   const backupPath = resolve(
     process.env.RC26E_BACKUP_PATH ||
@@ -607,29 +607,22 @@ async function main() {
     };
 
     if (APPLY) {
-      await prisma.$executeRawUnsafe(
-        `
+      await prisma.$executeRaw`
         update "ReviewResponse"
         set
-          responses = $1::jsonb,
+          responses = ${JSON.stringify(nextResponses)}::jsonb,
           "updatedAt" = now()
-        where id = $2
-        `,
-        JSON.stringify(nextResponses),
-        row.responseId,
-      );
+        where id = ${row.responseId}
+      `;
 
-      const verificationRows = await prisma.$queryRawUnsafe<
+      const verificationRows = await prisma.$queryRaw<
         Array<{ responses: JsonObject }>
-      >(
-        `
+      >`
         select responses
         from "ReviewResponse"
-        where id = $1
+        where id = ${row.responseId}
         limit 1
-        `,
-        row.responseId,
-      );
+      `;
 
       const persisted = objectValue(
         verificationRows[0]?.responses,
