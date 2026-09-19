@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 
 import {
   createDebtReport,
@@ -9,6 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  await requireOpsAccess();
   try {
     const body = (await request.json()) as {
       mode?: "PLAN" | "REGRESSION" | "DEBT";

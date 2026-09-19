@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { answerAtlasQuestion } from "@/lib/atlas/architecture-assistant";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  await requireOpsAccess();
   try {
     const body = (await request.json()) as { question?: unknown };
     const question =

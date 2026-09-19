@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import {
   getExecutionState,
   rollbackExecution,
@@ -10,6 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  await requireOpsAccess();
   try {
     return NextResponse.json(getExecutionState(), {
       headers: { "Cache-Control": "no-store" },
@@ -23,6 +25,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  await requireOpsAccess();
   try {
     const body = (await request.json()) as {
       action?: string;

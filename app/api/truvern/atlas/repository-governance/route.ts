@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { getRepositoryGovernance } from "@/lib/atlas/repository-governance";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  await requireOpsAccess();
   try {
     return NextResponse.json(getRepositoryGovernance());
   } catch (error) {

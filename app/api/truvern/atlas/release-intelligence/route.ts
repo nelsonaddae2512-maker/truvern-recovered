@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 
 import {
   getAtlasReleaseDiff,
@@ -9,6 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  await requireOpsAccess();
   try {
     const baseline =
       request.nextUrl.searchParams.get("baseline")?.trim() || undefined;

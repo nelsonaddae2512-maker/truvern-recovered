@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 
 import {
   filterAtlasGraph,
@@ -13,6 +14,7 @@ function readBoolean(value: string | null, fallback: boolean): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  await requireOpsAccess();
   try {
     const graph = await loadAtlasExplorerGraph();
     const search = request.nextUrl.searchParams;

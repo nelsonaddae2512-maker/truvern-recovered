@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import {
   getSemanticRepositoryIntelligence,
   refreshSemanticRepositoryIntelligence,
@@ -7,6 +8,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  await requireOpsAccess();
   try {
     return NextResponse.json(getSemanticRepositoryIntelligence(), {
       headers: { "Cache-Control": "no-store" },
@@ -20,6 +22,7 @@ export async function GET() {
 }
 
 export async function POST() {
+  await requireOpsAccess();
   try {
     return NextResponse.json(refreshSemanticRepositoryIntelligence());
   } catch (error) {
