@@ -18,6 +18,12 @@ export async function createReviewRequest<
   return client.reviewRequest.create(args);
 }
 
+export async function updateManyReviewRequest(
+  args: Prisma.ReviewRequestUpdateManyArgs,
+  client: ReviewRequestClient = prisma,
+): Promise<Prisma.BatchPayload> {
+  return client.reviewRequest.updateMany(args);
+}
 export async function findReviewRequest<
   T extends Prisma.ReviewRequestFindUniqueArgs,
 >(

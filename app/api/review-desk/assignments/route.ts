@@ -8,8 +8,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { findOrganization } from "@/lib/repositories/organization-repository";
 import { findVendor } from "@/lib/repositories/vendor-repository";
-import { createReviewRequest } from "@/lib/repositories/review-request-repository";
-import { createAssessment, findFirstAssessment } from "@/lib/repositories/assessment-repository";
+import { createReviewRequest, updateManyReviewRequest,
+} from "@/lib/repositories/review-request-repository";
+import { createAssessment, findFirstAssessment, updateManyAssessment,
+} from "@/lib/repositories/assessment-repository";
 import {
   canLaunchGovernanceTemplate,
   governanceTemplateGateMessage,
@@ -550,15 +552,19 @@ export async function POST(req: Request) {
           }
 
           if (!internalExistingAssessment.reviewAssignmentId) {
-            await tx.$executeRaw`
-              update "Assessment"
-              set
-                "reviewAssignmentId" = ${activeInternalAssignment.id},
-                "updatedAt" = now()
-              where id = ${assessmentId}
-                and "organizationId" = ${vendor.organizationId}
-                and "vendorId" = ${vendor.id}
-            `;
+            await updateManyAssessment(
+          {
+            where: {
+              id: internalExistingAssessment.id,
+              organizationId: vendor.organizationId,
+              vendorId: vendor.id,
+            },
+            data: {
+              reviewAssignmentId: activeInternalAssignment.id,
+            },
+          },
+          tx,
+        );
           }
 
           return {
@@ -824,15 +830,19 @@ export async function POST(req: Request) {
         }
 
         if (!internalAssessment.reviewAssignmentId) {
-          await tx.$executeRaw`
-            update "Assessment"
-            set
-              "reviewAssignmentId" = ${assignment.id},
-              "updatedAt" = now()
-            where id = ${assessmentId}
-              and "organizationId" = ${vendor.organizationId}
-              and "vendorId" = ${vendor.id}
-          `;
+          await updateManyAssessment(
+          {
+            where: {
+              id: internalAssessment.id,
+              organizationId: vendor.organizationId,
+              vendorId: vendor.id,
+            },
+            data: {
+              reviewAssignmentId: assignment.id,
+            },
+          },
+          tx,
+        );
         }
       }
 
@@ -1016,15 +1026,19 @@ export async function POST(req: Request) {
           }
 
           if (!existingAssessment.reviewAssignmentId) {
-            await tx.$executeRaw`
-              update "Assessment"
-              set
-                "reviewAssignmentId" = ${assignment.id},
-                "updatedAt" = now()
-              where id = ${assessmentId}
-                and "organizationId" = ${vendor.organizationId}
-                and "vendorId" = ${vendor.id}
-            `;
+            await updateManyAssessment(
+          {
+            where: {
+              id: assessmentId,
+              organizationId: vendor.organizationId,
+              vendorId: vendor.id,
+            },
+            data: {
+              reviewAssignmentId: assignment.id,
+            },
+          },
+          tx,
+        );
           }
         } else {
           const existingAssessment =
@@ -1080,17 +1094,25 @@ export async function POST(req: Request) {
             resolvedAssessmentId =
               createdAssessment.id;
 
-            const linkedRequestCount =
-              await tx.$executeRaw`
-                update "ReviewRequest"
-                set
-                  "assessmentId" = ${createdAssessment.id},
-                  "updatedAt" = now()
-                where id = ${request.id}
-                  and "organizationId" = ${vendor.organizationId}
-                  and "vendorId" = ${vendor.id}
-                  and "assessmentId" is null
-              `;
+            const linkedRequestResult =
+        await updateManyReviewRequest(
+          {
+            where: {
+              id: request.id,
+              organizationId: vendor.organizationId,
+              vendorId: vendor.id,
+              assessmentId: null,
+            },
+            data: {
+              assessmentId: createdAssessment.id,
+              updatedAt: new Date(),
+            },
+          },
+          tx,
+        );
+
+      const linkedRequestCount =
+        linkedRequestResult.count;
 
             if (linkedRequestCount !== 1) {
               throw new Error(

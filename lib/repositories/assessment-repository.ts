@@ -46,6 +46,12 @@ export async function updateAssessment<
   return client.assessment.update(args);
 }
 
+export async function updateManyAssessment(
+  args: Prisma.AssessmentUpdateManyArgs,
+  client: AssessmentClient = prisma,
+): Promise<Prisma.BatchPayload> {
+  return client.assessment.updateMany(args);
+}
 export async function findAssessment<
   T extends Prisma.AssessmentFindUniqueArgs,
 >(
