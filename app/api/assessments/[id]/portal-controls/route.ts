@@ -1,8 +1,13 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { AssessmentStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
+import {
+  getGovernanceActor,
+  requireGovernanceCapability,
+} from "@/lib/auth/truvern-governance";
 import { findFirstAssessment, updateAssessment } from "@/lib/repositories/assessment-repository";
 import { updateManyAssessmentRuns } from "@/lib/repositories/assessment-run-repository";
 import { cancelLatestReviewResponsesForVendor } from "@/lib/repositories/portal-controls-repository";
@@ -36,6 +41,9 @@ export async function POST(request: Request, { params }: Props) {
     }
 
     const org = await requireDbOrganization();
+
+    const actor = await getGovernanceActor();
+    requireGovernanceCapability(actor, "assessment.manage");
 
     if ("_needsOrgSelection" in org) {
       return NextResponse.json(
@@ -147,6 +155,9 @@ return nextAssessment;
       { status: 400 },
     );
   } catch (error) {
+    const authError = governanceAuthErrorResponse(error);
+    if (authError) return authError;
+
     console.error("POST /api/assessments/[id]/portal-controls failed", error);
 
     return NextResponse.json(
