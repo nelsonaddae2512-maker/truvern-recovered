@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
-import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
+import { governanceAuthErrorResponse, governanceForbidden } from "@/lib/auth/governance-auth-errors";
 import { AssessmentStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
@@ -49,6 +49,18 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json(
         { ok: false, error: "Select an organization first." },
         { status: 400 },
+      );
+    }
+
+    if (
+      actor.role !== "OPS" &&
+      (
+        actor.organizationId == null ||
+        actor.organizationId !== org.id
+      )
+    ) {
+      throw governanceForbidden(
+        "You do not have access to this organization.",
       );
     }
 
