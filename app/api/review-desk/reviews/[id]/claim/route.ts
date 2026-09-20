@@ -2,6 +2,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,6 +89,7 @@ export async function POST(req: Request, context: RouteContext) {
       status: string | null;
       reviewerUserId: string | null;
       assignmentType: string | null;
+      organizationId: number;
       startedAt: Date | null;
     }>
   >`
@@ -96,11 +98,14 @@ export async function POST(req: Request, context: RouteContext) {
       status::text as status,
       "reviewerUserId",
       "assignmentType"::text as "assignmentType",
+      "organizationId",
       "startedAt"
     from "ReviewAssignment"
     where id = ${assignmentId}
     limit 1
   `;
+
+  const actor = await requireReviewerAccess();
 
   const assignment = existing[0];
 
@@ -124,6 +129,18 @@ export async function POST(req: Request, context: RouteContext) {
       });
     }
   }
+  if (
+    !isTruvernAssignment &&
+    actor.role !== "OPS" &&
+    (actor.organizationId == null ||
+      actor.organizationId !== assignment.organizationId)
+  ) {
+    return json(403, {
+      ok: false,
+      error: "Review assignment access denied.",
+    });
+  }
+
   const alreadyOwned = safeStr(assignment.reviewerUserId);
 
   if (alreadyOwned && assignment.reviewerUserId !== userId) {
@@ -134,7 +151,7 @@ export async function POST(req: Request, context: RouteContext) {
     });
   }
 
-  await prisma.$executeRaw`
+  const claimed = await prisma.$executeRaw`
     update "ReviewAssignment"
     set
       "reviewerUserId" = ${userId},
@@ -146,7 +163,19 @@ export async function POST(req: Request, context: RouteContext) {
       "updatedAt" = now(),
       status = 'IN_PROGRESS'
     where id = ${assignmentId}
+      and (
+        "reviewerUserId" is null
+        or "reviewerUserId" = ${userId}
+      )
   `;
+
+  if (claimed !== 1) {
+    return json(409, {
+      ok: false,
+      error: "This review is already assigned",
+      assignedReviewerName: "Assigned reviewer",
+    });
+  }
 
   if (returnTo) {
     const url = new URL(returnTo, req.url);
