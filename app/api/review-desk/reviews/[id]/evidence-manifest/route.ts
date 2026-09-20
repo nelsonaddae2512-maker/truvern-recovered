@@ -1,5 +1,10 @@
 ﻿import { NextResponse } from "next/server";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  governanceAuthErrorResponse,
+} from "@/lib/auth/governance-auth-errors";
+import {
+  requireReviewAssignmentAccess,
+} from "@/lib/auth/truvern-governance";
 import { getEvidenceManifestForReview } from "@/lib/evidence/queries";
 
 export const runtime = "nodejs";
@@ -12,7 +17,6 @@ type Context = {
 
 export async function GET(_request: Request, context: Context) {
   try {
-    await requireReviewerAccess();
     const params = await context.params;
     const reviewId = Number(params.id);
 
@@ -22,6 +26,8 @@ export async function GET(_request: Request, context: Context) {
         { status: 400 },
       );
     }
+
+    await requireReviewAssignmentAccess(reviewId);
 
     const manifest = await getEvidenceManifestForReview(reviewId);
 
@@ -38,15 +44,22 @@ export async function GET(_request: Request, context: Context) {
         },
       },
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const authResponse = governanceAuthErrorResponse(error);
+
+    if (authResponse) {
+      return authResponse;
+    }
+
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Failed to generate evidence manifest.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate evidence manifest.",
       },
       { status: 500 },
     );
   }
 }
-
-
