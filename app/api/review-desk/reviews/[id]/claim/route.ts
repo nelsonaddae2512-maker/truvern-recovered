@@ -2,6 +2,9 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import {
+  governanceAuthErrorResponse,
+} from "@/lib/auth/governance-auth-errors";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
@@ -105,8 +108,6 @@ export async function POST(req: Request, context: RouteContext) {
     limit 1
   `;
 
-  const actor = await requireReviewerAccess();
-
   const assignment = existing[0];
 
   if (!assignment) {
@@ -128,17 +129,34 @@ export async function POST(req: Request, context: RouteContext) {
         error: "Only authorized Truvern operators can claim Truvern reviews.",
       });
     }
-  }
-  if (
-    !isTruvernAssignment &&
-    actor.role !== "OPS" &&
-    (actor.organizationId == null ||
-      actor.organizationId !== assignment.organizationId)
-  ) {
-    return json(403, {
-      ok: false,
-      error: "Review assignment access denied.",
-    });
+  } else {
+    let actor;
+
+    try {
+      actor = await requireReviewerAccess();
+    } catch (error: unknown) {
+      const authResponse = governanceAuthErrorResponse(error);
+
+      if (authResponse) {
+        return authResponse;
+      }
+
+      throw error;
+    }
+
+    if (
+      actor.role !== "OPS" &&
+      (
+        actor.role === "TRUVERN_REVIEWER" ||
+        actor.organizationId == null ||
+        actor.organizationId !== assignment.organizationId
+      )
+    ) {
+      return json(403, {
+        ok: false,
+        error: "Review assignment access denied.",
+      });
+    }
   }
 
   const alreadyOwned = safeStr(assignment.reviewerUserId);

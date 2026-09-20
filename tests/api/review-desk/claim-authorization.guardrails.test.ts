@@ -10,11 +10,15 @@ const routePath = path.join(
 const source = fs.readFileSync(routePath, "utf8");
 
 describe("review claim authorization guardrails", () => {
-  it("uses the canonical reviewer actor boundary", () => {
+  it("uses reviewer authorization only for customer assignments", () => {
     expect(source).toContain("requireReviewerAccess");
     expect(source).toContain(
+      "actor = await requireReviewerAccess();",
+    );
+    expect(source).not.toContain(
       "const actor = await requireReviewerAccess();",
     );
+    expect(source).toContain("governanceAuthErrorResponse(error)");
   });
 
   it("loads and enforces the assignment organization boundary", () => {
