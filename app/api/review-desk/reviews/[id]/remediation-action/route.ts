@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
@@ -71,7 +72,6 @@ function isReleaseBlocked(plans: any[]) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  await requireReviewerAccess();
   const params = await context.params;
   const assignmentId = safeInt(params?.id);
 
@@ -80,6 +80,17 @@ export async function POST(request: Request, context: RouteContext) {
       { ok: false, error: "Invalid assignment id." },
       { status: 400 },
     );
+  }
+
+  try {
+    await requireReviewAssignmentAccess(assignmentId);
+  } catch (error: unknown) {
+    const authError = governanceAuthErrorResponse(error);
+    if (authError) {
+      return authError;
+    }
+
+    throw error;
   }
 
   const body = await request.json().catch(() => ({}));

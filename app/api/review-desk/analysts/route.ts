@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  getGovernanceActor,
+  requireGovernanceCapability,
+} from "@/lib/auth/truvern-governance";
+import {
+  governanceAuthErrorResponse,
+  governanceForbidden,
+} from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 
 
@@ -25,7 +32,10 @@ function json(status: number, body: Record<string, unknown>) {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireReviewerAccess();
+    const actor = await getGovernanceActor();
+    if (actor.role !== "OPS") {
+      requireGovernanceCapability(actor, "member.manage");
+    }
 
     const body = await req.json().catch(() => ({}));
 
@@ -48,6 +58,16 @@ export async function POST(req: NextRequest) {
         ok: false,
         error: "Valid analyst email required.",
       });
+    }
+
+    if (
+      actor.role !== "OPS" &&
+      (actor.organizationId == null ||
+        actor.organizationId !== organizationId)
+    ) {
+      throw governanceForbidden(
+        "You do not have access to this organization.",
+      );
     }
 
     const existingMembership = await findFirstOrgMembership({
@@ -126,6 +146,11 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: any) {
+    const authError = governanceAuthErrorResponse(error);
+    if (authError) {
+      return authError;
+    }
+
     console.error("ANALYST_CREATE_ERROR", error);
 
     return json(500, {
