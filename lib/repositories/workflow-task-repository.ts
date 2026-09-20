@@ -131,6 +131,22 @@ export async function insertWorkflowTasksGeneratedEvent(
   `;
 }
 
+export async function readWorkflowTaskForAuthorization(
+  taskId: number,
+): Promise<any[]> {
+  return prisma.$queryRaw<any[]>`
+    select
+      id,
+      "reviewAssignmentId",
+      "organizationId",
+      "assignedTo",
+      status,
+      type
+    from "WorkflowTask"
+    where id = ${taskId}
+    limit 1
+  `;
+}
 export async function claimWorkflowTaskRow(
   reviewerId: any,
   reviewerName: any,

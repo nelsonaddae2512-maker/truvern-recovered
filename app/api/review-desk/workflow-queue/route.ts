@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { findWorkflowQueueItems, groupWorkflowQueueItems } from "@/lib/repositories/workflow-queue-repository";
 import { findVendors } from "@/lib/repositories/vendor-repository";
@@ -10,12 +12,49 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+async function queueScopeForActor(
+  actor: Awaited<ReturnType<typeof requireReviewerAccess>>,
+): Promise<Prisma.WorkflowQueueItemWhereInput> {
+  if (actor.role === "OPS") {
+    return {};
+  }
+
+  if (actor.role === "TRUVERN_REVIEWER") {
+    const assignments = await prisma.reviewAssignment.findMany({
+      where: {
+        assignmentType: "TRUVERN",
+        reviewerUserId: actor.userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      reviewAssignmentId: {
+        in: assignments.map((assignment) => assignment.id),
+      },
+    };
+  }
+
+  if (actor.organizationId == null) {
+    return {
+      id: -1,
+    };
+  }
+
+  return {
+    organizationId: actor.organizationId,
+  };
+}
+
 export async function GET() {
   try {
-    await requireReviewerAccess();
+    const actor = await requireReviewerAccess();
+    const scope = await queueScopeForActor(actor);
 
     const grouped =
-      await groupWorkflowQueueItems();
+      await groupWorkflowQueueItems(scope);
 
     const summary = grouped.map((row) => ({
       queue: row.queue,
@@ -26,7 +65,12 @@ export async function GET() {
 
     const queueItems = await findWorkflowQueueItems({
       where: {
-        status: "OPEN",
+        AND: [
+          scope,
+          {
+            status: "OPEN",
+          },
+        ],
       },
       select: {
         id: true,
@@ -219,6 +263,13 @@ export async function GET() {
       items,
     });
   } catch (error: any) {
+    const governanceResponse =
+      governanceAuthErrorResponse(error);
+
+    if (governanceResponse) {
+      return governanceResponse;
+    }
+
     return NextResponse.json(
       {
         ok: false,

@@ -1,5 +1,8 @@
+import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
 import { findFirstWorkflowQueueItem, findWorkflowQueueItem, updateWorkflowQueueItems } from "@/lib/repositories/workflow-queue-repository";
 import { createWorkflowEvent } from "@/lib/repositories/workflow-event-repository";
@@ -8,16 +11,74 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function POST(request: Request) {
+async function queueScopeForActor(
+  actor: Awaited<ReturnType<typeof requireReviewerAccess>>,
+): Promise<Prisma.WorkflowQueueItemWhereInput> {
+  if (actor.role === "OPS") {
+    return {};
+  }
+
+  if (actor.role === "TRUVERN_REVIEWER") {
+    const assignments = await prisma.reviewAssignment.findMany({
+      where: {
+        assignmentType: "TRUVERN",
+        reviewerUserId: actor.userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      reviewAssignmentId: {
+        in: assignments.map((assignment) => assignment.id),
+      },
+    };
+  }
+
+  if (actor.organizationId == null) {
+    return {
+      id: -1,
+    };
+  }
+
+  return {
+    organizationId: actor.organizationId,
+  };
+}
+
+function reviewerDisplayName(
+  user: Awaited<ReturnType<typeof currentUser>>,
+) {
+  const fullName = user?.fullName?.trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  const combined =
+    [user?.firstName, user?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+  if (combined) {
+    return combined;
+  }
+
+  return (
+    user?.primaryEmailAddress?.emailAddress?.trim() ||
+    "Internal reviewer"
+  );
+}
+
+export async function POST(_request: Request) {
   try {
-    await requireReviewerAccess();
-
-    const body = await request.json().catch(() => ({}));
-
-    const reviewerId = String(body?.reviewerId || "TRUVERN_REVIEWER");
-    const reviewerName = String(
-      body?.reviewerName || "Truvern Reviewer",
-    );
+    const actor = await requireReviewerAccess();
+    const scope = await queueScopeForActor(actor);
+    const clerkUser = await currentUser();
+    const reviewerId = actor.userId;
+    const reviewerName = reviewerDisplayName(clerkUser);
 
     let claimedItem: any = null;
 
@@ -27,8 +88,13 @@ export async function POST(request: Request) {
           async (tx) => {
             const candidate = await findFirstWorkflowQueueItem({
               where: {
-                status: "OPEN",
-                assignedTo: null,
+                AND: [
+                  scope,
+                  {
+                    status: "OPEN",
+                    assignedTo: null,
+                  },
+                ],
               },
               orderBy: [
                 { priority: "desc" },
@@ -51,9 +117,14 @@ export async function POST(request: Request) {
             const updateResult =
               await updateWorkflowQueueItems({
                 where: {
-                  id: candidate.id,
-                  status: "OPEN",
-                  assignedTo: null,
+                  AND: [
+                    scope,
+                    {
+                      id: candidate.id,
+                      status: "OPEN",
+                      assignedTo: null,
+                    },
+                  ],
                 },
                 data: {
                   assignedTo: reviewerId,
@@ -130,6 +201,13 @@ export async function POST(request: Request) {
       item: claimedItem,
     });
   } catch (error: any) {
+    const governanceResponse =
+      governanceAuthErrorResponse(error);
+
+    if (governanceResponse) {
+      return governanceResponse;
+    }
+
     return NextResponse.json(
       {
         ok: false,

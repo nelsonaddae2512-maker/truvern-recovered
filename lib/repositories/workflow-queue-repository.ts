@@ -53,10 +53,12 @@ export async function findWorkflowQueueItems<
   return client.workflowQueueItem.findMany(args);
 }
 export async function groupWorkflowQueueItems(
+  where: Prisma.WorkflowQueueItemWhereInput,
   client: WorkflowQueueClient = prisma,
 ) {
   return client.workflowQueueItem.groupBy({
     by: ["queue", "status"],
+    where,
     _count: {
       _all: true,
     },
