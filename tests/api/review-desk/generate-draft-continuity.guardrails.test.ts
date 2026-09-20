@@ -50,7 +50,7 @@ describe("generate-draft assessment continuity", () => {
     );
 
     expect(route).toContain(
-      "answers: assessmentAnswerRowsForFindings.length",
+      "assessmentAnswerRowsForFindingsCount: assessmentAnswerRowsForFindings.length,",
     );
   });
 

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
 import { createReviewResponse, findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
 import {
   findReviewAssignment,
@@ -107,6 +108,8 @@ try {
     if (!assignmentId) {
       return json(400, { ok: false, error: "Invalid assignment id." });
     }
+
+    await requireReviewAssignmentAccess(assignmentId);
 
     const body = await req.json().catch(() => ({}));
 

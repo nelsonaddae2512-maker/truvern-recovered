@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
 import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
 import { createReviewResponse, findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
 import {
   findReviewAssignment,
@@ -620,6 +621,8 @@ try {
         error: "Invalid assignment id.",
       });
     }
+    await requireReviewAssignmentAccess(assignmentId);
+
     const assignment =
       await findReviewAssignment({
         where: {
