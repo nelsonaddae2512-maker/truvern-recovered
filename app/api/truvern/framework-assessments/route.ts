@@ -66,6 +66,12 @@ export async function POST(request: Request) {
     const assessmentRunId = safeNumber(body.assessmentRunId);
     const reviewAssignmentId = safeNumber(body.reviewAssignmentId);
 
+    if (!reviewAssignmentId) {
+      throw governanceForbidden(
+        "A review assignment is required to create a framework assessment.",
+      );
+    }
+
     let organizationId = requestedOrganizationId;
     let vendorId = requestedVendorId;
 

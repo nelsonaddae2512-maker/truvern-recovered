@@ -185,6 +185,21 @@ describe("framework assessment create authorization", () => {
     });
   });
 
+  it("rejects create requests without review assignment authority", async () => {
+    const response = await POST(
+      request({
+        frameworkId: 5,
+        organizationId: 10,
+        vendorId: 20,
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.requireReviewAssignmentAccess).not.toHaveBeenCalled();
+    expect(mocks.findFirstAssessmentRun).not.toHaveBeenCalled();
+    expect(mocks.createTruvernFrameworkAssessment).not.toHaveBeenCalled();
+  });
+
   it("rejects an organization that conflicts with the authorized assignment", async () => {
     const response = await POST(
       request({
