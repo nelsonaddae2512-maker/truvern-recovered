@@ -2096,6 +2096,7 @@ const initialFinalAssessment =
             <EvidenceRequestForm
               vendorId={vendor.id}
               organizationId={vendor.organizationId ?? null}
+              reviewAssignmentId={assignment.id}
             />
           </div>
         </div>

@@ -1,4 +1,4 @@
-﻿// components/evidence-request-form.tsx
+// components/evidence-request-form.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -7,6 +7,7 @@ import { useState } from "react";
 type Props = {
   vendorId: number;
   organizationId: number | null;
+  reviewAssignmentId?: number;
   onCreatedHref?: string;
 };
 
@@ -23,6 +24,7 @@ const KINDS = [
 export default function EvidenceRequestForm({
   vendorId,
   organizationId,
+  reviewAssignmentId,
   onCreatedHref,
 }: Props) {
   const router = useRouter();
@@ -45,6 +47,7 @@ export default function EvidenceRequestForm({
         body: JSON.stringify({
           vendorId,
           organizationId,
+          reviewAssignmentId,
           kind,
           label,
           description: description || null,
@@ -142,6 +145,3 @@ export default function EvidenceRequestForm({
     </div>
   );
 }
-
-
-

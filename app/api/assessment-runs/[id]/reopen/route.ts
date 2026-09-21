@@ -1,6 +1,17 @@
 ﻿import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import {
+  getGovernanceActor,
+  requireReviewerAccess,
+} from "@/lib/auth/truvern-governance";
+import {
+  governanceAuthErrorResponse,
+  governanceForbidden,
+} from "@/lib/auth/governance-auth-errors";
+import {
+  findFirstAssessmentRun,
+} from "@/lib/repositories/assessment-run-repository";
+import {
   reopenAssessmentRun,
 } from "@/lib/services/review-reopen-service";
 
@@ -46,6 +57,38 @@ export async function POST(_request: Request, context: RouteContext) {
       });
     }
 
+    await requireReviewerAccess();
+    const actor = await getGovernanceActor();
+
+    const assessmentRun = await findFirstAssessmentRun({
+      where: {
+        id: assessmentRunId,
+      },
+      select: {
+        id: true,
+        organizationId: true,
+      },
+    });
+
+    if (!assessmentRun) {
+      return json(404, {
+        ok: false,
+        error: "Assessment run not found.",
+      });
+    }
+
+    if (
+      actor.role !== "OPS" &&
+      (
+        actor.organizationId == null ||
+        actor.organizationId !== assessmentRun.organizationId
+      )
+    ) {
+      throw governanceForbidden(
+        "You do not have access to this organization.",
+      );
+    }
+
     const result = await reopenAssessmentRun({
       assessmentRunId,
       actorUserId: userId,
@@ -53,6 +96,11 @@ export async function POST(_request: Request, context: RouteContext) {
 
     return json(result.status, result.body);
   } catch (error: unknown) {
+    const authResponse = governanceAuthErrorResponse(error);
+
+    if (authResponse) {
+      return authResponse;
+    }
     const message =
       error instanceof Error
         ? safeStr(error.message)

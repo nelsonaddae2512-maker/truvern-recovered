@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  requireFrameworkAssessmentAccess,
+  requireReviewAssignmentAccess,
+  requireReviewerAccess,
+} from "@/lib/auth/truvern-governance";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { sendFrameworkAssessmentVendorLink } from "@/lib/communications/framework-assessment-vendor-link";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,8 +41,6 @@ export async function POST(
   req: Request,
   { params }: Params,
 ) {
-  await requireReviewerAccess();
-
   const resolved = await params;
   const assessmentId =
     parseId(resolved.id);
@@ -69,6 +73,39 @@ export async function POST(
   }
 
   try {
+    await requireReviewerAccess();
+
+    const assessment =
+      await findTruvernFrameworkAssessment({
+        where: {
+          id: assessmentId,
+        },
+        select: {
+          id: true,
+          reviewAssignmentId: true,
+        },
+      });
+
+    if (!assessment) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Framework assessment not found.",
+        },
+        { status: 404 },
+      );
+    }
+
+    if (assessment.reviewAssignmentId != null) {
+      await requireReviewAssignmentAccess(
+        assessment.reviewAssignmentId,
+      );
+    } else {
+      await requireFrameworkAssessmentAccess(
+        assessmentId,
+      );
+    }
+
     const result =
       await sendFrameworkAssessmentVendorLink({
         assessmentId,
@@ -97,6 +134,13 @@ export async function POST(
       },
     });
   } catch (error) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
+
     const message =
       error instanceof Error
         ? error.message
