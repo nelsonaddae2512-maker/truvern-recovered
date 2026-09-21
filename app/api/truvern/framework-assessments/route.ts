@@ -1,12 +1,19 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
+import {
+  governanceAuthErrorResponse,
+  governanceForbidden,
+} from "@/lib/auth/governance-auth-errors";
 import prisma from "@/lib/prisma";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  requireReviewerAccess,
+  requireReviewAssignmentAccess,
+} from "@/lib/auth/truvern-governance";
 import { findTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
 import { createTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { requireTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { createTruvernAssessmentResponses } from "@/lib/repositories/truvern-assessment-response-repository";
+import { findFirstAssessmentRun } from "@/lib/repositories/assessment-run-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,10 +61,90 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
 
     const frameworkLookup = frameworkWhere(body.frameworkId ?? body.frameworkSlug ?? body.framework);
-    const organizationId = safeNumber(body.organizationId);
-    const vendorId = safeNumber(body.vendorId);
+    const requestedOrganizationId = safeNumber(body.organizationId);
+    const requestedVendorId = safeNumber(body.vendorId);
     const assessmentRunId = safeNumber(body.assessmentRunId);
     const reviewAssignmentId = safeNumber(body.reviewAssignmentId);
+
+    let organizationId = requestedOrganizationId;
+    let vendorId = requestedVendorId;
+
+    if (reviewAssignmentId) {
+      const { assignment } =
+        await requireReviewAssignmentAccess(reviewAssignmentId);
+
+      if (
+        requestedOrganizationId != null &&
+        requestedOrganizationId !== assignment.organizationId
+      ) {
+        throw governanceForbidden(
+          "Requested organization does not match the review assignment.",
+        );
+      }
+
+      if (
+        requestedVendorId != null &&
+        requestedVendorId !== assignment.vendorId
+      ) {
+        throw governanceForbidden(
+          "Requested vendor does not match the review assignment.",
+        );
+      }
+
+      organizationId = assignment.organizationId;
+      vendorId = assignment.vendorId;
+    }
+
+    if (assessmentRunId) {
+      const assessmentRun =
+        await findFirstAssessmentRun({
+          where: {
+            id: assessmentRunId,
+          },
+          select: {
+            id: true,
+            organizationId: true,
+            vendorId: true,
+          },
+        });
+
+      if (!assessmentRun) {
+        throw governanceForbidden(
+          "Assessment run not found.",
+        );
+      }
+
+      if (
+        organizationId != null &&
+        assessmentRun.organizationId !== organizationId
+      ) {
+        throw governanceForbidden(
+          "Assessment run organization does not match the framework assessment.",
+        );
+      }
+
+      if (
+        vendorId != null &&
+        assessmentRun.vendorId != null &&
+        assessmentRun.vendorId !== vendorId
+      ) {
+        throw governanceForbidden(
+          "Assessment run vendor does not match the framework assessment.",
+        );
+      }
+
+      if (organizationId == null) {
+        organizationId = assessmentRun.organizationId;
+      }
+
+      if (
+        vendorId == null &&
+        assessmentRun.vendorId != null
+      ) {
+        vendorId = assessmentRun.vendorId;
+      }
+    }
+
     const managedReviewDueAt = reviewAssignmentId
       ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
       : null;
