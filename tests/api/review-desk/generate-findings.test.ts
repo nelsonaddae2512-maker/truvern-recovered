@@ -7,6 +7,10 @@ import {
 const mocks = vi.hoisted(() => ({
   requireReviewerAccess:
     vi.fn<(...args: unknown[]) => Promise<any>>(),
+  requireReviewAssignmentAccess:
+    vi.fn<(...args: unknown[]) => Promise<any>>(),
+  requireGovernanceCapability:
+    vi.fn<(...args: unknown[]) => any>(),
   findReviewAssignment:
     vi.fn<(...args: unknown[]) => Promise<any>>(),
   updateReviewAssignment:
@@ -43,6 +47,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/truvern-governance", () => ({
   requireReviewerAccess: mocks.requireReviewerAccess,
+  requireReviewAssignmentAccess:
+    mocks.requireReviewAssignmentAccess,
+  requireGovernanceCapability:
+    mocks.requireGovernanceCapability,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -614,6 +622,99 @@ describe("POST generate-findings", () => {
     ]);
   });
 
+  it("rejects when finding.manage capability is denied", async () => {
+    mocks.requireGovernanceCapability.mockImplementationOnce(
+      () => {
+        throw new Error(
+          "Governance capability required: finding.manage.",
+        );
+      },
+    );
+
+    const response = await POST(
+      request(),
+      createRouteContext({ id: "42" }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await readJsonResponse(response)).toEqual({
+      ok: false,
+      error:
+        "Governance capability required: finding.manage.",
+    });
+
+    expect(
+      mocks.requireGovernanceCapability,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "OPS",
+        organizationId: 7,
+      }),
+      "finding.manage",
+    );
+
+    expect(
+      mocks.requireReviewAssignmentAccess,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.findReviewAssignment,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.runGovernanceIntelligence,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.updateReviewAssignment,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("rejects when review assignment access is denied", async () => {
+    mocks.requireReviewAssignmentAccess.mockRejectedValueOnce(
+      new Error(
+        "You do not have access to this review assignment.",
+      ),
+    );
+
+    const response = await POST(
+      request(),
+      createRouteContext({ id: "42" }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await readJsonResponse(response)).toEqual({
+      ok: false,
+      error:
+        "You do not have access to this review assignment.",
+    });
+
+    expect(
+      mocks.requireGovernanceCapability,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "OPS",
+        organizationId: 7,
+      }),
+      "finding.manage",
+    );
+
+    expect(
+      mocks.requireReviewAssignmentAccess,
+    ).toHaveBeenCalledWith(42);
+
+    expect(
+      mocks.findReviewAssignment,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.runGovernanceIntelligence,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.updateReviewAssignment,
+    ).not.toHaveBeenCalled();
+  });
   it("returns a safe 500 response when reviewer access fails", async () => {
     mocks.requireReviewerAccess.mockRejectedValue(
       new Error("Reviewer access required."),
