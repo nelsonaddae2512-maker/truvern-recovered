@@ -347,7 +347,7 @@ export default function ReviewAssignmentWorkspace({
 
     async function loadEvidenceSubmissions() {
       try {
-        const response = await fetch(`/api/review-desk/vendors/${vendor.id}/evidence-submissions`, {
+        const response = await fetch(`/api/review-desk/vendors/${vendor.id}/evidence-submissions?assignmentId=${assignment.id}`, {
           cache: "no-store",
         });
 

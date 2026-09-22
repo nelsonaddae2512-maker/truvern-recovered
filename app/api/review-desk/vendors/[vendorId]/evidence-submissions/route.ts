@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  requireReviewAssignmentAccess,
+  requireReviewerAccess,
+} from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { findEvidenceRequests } from "@/lib/repositories/evidence-request-repository";
 import { findEvidence } from "@/lib/repositories/evidence-repository";
@@ -21,7 +24,7 @@ function safeInt(value: unknown) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-export async function GET(_req: Request, context: RouteContext) {
+export async function GET(req: Request, context: RouteContext) {
   try {
     await requireReviewerAccess();
     const params = await context.params;
@@ -31,6 +34,26 @@ export async function GET(_req: Request, context: RouteContext) {
       return NextResponse.json(
         { ok: false, error: "Invalid vendor id." },
         { status: 400 },
+      );
+    }
+
+    const url = new URL(req.url);
+    const assignmentId = safeInt(url.searchParams.get("assignmentId"));
+
+    if (!assignmentId) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid review assignment id." },
+        { status: 400 },
+      );
+    }
+
+    const { assignment } =
+      await requireReviewAssignmentAccess(assignmentId);
+
+    if (Number(assignment.vendorId) !== vendorId) {
+      return NextResponse.json(
+        { ok: false, error: "Review assignment vendor mismatch." },
+        { status: 403 },
       );
     }
 
