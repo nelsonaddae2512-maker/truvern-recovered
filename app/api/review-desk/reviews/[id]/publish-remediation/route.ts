@@ -2,7 +2,11 @@ import type { EvidenceRequestKind, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
-import { requireReviewerAccess } from "@/lib/auth/truvern-governance";
+import {
+  requireGovernanceCapability,
+  requireReviewAssignmentAccess,
+  requireReviewerAccess,
+} from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
 import { findLatestReviewResponse } from "@/lib/repositories/review-response-repository";
 import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
@@ -597,6 +601,10 @@ const fallback = [
 export async function POST(_req: Request, props: Props) {
   try {
     const actor = await requireReviewerAccess();
+    requireGovernanceCapability(
+      actor,
+      "assessment.review",
+    );
 
     const { userId } = await auth();
     const resolved = await props.params;
@@ -605,6 +613,10 @@ export async function POST(_req: Request, props: Props) {
     if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
       return NextResponse.json({ ok: false, error: "Assignment id required." }, { status: 400 });
     }
+    await requireReviewAssignmentAccess(
+      assignmentId,
+    );
+
     const assignment =
       await findReviewAssignment({
         where: {
