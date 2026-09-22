@@ -29,12 +29,6 @@ type RequestBody = {
 
   priority?: unknown;
 
-  vendorId?: unknown;
-  assessmentId?: unknown;
-  assessmentRunId?: unknown;
-  reviewRequestId?: unknown;
-  reviewAssignmentId?: unknown;
-  evidenceRequestId?: unknown;
 };
 
 type RecipientInput = {
@@ -655,35 +649,6 @@ export async function POST(
           organizationId:
             gate.organizationId,
 
-          vendorId:
-            optionalPositiveInt(
-              body.vendorId,
-            ),
-
-          assessmentId:
-            optionalPositiveInt(
-              body.assessmentId,
-            ),
-
-          assessmentRunId:
-            optionalPositiveInt(
-              body.assessmentRunId,
-            ),
-
-          reviewRequestId:
-            optionalPositiveInt(
-              body.reviewRequestId,
-            ),
-
-          reviewAssignmentId:
-            optionalPositiveInt(
-              body.reviewAssignmentId,
-            ),
-
-          evidenceRequestId:
-            optionalPositiveInt(
-              body.evidenceRequestId,
-            ),
         },
       });
 
