@@ -1,6 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { requireDbOrganization } from "@/lib/org-db";
+import {
+  getGovernanceActor,
+  requireGovernanceCapability,
+} from "@/lib/auth/truvern-governance";
+import {
+  governanceAuthErrorResponse,
+} from "@/lib/auth/governance-auth-errors";
 import { findAssessment } from "@/lib/repositories/assessment-repository";
 import { sendAssessmentVendorLink } from "@/lib/communications/assessment-vendor-link";
 
@@ -125,6 +132,14 @@ export async function POST(
   }
 
   try {
+    const actor =
+      await getGovernanceActor();
+
+    requireGovernanceCapability(
+      actor,
+      "assessment.manage",
+    );
+
     const resolvedParams =
       await params;
 
@@ -225,6 +240,13 @@ export async function POST(
       },
     });
   } catch (error: any) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return authError;
+    }
+
     console.error(error);
 
     return NextResponse.json(
