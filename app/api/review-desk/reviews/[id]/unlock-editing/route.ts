@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { requireReviewAssignmentAccess } from "@/lib/auth/truvern-governance";
 import { findLatestReviewResponse, updateReviewResponse } from "@/lib/repositories/review-response-repository";
 import { updateReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 
@@ -68,6 +69,8 @@ export async function POST(req: Request, ctx: RouteContext) {
   if (!assignmentId) {
     return json(400, { ok: false, error: "Invalid assignment id." });
   }
+  await requireReviewAssignmentAccess(assignmentId);
+
   const response = await findLatestReviewResponse(assignmentId);
 
   if (!response) {

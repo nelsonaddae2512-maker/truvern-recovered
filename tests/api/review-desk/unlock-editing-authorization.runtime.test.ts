@@ -4,6 +4,7 @@ import { POST } from "@/app/api/review-desk/reviews/[id]/unlock-editing/route";
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   isTruvernOperator: vi.fn(),
+  requireReviewAssignmentAccess: vi.fn(),
   findLatestReviewResponse: vi.fn(),
   updateReviewResponse: vi.fn(),
   updateReviewAssignment: vi.fn(),
@@ -37,6 +38,10 @@ function context(id = "41") {
   return { params: Promise.resolve({ id }) };
 }
 
+vi.mock("@/lib/auth/truvern-governance", () => ({
+  requireReviewAssignmentAccess:
+    mocks.requireReviewAssignmentAccess,
+}));
 function request(body: unknown = {
   acknowledged: true,
   reason: "Reviewer correction required",
@@ -53,6 +58,7 @@ describe("unlock editing authorization", () => {
     vi.clearAllMocks();
     mocks.auth.mockResolvedValue({ userId: "user-ops" });
     mocks.isTruvernOperator.mockResolvedValue(true);
+    mocks.requireReviewAssignmentAccess.mockResolvedValue({});
     mocks.transaction.mockImplementation(async (callback: any) =>
       callback({}),
     );
@@ -80,5 +86,45 @@ describe("unlock editing authorization", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
     expect(mocks.updateReviewResponse).not.toHaveBeenCalled();
     expect(mocks.updateReviewAssignment).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when assignment authorization is denied", async () => {
+    mocks.requireReviewAssignmentAccess.mockRejectedValue(
+      new Error("assignment denied"),
+    );
+
+    await expect(
+      POST(
+        request({
+          acceptedOverride: true,
+          reason: "Security override required",
+        }),
+        {
+          params: Promise.resolve({
+            id: "41",
+          }),
+        },
+      ),
+    ).rejects.toThrow("assignment denied");
+
+    expect(
+      mocks.requireReviewAssignmentAccess,
+    ).toHaveBeenCalledWith(41);
+
+    expect(
+      mocks.findLatestReviewResponse,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.transaction,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.updateReviewResponse,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      mocks.updateReviewAssignment,
+    ).not.toHaveBeenCalled();
   });
 });
