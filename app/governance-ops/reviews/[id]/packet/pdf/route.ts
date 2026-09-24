@@ -632,7 +632,7 @@ doc
 doc.moveDown(0.5);
 
 doc.fontSize(9).fillColor("#64748b").text(
-  "Truvern Governance Systems â€¢ Immutable Governance Record",
+  "Truvern Governance Systems • Immutable Governance Record",
   { align: "center" },
 );
 
@@ -678,7 +678,7 @@ const signatureBlocks = [
   {
     label: "Immutable seal attestation",
     name: checksum === renderedChecksum ? "Seal verified" : "Seal pending review",
-    meta: `SIG ${signatureFingerprint.slice(0, 16)}... â€¢ CHK ${checksum.slice(0, 12)}...`,
+    meta: `SIG ${signatureFingerprint.slice(0, 16)}... • CHK ${checksum.slice(0, 12)}...`,
   },
 ];
 
@@ -727,7 +727,7 @@ doc.y = signatureTop + signatureHeight + 8;
 doc.x = pageLeft;
 
 doc.fontSize(9).fillColor("#64748b").text(
-  "Truvern Governance Systems â€¢ Immutable Governance Record",
+  "Truvern Governance Systems • Immutable Governance Record",
   { align: "center" },
 );
 
@@ -767,7 +767,7 @@ doc
 doc
   .fontSize(7.5)
   .fillColor("#64748b")
-  .text(`Release record: assignment-${assignmentId} â€¢ Checksum ${checksum.slice(0, 16)}...`, pageLeft + 14, verifyTop + 46, {
+  .text(`Release record: assignment-${assignmentId} • Checksum ${checksum.slice(0, 16)}...`, pageLeft + 14, verifyTop + 46, {
     width: pageWidth - 120,
   });
 
@@ -808,7 +808,7 @@ doc.x = pageLeft;
       .fontSize(8)
       .fillColor("#94a3b8")
       .text(
-        `Truvern Governance Systems â€¢ Immutable Governance Record â€¢ Page ${i + 1} of ${range.count}`,
+        `Truvern Governance Systems • Immutable Governance Record • Page ${i + 1} of ${range.count}`,
         54,
         footerY,
         {

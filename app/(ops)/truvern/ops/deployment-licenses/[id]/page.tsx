@@ -39,7 +39,7 @@ function formatDateTime(
   value: Date | null,
 ) {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   return new Intl.DateTimeFormat(
@@ -173,7 +173,7 @@ export default async function DeploymentLicenseDetailPage({
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-xs uppercase tracking-[0.3em] text-cyan-200">
-              Truvern Ops Â· Deployment License
+              Truvern Ops · Deployment License
             </p>
 
             <span

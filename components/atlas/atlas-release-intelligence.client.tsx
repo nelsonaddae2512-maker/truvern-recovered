@@ -137,7 +137,7 @@ function NodeList({
                     {node.label}
                   </div>
                   <div className="mt-1 truncate text-xs text-slate-500">
-                    {node.type} Â· {node.id}
+                    {node.type} · {node.id}
                   </div>
                 </div>
                 <div className="shrink-0 text-xs font-semibold text-amber-200">
@@ -224,7 +224,7 @@ export default function AtlasReleaseIntelligence() {
     <div>
       <header className="rounded-3xl border border-indigo-400/15 bg-gradient-to-br from-indigo-400/[0.09] via-slate-950 to-cyan-400/[0.06] p-6 shadow-2xl shadow-indigo-950/20">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
-          Truvern Operations Â· ATLAS-04B
+          Truvern Operations · ATLAS-04B
         </div>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Release Intelligence
@@ -248,7 +248,7 @@ export default function AtlasReleaseIntelligence() {
               <option value="">Latest snapshot</option>
               {payload?.snapshots.map((snapshot) => (
                 <option key={snapshot.file} value={snapshot.file}>
-                  {snapshot.name} Â· {formatDate(snapshot.createdAt)}
+                  {snapshot.name} · {formatDate(snapshot.createdAt)}
                 </option>
               ))}
             </select>
@@ -260,7 +260,7 @@ export default function AtlasReleaseIntelligence() {
             onClick={() => void load(baseline || undefined)}
             className="rounded-xl bg-indigo-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-indigo-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "Comparingâ€¦" : "Compare release"}
+            {loading ? "Comparing…" : "Compare release"}
           </button>
         </div>
       </header>
@@ -359,7 +359,7 @@ export default function AtlasReleaseIntelligence() {
                           {change.after.label}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
-                          {change.after.type} Â· {change.id}
+                          {change.after.type} · {change.id}
                         </div>
                         <div className="mt-2 text-xs text-amber-200">
                           Impact delta: {change.impactDelta >= 0 ? "+" : ""}
@@ -474,7 +474,7 @@ export default function AtlasReleaseIntelligence() {
         </>
       ) : loading ? (
         <section className="mt-5 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center text-sm text-slate-500">
-          Comparing architecture snapshotsâ€¦
+          Comparing architecture snapshots…
         </section>
       ) : null}
     </div>

@@ -12,20 +12,20 @@ const dictionaries: Record<string, Dict> = {
   },
   es: {
     "nav.features":"Funciones","nav.vendors":"Vendedores","nav.buyers":"Compradores","nav.pricing":"Precios",
-    "nav.trust":"Red de Confianza","nav.directory":"Directorio","nav.subscribe":"Suscribirse","nav.login":"Iniciar sesiÃ³n",
+    "nav.trust":"Red de Confianza","nav.directory":"Directorio","nav.subscribe":"Suscribirse","nav.login":"Iniciar sesión",
     "footer.tagline":"Verifica una vez, comparte en todas partes.","cta.startFree":"Comienza gratis","cta.directory":"Explorar directorio",
-    "pricing.title":"Precios simples y globales","contact.title":"ContÃ¡ctanos","contact.send":"Enviar"
+    "pricing.title":"Precios simples y globales","contact.title":"Contáctanos","contact.send":"Enviar"
   },
   fr: {
-    "nav.features":"FonctionnalitÃ©s","nav.vendors":"Fournisseurs","nav.buyers":"Acheteurs","nav.pricing":"Tarifs",
-    "nav.trust":"RÃ©seau de confiance","nav.directory":"Annuaire","nav.subscribe":"S€™abonner","nav.login":"Connexion",
-    "footer.tagline":"VÃ©rifiez une fois, partagez partout.","cta.startFree":"Commencer gratuitement","cta.directory":"Parcourir l€™annuaire",
+    "nav.features":"Fonctionnalités","nav.vendors":"Fournisseurs","nav.buyers":"Acheteurs","nav.pricing":"Tarifs",
+    "nav.trust":"Réseau de confiance","nav.directory":"Annuaire","nav.subscribe":"S’abonner","nav.login":"Connexion",
+    "footer.tagline":"Vérifiez une fois, partagez partout.","cta.startFree":"Commencer gratuitement","cta.directory":"Parcourir l’annuaire",
     "pricing.title":"Tarification simple et mondiale","contact.title":"Nous contacter","contact.send":"Envoyer"
   },
   de: {
-    "nav.features":"Funktionen","nav.vendors":"Anbieter","nav.buyers":"EinkÃ¤ufer","nav.pricing":"Preise",
+    "nav.features":"Funktionen","nav.vendors":"Anbieter","nav.buyers":"Einkäufer","nav.pricing":"Preise",
     "nav.trust":"Trust-Netzwerk","nav.directory":"Verzeichnis","nav.subscribe":"Abonnieren","nav.login":"Anmelden",
-    "footer.tagline":"Einmal verifizieren, Ã¼berall teilen.","cta.startFree":"Kostenlos starten","cta.directory":"Verzeichnis ansehen",
+    "footer.tagline":"Einmal verifizieren, überall teilen.","cta.startFree":"Kostenlos starten","cta.directory":"Verzeichnis ansehen",
     "pricing.title":"Einfache, globale Preise","contact.title":"Kontakt","contact.send":"Senden"
   }
 };

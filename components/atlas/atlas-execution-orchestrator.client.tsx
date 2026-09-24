@@ -101,7 +101,7 @@ export default function AtlasExecutionOrchestrator() {
     <div>
       <header className="rounded-3xl border border-emerald-400/15 bg-slate-950 p-6">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-300">
-          Truvern Operations Â· ATLAS-09
+          Truvern Operations · ATLAS-09
         </div>
         <h1 className="mt-3 text-3xl font-semibold text-white">
           Execution and Validation Orchestrator
@@ -117,7 +117,7 @@ export default function AtlasExecutionOrchestrator() {
             disabled={busy}
             className="rounded-xl bg-emerald-300 px-5 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
           >
-            {busy ? "Workingâ€¦" : "Refresh"}
+            {busy ? "Working…" : "Refresh"}
           </button>
           <button
             type="button"
@@ -179,7 +179,7 @@ export default function AtlasExecutionOrchestrator() {
                     </div>
                     <h3 className="mt-2 font-semibold text-white">{patch.title}</h3>
                     <p className="mt-2 text-xs text-slate-500">
-                      Phase {patch.phase} Â· {patch.risk} risk Â· {patch.estimatedHours}h
+                      Phase {patch.phase} · {patch.risk} risk · {patch.estimatedHours}h
                     </p>
                   </button>
                 ))}
@@ -190,7 +190,7 @@ export default function AtlasExecutionOrchestrator() {
               <section className="space-y-5">
                 <article className="rounded-3xl border border-white/10 bg-slate-950/75 p-5">
                   <div className="text-xs uppercase tracking-[0.16em] text-emerald-300">
-                    {selected.id} Â· Phase {selected.phase} Â· {selected.phaseLabel}
+                    {selected.id} · Phase {selected.phase} · {selected.phaseLabel}
                   </div>
                   <h2 className="mt-2 text-2xl font-semibold text-white">{selected.title}</h2>
                   <div className="mt-4 grid gap-3 sm:grid-cols-4">

@@ -209,7 +209,7 @@ export default async function GovernancePage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-400">
-                      {pretty(item.status)} Â· Assignment #{item.reviewAssignmentId ?? "N/A"}
+                      {pretty(item.status)} · Assignment #{item.reviewAssignmentId ?? "N/A"}
                     </p>
                   </a>
                 ))
@@ -248,7 +248,7 @@ export default async function GovernancePage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-400">
-                      {task.assignedTo || "Unassigned"} Â· Priority {task.priority ?? 0}
+                      {task.assignedTo || "Unassigned"} · Priority {task.priority ?? 0}
                     </p>
                   </a>
                 ))
@@ -287,7 +287,7 @@ export default async function GovernancePage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-400">
-                      {item.organizationName || "Organization"} Â· Assignment #{item.reviewAssignmentId ?? "N/A"}
+                      {item.organizationName || "Organization"} · Assignment #{item.reviewAssignmentId ?? "N/A"}
                     </p>
                   </a>
                 ))

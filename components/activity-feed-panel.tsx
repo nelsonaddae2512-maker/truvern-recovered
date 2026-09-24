@@ -33,7 +33,7 @@ function clsx(...parts: Array<string | false | null | undefined>) {
 
 function fmtWhen(iso: string) {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Ãƒ¢Ã¢€š¬Ã¢‚¬";
+  if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString(undefined, {
     year: "numeric",
     month: "short",
@@ -179,7 +179,7 @@ export default function ActivityFeedPanel(props: {
         ) : error ? (
           <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">{error}</div>
         ) : items.length === 0 && loading ? (
-          <div className="text-sm text-slate-200/70">Loading activityÃƒ¢Ã¢€š¬Ã‚¦</div>
+          <div className="text-sm text-slate-200/70">Loading activity…</div>
         ) : items.length === 0 ? (
           <div className="text-sm text-slate-200/70">No activity yet.</div>
         ) : (
@@ -235,7 +235,7 @@ export default function ActivityFeedPanel(props: {
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-white/10"
               disabled={loading}
             >
-              {loading ? "LoadingÃƒ¢Ã¢€š¬Ã‚¦" : "Load more"}
+              {loading ? "Loading…" : "Load more"}
             </button>
           ) : (
             <span className="text-xs text-slate-200/50">{items.length > 0 ? "End" : ""}</span>

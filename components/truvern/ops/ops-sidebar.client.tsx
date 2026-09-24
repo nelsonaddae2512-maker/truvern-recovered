@@ -142,7 +142,7 @@ export default function OpsSidebar() {
         onClick={() => setOpen(true)}
         className="fixed left-4 top-24 z-50 rounded-2xl border border-cyan-400/20 bg-[#020617]/90 p-3 text-cyan-100 shadow-xl backdrop-blur lg:hidden"
       >
-        Ã¢Ëœ°
+        ☰
       </button>
 
       {open ? (

@@ -50,7 +50,7 @@ const { prisma } = await import("@/lib/prisma");
     // Compute next state (toggle if not supplied)
     const nextState: boolean = hasState ? Boolean(body.state) : !Boolean(vendor.publicTrust);
 
-    // Update; if schema lacks publicTrust, this will throw Ãƒ¢Ã¢€š¬Ã¢‚¬ catch and soft return
+    // Update; if schema lacks publicTrust, this will throw; catch and soft return
     try {
       await prisma.vendor.update({
         where: { id: vendor.id },

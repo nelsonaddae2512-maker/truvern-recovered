@@ -55,8 +55,8 @@ describe("generate-findings canonical finding adapter", () => {
   });
 
   test("persists adapted findings to ReviewAssignment", () => {
-    expect(route).toContain(
-      "JSON.stringify(\n              canonicalFindings,",
+    expect(route).toMatch(
+      /findings:\s*JSON\.stringify\(\s*canonicalFindings,\s*null,\s*2,\s*\)/,
     );
   });
 

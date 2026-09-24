@@ -32,13 +32,13 @@ function safeInt(v: unknown) {
 }
 
 function safeStr(v: unknown) {
-  return typeof v === "string" && v.trim() ? v.trim() : "â€”";
+  return typeof v === "string" && v.trim() ? v.trim() : "—";
 }
 
 function dateLabel(v: Date | string | null) {
-  if (!v) return "â€”";
+  if (!v) return "—";
   const d = new Date(v);
-  return Number.isFinite(d.getTime()) ? d.toLocaleString() : "â€”";
+  return Number.isFinite(d.getTime()) ? d.toLocaleString() : "—";
 }
 
 function healthBadge(updatedAt: Date | string | null) {
@@ -207,7 +207,7 @@ export default async function TruvernOpsNetworkPage() {
                         {safeInt(row.availableCredits)} available
                       </p>
                       <p className="text-xs text-slate-500">
-                        {safeInt(row.reservedCredits)} reserved Â· {safeInt(row.consumedCredits)} consumed
+                        {safeInt(row.reservedCredits)} reserved · {safeInt(row.consumedCredits)} consumed
                       </p>
                     </div>
                   </td>

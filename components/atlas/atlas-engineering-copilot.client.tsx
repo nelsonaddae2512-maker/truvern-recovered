@@ -139,7 +139,7 @@ export default function AtlasEngineeringCopilot() {
   const debt = result?.mode === "DEBT" ? result : null;
 
   const confidence = useMemo(() => {
-    if (!plan) return "â€”";
+    if (!plan) return "—";
     return `${Math.round(plan.confidence * 100)}%`;
   }, [plan]);
 
@@ -191,7 +191,7 @@ export default function AtlasEngineeringCopilot() {
     <div>
       <header className="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.09] via-slate-950 to-indigo-400/[0.06] p-6 shadow-2xl shadow-cyan-950/20">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-          Truvern Operations Â· ATLAS-05A
+          Truvern Operations · ATLAS-05A
         </div>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Engineering Copilot
@@ -231,7 +231,7 @@ export default function AtlasEngineeringCopilot() {
                 onChange={(event) => setRequest(event.target.value)}
                 rows={3}
                 className="w-full resize-y rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/10"
-                placeholder="Describe the feature, patch, or architecture changeâ€¦"
+                placeholder="Describe the feature, patch, or architecture change…"
               />
               <div className="mt-3 flex flex-wrap gap-2">
                 {EXAMPLES.map((example) => (
@@ -262,7 +262,7 @@ export default function AtlasEngineeringCopilot() {
               className="rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
-                ? "Analyzing architectureâ€¦"
+                ? "Analyzing architecture…"
                 : mode === "DEBT"
                   ? "Analyze technical debt"
                   : mode === "REGRESSION"
@@ -504,7 +504,7 @@ export default function AtlasEngineeringCopilot() {
                     key={`${index}-${cycle.join("-")}`}
                     className="rounded-xl border border-rose-300/10 bg-rose-400/[0.04] px-3 py-3 text-xs leading-5 text-rose-100/80"
                   >
-                    {cycle.join(" â†’ ")}
+                    {cycle.join(" → ")}
                   </div>
                 ))}
               </div>

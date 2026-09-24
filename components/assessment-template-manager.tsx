@@ -397,7 +397,7 @@ export default function AssessmentTemplateManager({ initialTemplates }: Props) {
         </div>
 
         <button onClick={handleCreateTemplate} className="btn-primary w-full mb-3">
-          <span aria-hidden>ï¼‹</span>
+          <span aria-hidden>＋</span>
           <span>New template</span>
         </button>
 
@@ -577,7 +577,7 @@ export default function AssessmentTemplateManager({ initialTemplates }: Props) {
                     onClick={addSection}
                     className="btn-glass text-[11px] px-3 py-1.5 rounded-full"
                   >
-                    <span aria-hidden>ï¼‹</span>
+                    <span aria-hidden>＋</span>
                     <span>Section</span>
                   </button>
                   <button
@@ -766,7 +766,7 @@ export default function AssessmentTemplateManager({ initialTemplates }: Props) {
                           onClick={() => addQuestion(sIndex)}
                           className="btn-glass mt-1 text-[11px] px-2.5 py-1 rounded-full"
                         >
-                          <span aria-hidden>ï¼‹</span>
+                          <span aria-hidden>＋</span>
                           <span>Add question</span>
                         </button>
                       </div>

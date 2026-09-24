@@ -15,6 +15,7 @@ import { createAssessment, findFirstAssessment, updateManyAssessment,
 import {
   canLaunchGovernanceTemplate,
   governanceTemplateGateMessage,
+  isTruvernNist80053Template,
 } from "@/lib/governance/template-access";
 import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
 import { createNotification } from "@/lib/notifications/create-notification";
@@ -391,6 +392,18 @@ export async function POST(req: Request) {
                 code: "INVALID_TRUVERN_REVIEW_TEMPLATE",
                 error:
                   "The selected assessment template is unavailable or does not belong to your organization.",
+              },
+            };
+          }
+
+          if (!isTruvernNist80053Template(selectedTemplate)) {
+            return {
+              status: 400,
+              body: {
+                ok: false,
+                code: "INVALID_TRUVERN_REVIEW_TEMPLATE",
+                error:
+                  "Truvern Review requires the Truvern NIST 800-53 Governance Review questionnaire.",
               },
             };
           }

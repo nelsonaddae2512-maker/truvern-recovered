@@ -2756,7 +2756,7 @@ function GovernanceContextCard({
                 records.reviewAssignment.reviewer,
               ]
                 .filter(Boolean)
-                .join(" ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || undefined}
+                .join(" · ") || undefined}
               href={`/review-desk/${records.reviewAssignment.id}`}
             />
           ) : null}

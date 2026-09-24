@@ -52,7 +52,7 @@ export default function AtlasPatchGenerator() {
     <div>
       <header className="rounded-3xl border border-cyan-400/15 bg-slate-950 p-6">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-          Truvern Operations Â· ATLAS-08
+          Truvern Operations · ATLAS-08
         </div>
         <h1 className="mt-3 text-3xl font-semibold text-white">Intelligent Patch Generator</h1>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-400">
@@ -66,7 +66,7 @@ export default function AtlasPatchGenerator() {
           disabled={loading}
           className="mt-5 rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
         >
-          {loading ? "Generatingâ€¦" : "Regenerate patch queue"}
+          {loading ? "Generating…" : "Regenerate patch queue"}
         </button>
       </header>
 
@@ -103,7 +103,7 @@ export default function AtlasPatchGenerator() {
             {result.patches.map((patch) => (
               <article key={patch.id} className="rounded-3xl border border-white/10 bg-slate-950/75 p-5">
                 <div className="text-xs uppercase tracking-[0.16em] text-cyan-300">
-                  {patch.id} Â· Phase {patch.phase} Â· {patch.phaseLabel}
+                  {patch.id} · Phase {patch.phase} · {patch.phaseLabel}
                 </div>
                 <h2 className="mt-2 text-lg font-semibold text-white">{patch.title}</h2>
                 <p className="mt-2 text-sm text-slate-500">Source plan: {patch.sourcePlanId}</p>

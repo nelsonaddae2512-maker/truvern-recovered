@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import {
   requireGovernanceCapability,
+  requireReviewAssignmentAccess,
   requireReviewerAccess,
 } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
@@ -139,6 +140,12 @@ export async function GET(
       );
     }
 
+    if (pkg.reviewAssignmentId != null) {
+      await requireReviewAssignmentAccess(
+        pkg.reviewAssignmentId,
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       package: pkg,
@@ -209,6 +216,12 @@ export async function PATCH(
         {
           status: 403,
         },
+      );
+    }
+
+    if (pkg.reviewAssignmentId != null) {
+      await requireReviewAssignmentAccess(
+        pkg.reviewAssignmentId,
       );
     }
 

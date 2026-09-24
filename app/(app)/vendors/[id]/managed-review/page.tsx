@@ -212,7 +212,13 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
 
             <SendToTruvernManagedReview
               vendorId={vendor.id}
-              templates={truvernReviewTemplates.map((template) => ({
+              templates={truvernReviewTemplates
+                .filter(
+                  (template) =>
+                    template.name ===
+                    "Truvern NIST 800-53 Governance Review",
+                )
+                .map((template) => ({
                 id: template.id,
                 name: template.name,
                 description: template.description,

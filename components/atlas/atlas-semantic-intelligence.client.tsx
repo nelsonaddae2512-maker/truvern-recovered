@@ -76,7 +76,7 @@ export default function AtlasSemanticIntelligence() {
     <div>
       <header className="rounded-3xl border border-cyan-400/15 bg-slate-950 p-6">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-          Truvern Operations Â· ATLAS-10
+          Truvern Operations · ATLAS-10
         </div>
         <h1 className="mt-3 text-3xl font-semibold text-white">
           Semantic Repository Intelligence
@@ -92,7 +92,7 @@ export default function AtlasSemanticIntelligence() {
             onClick={() => void load(true)}
             className="rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
           >
-            {busy ? "Analyzingâ€¦" : "Refresh semantic map"}
+            {busy ? "Analyzing…" : "Refresh semantic map"}
           </button>
         </div>
       </header>
@@ -135,7 +135,7 @@ export default function AtlasSemanticIntelligence() {
                 >
                   <div className="font-semibold text-white">{item.name}</div>
                   <div className="mt-2 text-xs text-slate-500">
-                    {item.fileCount} files Â· {item.routeCount} routes Â· priority {item.totalTestPriority}
+                    {item.fileCount} files · {item.routeCount} routes · priority {item.totalTestPriority}
                   </div>
                 </button>
               ))}

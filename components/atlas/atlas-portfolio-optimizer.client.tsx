@@ -50,14 +50,14 @@ export default function AtlasPortfolioOptimizer() {
   return (
     <div>
       <header className="rounded-3xl border border-violet-400/15 bg-slate-950 p-6">
-        <div className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-300">Truvern Operations Â· ATLAS-07A</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-300">Truvern Operations · ATLAS-07A</div>
         <h1 className="mt-3 text-3xl font-semibold text-white">Refactoring Portfolio Optimizer</h1>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-400">
           Removes overlapping engineering effort, orders prerequisites, creates phased releases, and recommends the safest first plan.
         </p>
         <button type="button" onClick={() => void load()} disabled={loading}
           className="mt-5 rounded-xl bg-violet-300 px-5 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50">
-          {loading ? "Optimizingâ€¦" : "Regenerate portfolio"}
+          {loading ? "Optimizing…" : "Regenerate portfolio"}
         </button>
       </header>
 
@@ -85,10 +85,10 @@ export default function AtlasPortfolioOptimizer() {
             <section className="mt-5 rounded-3xl border border-emerald-300/15 bg-emerald-400/[0.05] p-5">
               <div className="text-xs uppercase tracking-[0.16em] text-emerald-300">Safest first plan</div>
               <h2 className="mt-2 text-xl font-semibold text-white">
-                {result.safestFirstPlan.id} Â· {result.safestFirstPlan.title}
+                {result.safestFirstPlan.id} · {result.safestFirstPlan.title}
               </h2>
               <p className="mt-2 text-sm text-slate-400">
-                {result.safestFirstPlan.risk} risk Â· {result.safestFirstPlan.effortHours}h Â· +{result.safestFirstPlan.estimatedScoreGain} score gain
+                {result.safestFirstPlan.risk} risk · {result.safestFirstPlan.effortHours}h · +{result.safestFirstPlan.estimatedScoreGain} score gain
               </p>
             </section>
           ) : null}

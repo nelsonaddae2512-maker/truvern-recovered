@@ -71,10 +71,10 @@ const isApiNoRedirectRoute = createRouteMatcher([
   // Authenticated by Svix/Resend signature verification,
   // not by a Clerk browser session.
   "/api/webhooks/resend",
-  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ canonical trust network export route
+  // canonical trust network export route
   "/api/trust-network-export(.*)",
 
-  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ legacy shim route must also not redirect (so it can 307 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ canonical)
+  // legacy shim route must also not redirect (so it can 307 -> canonical)
   "/api/trust-network/export(.*)",
 
   "/api/auth/(.*)",
@@ -83,7 +83,7 @@ const isApiNoRedirectRoute = createRouteMatcher([
 export default clerkMiddleware(async (authFn, req) => {
   const res = NextResponse.next();
 
-  // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ CRITICAL: always call authFn() so Clerk can hydrate request auth
+  // CRITICAL: always call authFn() so Clerk can hydrate request auth
   const a = await authFn();
 
   // Optional: lightweight dev-only marker (no identifiers)

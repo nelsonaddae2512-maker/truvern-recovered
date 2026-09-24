@@ -212,7 +212,7 @@ export default async function ReviewEngagementPage({ params }: Props) {
       <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
         <div className="mx-auto max-w-4xl">
           <Link href={`/vendors/${vendor.id}`} className="text-sm text-cyan-200">
-            â† Back to vendor
+            ← Back to vendor
           </Link>
 
           <section className="mt-8 rounded-[2rem] border border-cyan-400/20 bg-cyan-500/10 p-10 shadow-2xl shadow-cyan-950/40">
@@ -261,7 +261,7 @@ export default async function ReviewEngagementPage({ params }: Props) {
     <main className="min-h-screen bg-[#020617] px-6 py-10 text-white">
       <div className="mx-auto max-w-7xl">
         <Link href="/review-desk" className="text-sm text-cyan-200">
-          â† Back to Governance Ops
+          ← Back to Governance Ops
         </Link>
 
         <section className="mt-8 rounded-[2rem] border border-cyan-400/20 bg-cyan-500/10 p-8 shadow-2xl shadow-cyan-950/40">

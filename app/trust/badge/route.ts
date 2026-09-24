@@ -35,7 +35,7 @@ const { prisma } = await import("@/lib/prisma");
   try {
     const slug = (new URL(req.url).searchParams.get("slug") || "").trim().toLowerCase();
     if (!slug) {
-      const svg = svgBadge("Trust", "Ãƒ¢Ã¢€š¬Ã¢‚¬", "#6b7280");
+      const svg = svgBadge("Trust", "—", "#6b7280");
       return new Response(svg, { status: 200, headers: { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" } });
     }
 

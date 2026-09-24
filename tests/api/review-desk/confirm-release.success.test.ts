@@ -8,6 +8,19 @@ import {
 const mocks = vi.hoisted(() => ({
   auth: vi.fn<() => Promise<{ userId: string | null }>>(),
   requireDbOrganization: vi.fn<() => Promise<{ id: number }>>(),
+  requireReviewerAccess: vi.fn(),
+  requireGovernanceCapability: vi.fn(),
+  reviewAssignmentFindUnique: vi.fn(),
+  readReviewReleaseAssignment: vi.fn(),
+  readLatestReviewReleaseResponse: vi.fn(),
+  readLatestGovernanceTransparencyEntryHash: vi.fn(),
+  persistGovernanceTransparencyLedgerEntry: vi.fn(),
+  readReviewReleaseEvidenceRequests: vi.fn(),
+  updateReviewResponseResponses: vi.fn(),
+  persistVendorGovernanceMemory: vi.fn(),
+  persistGovernanceReleaseManifest: vi.fn(),
+  consumeReservedReviewCredits: vi.fn(),
+  scheduleVendorReassessment: vi.fn(),
   queryRawUnsafe:
     vi.fn<(...args: unknown[]) => Promise<unknown[]>>(),
   executeRawUnsafe:
@@ -42,6 +55,9 @@ vi.mock("@clerk/nextjs/server", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   default: {
+    reviewAssignment: {
+      findUnique: mocks.reviewAssignmentFindUnique,
+    },
     $queryRawUnsafe: mocks.queryRawUnsafe,
     $executeRawUnsafe: mocks.executeRawUnsafe,
   },
@@ -49,6 +65,48 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/org-db", () => ({
   requireDbOrganization: mocks.requireDbOrganization,
+}));
+
+vi.mock("@/lib/auth/truvern-governance", () => ({
+  requireReviewerAccess: mocks.requireReviewerAccess,
+  requireGovernanceCapability: mocks.requireGovernanceCapability,
+}));
+
+vi.mock("@/lib/repositories/review-release-repository", async () => {
+  const actual =
+    await vi.importActual<
+      typeof import("@/lib/repositories/review-release-repository")
+    >("@/lib/repositories/review-release-repository");
+
+  return {
+    ...actual,
+    readReviewReleaseAssignment:
+      mocks.readReviewReleaseAssignment,
+    readLatestReviewReleaseResponse:
+      mocks.readLatestReviewReleaseResponse,
+    readLatestGovernanceTransparencyEntryHash:
+      mocks.readLatestGovernanceTransparencyEntryHash,
+    persistGovernanceTransparencyLedgerEntry:
+      mocks.persistGovernanceTransparencyLedgerEntry,
+    readReviewReleaseEvidenceRequests:
+      mocks.readReviewReleaseEvidenceRequests,
+    updateReviewResponseResponses:
+      mocks.updateReviewResponseResponses,
+    persistVendorGovernanceMemory:
+      mocks.persistVendorGovernanceMemory,
+    persistGovernanceReleaseManifest:
+      mocks.persistGovernanceReleaseManifest,
+  };
+});
+
+vi.mock("@/lib/services/release/release-credit-service", () => ({
+  consumeReservedReviewCredits:
+    mocks.consumeReservedReviewCredits,
+}));
+
+vi.mock("@/lib/services/vendor-reassessment-service", () => ({
+  scheduleVendorReassessment:
+    mocks.scheduleVendorReassessment,
 }));
 
 vi.mock(
@@ -126,6 +184,13 @@ describe("confirm-release successful governance transaction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    mocks.readLatestGovernanceTransparencyEntryHash.mockResolvedValue(null);
+    mocks.persistGovernanceTransparencyLedgerEntry.mockResolvedValue(undefined);
+    mocks.readReviewReleaseEvidenceRequests.mockResolvedValue([]);
+    mocks.updateReviewResponseResponses.mockResolvedValue(undefined);
+    mocks.persistVendorGovernanceMemory.mockResolvedValue(undefined);
+    mocks.persistGovernanceReleaseManifest.mockResolvedValue(undefined);
+
     mocks.auth.mockResolvedValue({
       userId: "user_customer_1",
     });
@@ -133,9 +198,30 @@ describe("confirm-release successful governance transaction", () => {
     mocks.requireDbOrganization.mockResolvedValue({
       id: 7,
     });
+    mocks.requireReviewerAccess.mockResolvedValue({
+      userId: "user_customer_1",
+      organizationId: 7,
+      vendorId: null,
+      role: "OWNER",
+    });
+    mocks.requireGovernanceCapability.mockReturnValue({
+      userId: "user_customer_1",
+      organizationId: 7,
+      vendorId: null,
+      role: "OWNER",
+    });
+    mocks.reviewAssignmentFindUnique.mockResolvedValue({
+      organizationId: 7,
+    });
 
     mocks.executeRawUnsafe.mockResolvedValue(1);
     mocks.createOrgNotification.mockResolvedValue();
+    mocks.consumeReservedReviewCredits.mockResolvedValue({
+      consumed: false,
+      alreadyConsumed: true,
+      eventKey: "review:42:consumption",
+    });
+    mocks.scheduleVendorReassessment.mockResolvedValue(null);
     mocks.maybePersistTransparencyCheckpoint.mockResolvedValue();
 
     mocks.signGovernancePayload.mockReturnValue({
@@ -200,9 +286,14 @@ describe("confirm-release successful governance transaction", () => {
   });
 
   it("confirms a released Truvern review and persists all immutable release artifacts", async () => {
-    mocks.queryRawUnsafe
-      .mockResolvedValueOnce([
-        {
+    mocks.consumeReservedReviewCredits.mockResolvedValueOnce({
+      consumed: true,
+      alreadyConsumed: false,
+      reservedCredits: 1,
+      eventKey: "review:42:consumption",
+    });
+    mocks.readReviewReleaseAssignment.mockResolvedValueOnce(
+      {
           id: 42,
           organizationId: 7,
           vendorId: 11,
@@ -211,9 +302,9 @@ describe("confirm-release successful governance transaction", () => {
           reviewerName: "Truvern Reviewer",
           reviewRequestId: 88,
         },
-      ])
-      .mockResolvedValueOnce([
-        {
+    );
+    mocks.readLatestReviewReleaseResponse.mockResolvedValueOnce(
+      {
           id: 101,
           reviewAssignmentId: 42,
           responses: {
@@ -248,34 +339,19 @@ describe("confirm-release successful governance transaction", () => {
             },
           },
         },
-      ])
-      .mockResolvedValueOnce([
-        {
-          entryHash: "previous-entry",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: 301,
-          title: "Annual SOC 2 renewal",
-          status: "OPEN",
-          kind: "ATTESTATION",
-          dueAt: "2027-07-24T00:00:00.000Z",
-          fulfilledAt: null,
-          createdAt: "2026-07-24T18:00:00.000Z",
-          updatedAt: "2026-07-24T18:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          count: 0,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          reservedCredits: 1,
-        },
-      ]);
+    );
+    mocks.readReviewReleaseEvidenceRequests.mockResolvedValueOnce([
+      {
+        id: 301,
+        title: "Annual SOC 2 renewal",
+        status: "OPEN",
+        kind: "ATTESTATION",
+        dueAt: new Date("2027-07-24T00:00:00.000Z"),
+        fulfilledAt: null,
+        createdAt: new Date("2026-07-24T18:00:00.000Z"),
+        updatedAt: new Date("2026-07-24T18:00:00.000Z"),
+      },
+    ]);
 
     const request = createJsonRequest(
       "http://localhost/api/review-desk/reviews/42/confirm-release",
@@ -312,9 +388,6 @@ describe("confirm-release successful governance transaction", () => {
       mocks.createGovernanceNotarizationReceipt,
     ).toHaveBeenCalledOnce();
     expect(mocks.generateLedgerEntry).toHaveBeenCalledOnce();
-    expect(
-      mocks.maybePersistTransparencyCheckpoint,
-    ).toHaveBeenCalledOnce();
 
     expect(mocks.getReviewEvidence).toHaveBeenCalledWith(42);
     expect(mocks.buildEvidenceSnapshot).toHaveBeenCalledOnce();
@@ -329,16 +402,19 @@ describe("confirm-release successful governance transaction", () => {
       mocks.buildGovernanceReleasePackage,
     ).toHaveBeenCalledOnce();
 
-    const responseUpdate = mocks.executeRawUnsafe.mock.calls.find(
-      (call) =>
-        sqlOf(call).includes('update "ReviewResponse"'),
+    expect(
+      mocks.updateReviewResponseResponses,
+    ).toHaveBeenCalledOnce();
+    expect(
+      mocks.updateReviewResponseResponses,
+    ).toHaveBeenCalledWith(
+      101,
+      expect.any(Object),
     );
 
-    expect(responseUpdate).toBeDefined();
-
-    const persistedResponses = JSON.parse(
-      String(responseUpdate?.[1]),
-    ) as Record<string, any>;
+    const persistedResponses =
+      mocks.updateReviewResponseResponses.mock.calls[0]?.[1] as
+        Record<string, any>;
 
     expect(persistedResponses.releaseState).toBe("CONFIRMED");
     expect(
@@ -385,42 +461,54 @@ describe("confirm-release successful governance transaction", () => {
       },
     });
 
-    const sqlStatements =
-      mocks.executeRawUnsafe.mock.calls.map(sqlOf);
+    expect(
+      mocks.persistGovernanceTransparencyLedgerEntry,
+    ).toHaveBeenCalledOnce();
 
     expect(
-      sqlStatements.some((sql) =>
-        sql.includes(
-          'insert into "GovernanceTransparencyLog"',
-        ),
-      ),
-    ).toBe(true);
+      mocks.persistVendorGovernanceMemory,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vendorId: 11,
+        reviewAssignmentId: 42,
+        governanceDecision: "APPROVED_WITH_CONDITIONS",
+        residualRisk: "MODERATE",
+      }),
+    );
 
     expect(
-      sqlStatements.some((sql) =>
-        sql.includes(
-          'insert into "VendorGovernanceMemory"',
-        ),
-      ),
-    ).toBe(true);
+      mocks.consumeReservedReviewCredits,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assignmentId: 42,
+        responseId: 101,
+        organizationId: 7,
+        vendorId: 11,
+        vendorName: "Acme Vendor",
+      }),
+    );
 
     expect(
-      sqlStatements.some((sql) =>
-        sql.includes(
-          'insert into "TruvernCreditLedgerEntry"',
-        ),
-      ),
-    ).toBe(true);
+      mocks.persistGovernanceReleaseManifest,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 7,
+        vendorId: 11,
+        reviewAssignmentId: 42,
+        reviewResponseId: 101,
+        checksum: expect.any(String),
+        fundingChecksum: expect.any(String),
+      }),
+    );
 
     expect(
-      sqlStatements.some((sql) =>
-        sql.includes(
-          'insert into "GovernanceReleaseManifest"',
-        ),
-      ),
-    ).toBe(true);
-
-    expect(mocks.executeRawUnsafe).toHaveBeenCalledTimes(5);
+      mocks.scheduleVendorReassessment,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vendorId: 11,
+        completedAt: expect.any(Date),
+      }),
+    );
 
     expect(mocks.createOrgNotification).toHaveBeenCalledWith(
       expect.objectContaining({

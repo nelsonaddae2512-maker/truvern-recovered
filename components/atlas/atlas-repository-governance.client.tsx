@@ -156,7 +156,7 @@ export default function AtlasRepositoryGovernance() {
     <div>
       <header className="rounded-3xl border border-violet-400/15 bg-gradient-to-br from-violet-400/[0.09] via-slate-950 to-cyan-400/[0.05] p-6 shadow-2xl shadow-violet-950/20">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-300">
-          Truvern Operations Â· ATLAS-06B.1
+          Truvern Operations · ATLAS-06B.1
         </div>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Governance Intelligence
@@ -173,7 +173,7 @@ export default function AtlasRepositoryGovernance() {
             disabled={loading}
             className="rounded-xl bg-violet-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-violet-300 disabled:opacity-50"
           >
-            {loading ? "Evaluatingâ€¦" : "Refresh assessment"}
+            {loading ? "Evaluating…" : "Refresh assessment"}
           </button>
         </div>
       </header>
@@ -229,7 +229,7 @@ export default function AtlasRepositoryGovernance() {
                     {component.score}<span className="text-sm text-slate-500">/{component.weight}</span>
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    âˆ’{component.deduction} points Â· {component.findingCount} findings
+                    −{component.deduction} points · {component.findingCount} findings
                   </p>
                 </article>
               ))}
@@ -240,7 +240,7 @@ export default function AtlasRepositoryGovernance() {
             <section className="mt-5 rounded-2xl border border-rose-300/20 bg-rose-400/[0.07] p-5">
               <h2 className="font-semibold text-rose-100">Enforcement blockers</h2>
               <ul className="mt-3 space-y-2 text-sm text-rose-100/80">
-                {result.blockingReasons.map((reason) => <li key={reason}>â€¢ {reason}</li>)}
+                {result.blockingReasons.map((reason) => <li key={reason}>• {reason}</li>)}
               </ul>
             </section>
           ) : null}
@@ -269,7 +269,7 @@ export default function AtlasRepositoryGovernance() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                          #{index + 1} Â· {cause.ruleId}
+                          #{index + 1} · {cause.ruleId}
                         </div>
                         <h3 className="mt-2 font-semibold text-white">{cause.title}</h3>
                       </div>
@@ -317,7 +317,7 @@ export default function AtlasRepositoryGovernance() {
                     {result.recommendations.slice(0, 8).map((item, index) => (
                       <article key={`${item.ruleId}-${index}`} className="rounded-xl bg-slate-950/55 p-3">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs font-semibold text-slate-500">#{index + 1} Â· {item.ruleId}</span>
+                          <span className="text-xs font-semibold text-slate-500">#{index + 1} · {item.ruleId}</span>
                           <span className="text-xs font-semibold text-emerald-200">+{item.estimatedScoreGain}</span>
                         </div>
                         <h4 className="mt-2 text-sm font-semibold text-white">{item.title}</h4>
@@ -365,7 +365,7 @@ export default function AtlasRepositoryGovernance() {
         </>
       ) : loading ? (
         <section className="mt-5 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center text-sm text-slate-500">
-          Calibrating repository governanceâ€¦
+          Calibrating repository governance…
         </section>
       ) : null}
     </div>

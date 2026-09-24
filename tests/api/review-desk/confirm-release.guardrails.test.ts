@@ -8,6 +8,19 @@ import {
 const mocks = vi.hoisted(() => ({
   auth: vi.fn<() => Promise<{ userId: string | null }>>(),
   requireDbOrganization: vi.fn<() => Promise<{ id: number }>>(),
+  requireReviewerAccess: vi.fn(),
+  requireGovernanceCapability: vi.fn(),
+  reviewAssignmentFindUnique: vi.fn(),
+  readReviewReleaseAssignment: vi.fn(),
+  readLatestReviewReleaseResponse: vi.fn(),
+  readLatestGovernanceTransparencyEntryHash: vi.fn(),
+  persistGovernanceTransparencyLedgerEntry: vi.fn(),
+  readReviewReleaseEvidenceRequests: vi.fn(),
+  updateReviewResponseResponses: vi.fn(),
+  persistVendorGovernanceMemory: vi.fn(),
+  persistGovernanceReleaseManifest: vi.fn(),
+  consumeReservedReviewCredits: vi.fn(),
+  scheduleVendorReassessment: vi.fn(),
   queryRawUnsafe:
     vi.fn<(...args: unknown[]) => Promise<unknown[]>>(),
   executeRawUnsafe:
@@ -42,6 +55,9 @@ vi.mock("@clerk/nextjs/server", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   default: {
+    reviewAssignment: {
+      findUnique: mocks.reviewAssignmentFindUnique,
+    },
     $queryRawUnsafe: mocks.queryRawUnsafe,
     $executeRawUnsafe: mocks.executeRawUnsafe,
   },
@@ -49,6 +65,48 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/org-db", () => ({
   requireDbOrganization: mocks.requireDbOrganization,
+}));
+
+vi.mock("@/lib/auth/truvern-governance", () => ({
+  requireReviewerAccess: mocks.requireReviewerAccess,
+  requireGovernanceCapability: mocks.requireGovernanceCapability,
+}));
+
+vi.mock("@/lib/repositories/review-release-repository", async () => {
+  const actual =
+    await vi.importActual<
+      typeof import("@/lib/repositories/review-release-repository")
+    >("@/lib/repositories/review-release-repository");
+
+  return {
+    ...actual,
+    readReviewReleaseAssignment:
+      mocks.readReviewReleaseAssignment,
+    readLatestReviewReleaseResponse:
+      mocks.readLatestReviewReleaseResponse,
+    readLatestGovernanceTransparencyEntryHash:
+      mocks.readLatestGovernanceTransparencyEntryHash,
+    persistGovernanceTransparencyLedgerEntry:
+      mocks.persistGovernanceTransparencyLedgerEntry,
+    readReviewReleaseEvidenceRequests:
+      mocks.readReviewReleaseEvidenceRequests,
+    updateReviewResponseResponses:
+      mocks.updateReviewResponseResponses,
+    persistVendorGovernanceMemory:
+      mocks.persistVendorGovernanceMemory,
+    persistGovernanceReleaseManifest:
+      mocks.persistGovernanceReleaseManifest,
+  };
+});
+
+vi.mock("@/lib/services/release/release-credit-service", () => ({
+  consumeReservedReviewCredits:
+    mocks.consumeReservedReviewCredits,
+}));
+
+vi.mock("@/lib/services/vendor-reassessment-service", () => ({
+  scheduleVendorReassessment:
+    mocks.scheduleVendorReassessment,
 }));
 
 vi.mock(
@@ -161,6 +219,13 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    mocks.readLatestGovernanceTransparencyEntryHash.mockResolvedValue(null);
+    mocks.persistGovernanceTransparencyLedgerEntry.mockResolvedValue(undefined);
+    mocks.readReviewReleaseEvidenceRequests.mockResolvedValue([]);
+    mocks.updateReviewResponseResponses.mockResolvedValue(undefined);
+    mocks.persistVendorGovernanceMemory.mockResolvedValue(undefined);
+    mocks.persistGovernanceReleaseManifest.mockResolvedValue(undefined);
+
     mocks.auth.mockResolvedValue({
       userId: "user_test_1",
     });
@@ -168,11 +233,38 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
     mocks.requireDbOrganization.mockResolvedValue({
       id: 7,
     });
+    mocks.requireReviewerAccess.mockResolvedValue({
+      userId: "user_test_1",
+      organizationId: 7,
+      vendorId: null,
+      role: "OWNER",
+    });
+    mocks.requireGovernanceCapability.mockReturnValue({
+      userId: "user_test_1",
+      organizationId: 7,
+      vendorId: null,
+      role: "OWNER",
+    });
+    mocks.reviewAssignmentFindUnique.mockResolvedValue({
+      organizationId: 7,
+    });
 
+    mocks.readReviewReleaseAssignment.mockResolvedValue(
+      assignment(),
+    );
+    mocks.readLatestReviewReleaseResponse.mockResolvedValue(
+      responseRow({}),
+    );
     mocks.queryRawUnsafe.mockResolvedValue([]);
     mocks.executeRawUnsafe.mockResolvedValue(1);
     mocks.getReviewEvidence.mockResolvedValue([]);
     mocks.createOrgNotification.mockResolvedValue();
+    mocks.consumeReservedReviewCredits.mockResolvedValue({
+      consumed: false,
+      alreadyConsumed: true,
+      eventKey: "review:42:consumption",
+    });
+    mocks.scheduleVendorReassessment.mockResolvedValue(null);
     mocks.maybePersistTransparencyCheckpoint.mockResolvedValue();
   });
 
@@ -196,10 +288,10 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
     expect(mocks.queryRawUnsafe).not.toHaveBeenCalled();
   });
 
-  it("returns 403 when no database organization is available", async () => {
-    mocks.requireDbOrganization.mockRejectedValue(
-      new Error("Organization not found"),
-    );
+  it("returns 403 when the caller lacks release authority", async () => {
+    mocks.requireGovernanceCapability.mockImplementation(() => {
+      throw new Error("Release authority required");
+    });
 
     const result = await POST(request(), context());
     const body = await readJsonResponse<ErrorBody>(result);
@@ -207,8 +299,17 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
     expect(result.status).toBe(403);
     expect(body).toEqual({
       ok: false,
-      error: "Organization required",
+      error: "Release authority required",
     });
+    expect(
+      mocks.requireGovernanceCapability,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 7,
+        role: "OWNER",
+      }),
+      "report.release",
+    );
     expect(mocks.queryRawUnsafe).not.toHaveBeenCalled();
   });
 
@@ -242,7 +343,7 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
   });
 
   it("returns 404 when the review assignment does not exist", async () => {
-    mocks.queryRawUnsafe.mockResolvedValueOnce([]);
+    mocks.readReviewReleaseAssignment.mockResolvedValueOnce(null);
 
     const result = await POST(request(), context());
     const body = await readJsonResponse<ErrorBody>(result);
@@ -252,14 +353,19 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
       ok: false,
       error: "Review assignment not found.",
     });
-    expect(mocks.queryRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.readReviewReleaseAssignment,
+    ).toHaveBeenCalledWith(42);
+    expect(
+      mocks.readLatestReviewReleaseResponse,
+    ).not.toHaveBeenCalled();
     expect(mocks.executeRawUnsafe).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the review response does not exist", async () => {
-    mocks.queryRawUnsafe
-      .mockResolvedValueOnce([assignment()])
-      .mockResolvedValueOnce([]);
+    mocks.readLatestReviewReleaseResponse.mockResolvedValueOnce(
+      null,
+    );
 
     const result = await POST(request(), context());
     const body = await readJsonResponse<ErrorBody>(result);
@@ -269,18 +375,22 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
       ok: false,
       error: "Review response not found.",
     });
-    expect(mocks.queryRawUnsafe).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.readReviewReleaseAssignment,
+    ).toHaveBeenCalledWith(42);
+    expect(
+      mocks.readLatestReviewReleaseResponse,
+    ).toHaveBeenCalledWith(42);
     expect(mocks.executeRawUnsafe).not.toHaveBeenCalled();
   });
 
   it("rejects unsupported review assignment types", async () => {
-    mocks.queryRawUnsafe
-      .mockResolvedValueOnce([
-        assignment({ assignmentType: "EXTERNAL" }),
-      ])
-      .mockResolvedValueOnce([
-        responseRow({ releaseState: "RELEASED" }),
-      ]);
+    mocks.readReviewReleaseAssignment.mockResolvedValueOnce(
+      assignment({ assignmentType: "EXTERNAL" }),
+    );
+    mocks.readLatestReviewReleaseResponse.mockResolvedValueOnce(
+      responseRow({ releaseState: "RELEASED" }),
+    );
 
     const result = await POST(request(), context());
     const body = await readJsonResponse<ErrorBody>(result);
@@ -294,11 +404,12 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
   });
 
   it("rejects an outcome that has not reached RELEASED state", async () => {
-    mocks.queryRawUnsafe
-      .mockResolvedValueOnce([assignment()])
-      .mockResolvedValueOnce([
-        responseRow({ releaseState: "IN_REVIEW" }),
-      ]);
+    mocks.readReviewReleaseAssignment.mockResolvedValueOnce(
+      assignment(),
+    );
+    mocks.readLatestReviewReleaseResponse.mockResolvedValueOnce(
+      responseRow({ releaseState: "IN_REVIEW" }),
+    );
 
     const result = await POST(request(), context());
     const body = await readJsonResponse<ErrorBody>(result);
@@ -314,10 +425,11 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
   it("returns a safe idempotent success for an already sealed confirmation", async () => {
     const checksum = "ABC123SEALED";
 
-    mocks.queryRawUnsafe
-      .mockResolvedValueOnce([assignment()])
-      .mockResolvedValueOnce([
-        responseRow({
+    mocks.readReviewReleaseAssignment.mockResolvedValueOnce(
+      assignment(),
+    );
+    mocks.readLatestReviewReleaseResponse.mockResolvedValueOnce(
+      responseRow({
           releaseState: "CONFIRMED",
           governanceReleaseSnapshot: {
             governanceSeal: {
@@ -331,8 +443,7 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
             },
           },
         }),
-      ])
-      .mockResolvedValueOnce([{ count: 1 }]);
+    );
 
     const result = await POST(request(), context());
     const body = await readJsonResponse<SuccessBody>(result);
@@ -348,20 +459,20 @@ describe("POST /api/review-desk/reviews/[id]/confirm-release", () => {
       eventKey: "review:42:consumption",
     });
 
-    expect(mocks.queryRawUnsafe).toHaveBeenCalledTimes(3);
     expect(mocks.executeRawUnsafe).not.toHaveBeenCalled();
     expect(mocks.createOrgNotification).not.toHaveBeenCalled();
   });
 
   it("rejects a confirmed record that has no recoverable checksum", async () => {
-    mocks.queryRawUnsafe
-      .mockResolvedValueOnce([assignment()])
-      .mockResolvedValueOnce([
-        responseRow({
-          releaseState: "CONFIRMED",
-          governanceSeal: {},
-        }),
-      ]);
+    mocks.readReviewReleaseAssignment.mockResolvedValueOnce(
+      assignment(),
+    );
+    mocks.readLatestReviewReleaseResponse.mockResolvedValueOnce(
+      responseRow({
+        releaseState: "CONFIRMED",
+        governanceSeal: {},
+      }),
+    );
 
     const result = await POST(request(), context());
     const body = await readJsonResponse<ErrorBody>(result);

@@ -188,9 +188,9 @@ export async function GET(req: Request) {
                   const created = a.createdAt ? new Date(String(a.createdAt)) : null;
                   return `<tr>
                     <td>${esc(String(a.title ?? "Alert"))}</td>
-                    <td>${esc(String(a.vendor?.name ?? a.vendorId ?? "ï¿½"))}</td>
-                    <td><span class="pill ${sevCls}">${esc(sev || "ï¿½")}</span></td>
-                    <td class="muted">${esc(created ? fmtDate(created) : "ï¿½")}</td>
+                    <td>${esc(String(a.vendor?.name ?? a.vendorId ?? "N/A"))}</td>
+                    <td><span class="pill ${sevCls}">${esc(sev || "N/A")}</span></td>
+                    <td class="muted">${esc(created ? fmtDate(created) : "N/A")}</td>
                   </tr>`;
                 })
                 .join("")}
@@ -226,7 +226,7 @@ export async function GET(req: Request) {
 
             const scorePill =
               score === null
-                ? `<span class="pill muted">Score ï¿½</span>`
+                ? `<span class="pill muted">Score N/A</span>`
                 : score >= 80
                   ? `<span class="pill bad">Risk ${Math.round(score)}</span>`
                   : score >= 50
@@ -238,16 +238,16 @@ export async function GET(req: Request) {
                 <div><strong>${esc(v.name)}</strong></div>
                 <div class="sub mono">/vendors/${v.id}</div>
               </td>
-              <td>${esc(v.category ?? "ï¿½")}</td>
-              <td>${esc(String((v.tier as any) ?? v.criticality ?? "ï¿½"))}</td>
+              <td>${esc(v.category ?? "N/A")}</td>
+              <td>${esc(String((v.tier as any) ?? v.criticality ?? "N/A"))}</td>
               <td>
                 <div>${badge} ${scorePill}</div>
                 <div class="sub">Updated ${esc(when)}</div>
               </td>
               <td class="muted">
-                Evidence: ${esc(String(v._count.evidence))} ï¿½
-                Requests: ${esc(String(v._count.evidenceRequests))} ï¿½
-                Issues: ${esc(String(v._count.issues))} ï¿½
+                Evidence: ${esc(String(v._count.evidence))} ·
+                Requests: ${esc(String(v._count.evidenceRequests))} ·
+                Issues: ${esc(String(v._count.issues))} ·
                 Assessments: ${esc(String(v._count.assessments))}
               </td>
             </tr>`;

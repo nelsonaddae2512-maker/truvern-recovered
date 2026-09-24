@@ -230,7 +230,7 @@ export default async function TruvernOpsFundingPage() {
                     </td>
 
                     <td className="px-5 py-4 text-slate-300">
-                      {safeStr(org.slug) || "Ã¢‚¬€"}
+                      {safeStr(org.slug) || "—"}
                     </td>
 
                     <td className="px-5 py-4 text-slate-200">

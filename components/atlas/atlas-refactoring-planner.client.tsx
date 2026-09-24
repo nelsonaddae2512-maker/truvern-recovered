@@ -123,7 +123,7 @@ export default function AtlasRefactoringPlanner() {
     <div>
       <header className="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.08] via-slate-950 to-violet-400/[0.06] p-6">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-          Truvern Operations Â· ATLAS-07
+          Truvern Operations · ATLAS-07
         </div>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Intelligent Refactoring Planner
@@ -140,7 +140,7 @@ export default function AtlasRefactoringPlanner() {
             disabled={loading}
             className="rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:opacity-50"
           >
-            {loading ? "Planningâ€¦" : "Regenerate plans"}
+            {loading ? "Planning…" : "Regenerate plans"}
           </button>
         </div>
       </header>
@@ -192,7 +192,7 @@ export default function AtlasRefactoringPlanner() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                          {plan.id} Â· Priority {plan.priority}
+                          {plan.id} · Priority {plan.priority}
                         </div>
                         <h3 className="mt-2 text-sm font-semibold text-white">{plan.title}</h3>
                       </div>
@@ -225,11 +225,11 @@ export default function AtlasRefactoringPlanner() {
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">
-                        {selected.id} Â· {selected.ruleId}
+                        {selected.id} · {selected.ruleId}
                       </div>
                       <h2 className="mt-2 text-2xl font-semibold text-white">{selected.title}</h2>
                       <p className="mt-2 text-sm text-slate-400">
-                        Owner: {selected.recommendedOwner} Â· Area: {selected.ownershipArea}
+                        Owner: {selected.recommendedOwner} · Area: {selected.ownershipArea}
                       </p>
                     </div>
                     <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${riskClass(selected.regressionRisk.level)}`}>
@@ -307,7 +307,7 @@ export default function AtlasRefactoringPlanner() {
         </>
       ) : loading ? (
         <section className="mt-5 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center text-sm text-slate-500">
-          Building refactoring plansâ€¦
+          Building refactoring plans…
         </section>
       ) : null}
     </div>

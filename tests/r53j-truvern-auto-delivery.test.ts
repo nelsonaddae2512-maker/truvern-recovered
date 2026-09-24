@@ -181,7 +181,7 @@ describe(
 
         const truvernOwnershipUpdate =
           source.match(
-            /update "ReviewAssignment"\s+set "reviewerName" = 'Truvern Review Team',\s+"assignedReviewerName" = 'Truvern Review Team',\s+"assignedTo" = 'Truvern Review Team'\s+where id = \$\{assignment\.id\}/,
+            /await updateReviewAssignment\(\s*\{\s*where:\s*\{\s*id:\s*assignment\.id,\s*\},\s*data:\s*\{\s*reviewerName:\s*"Truvern Review Team",\s*assignedReviewerName:\s*"Truvern Review Team",\s*assignedTo:\s*"Truvern Review Team",\s*\},\s*\},\s*tx,\s*\);/,
           );
 
         expect(truvernOwnershipUpdate).not.toBeNull();
@@ -189,7 +189,7 @@ describe(
         expect(
           truvernOwnershipUpdate?.[0],
         ).not.toContain(
-          '"startedAt"',
+          "startedAt",
         );
       },
     );

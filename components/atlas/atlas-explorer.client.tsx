@@ -626,13 +626,13 @@ export default function AtlasExplorer() {
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-              Truvern Operations Â· ATLAS
+              Truvern Operations · ATLAS
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               Interactive Architecture Explorer
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400 sm:text-base">
-              Navigate Truvernâ€™s architecture, trace dependency paths, simulate
+              Navigate Truvern’s architecture, trace dependency paths, simulate
               change impact, and expose hidden coupling before implementation.
             </p>
           </div>
@@ -643,7 +643,7 @@ export default function AtlasExplorer() {
             disabled={loading}
             className="inline-flex items-center justify-center rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "Refreshingâ€¦" : "Refresh graph"}
+            {loading ? "Refreshing…" : "Refresh graph"}
           </button>
         </div>
 
@@ -667,7 +667,7 @@ export default function AtlasExplorer() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search feature, page, component, API, model, pathâ€¦"
+              placeholder="Search feature, page, component, API, model, path…"
               className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.035] px-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/10"
             />
           </label>
@@ -740,7 +740,7 @@ export default function AtlasExplorer() {
             <div>
               <h2 className="font-semibold text-white">Dependency canvas</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Drag to pan Â· scroll to zoom Â· +/âˆ’ zoom Â· 0 fit Â· C center
+                Drag to pan · scroll to zoom · +/− zoom · 0 fit · C center
               </p>
             </div>
 
@@ -783,7 +783,7 @@ export default function AtlasExplorer() {
                 className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-slate-200"
                 aria-label="Zoom out"
               >
-                âˆ’
+                −
               </button>
               <button
                 type="button"
@@ -816,7 +816,7 @@ export default function AtlasExplorer() {
                   .filter((node) => node.id !== selectedNode?.id)
                   .map((node) => (
                     <option key={node.id} value={node.id}>
-                      {nodeTypeLabel(node.type)} Â· {node.label}
+                      {nodeTypeLabel(node.type)} · {node.label}
                     </option>
                   ))}
               </select>
@@ -841,7 +841,7 @@ export default function AtlasExplorer() {
           >
             {loading ? (
               <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                Loading architecture graphâ€¦
+                Loading architecture graph…
               </div>
             ) : visibleNodes.length ? (
               <>
@@ -1016,7 +1016,7 @@ export default function AtlasExplorer() {
                 </div>
 
                 <div className="absolute bottom-4 left-4 rounded-xl border border-white/10 bg-slate-950/90 px-3 py-2 text-xs text-slate-400">
-                  Zoom {Math.round(viewport.scale * 100)}% Â·{" "}
+                  Zoom {Math.round(viewport.scale * 100)}% ·{" "}
                   {visibleEdges.length} edges
                 </div>
               </>
@@ -1185,12 +1185,12 @@ export default function AtlasExplorer() {
                 <span className="text-right text-slate-300">
                   {graph?.generatedAt
                     ? new Date(graph.generatedAt).toLocaleString()
-                    : "â€”"}
+                    : "—"}
                 </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span>Version</span>
-                <span className="text-slate-300">{graph?.version ?? "â€”"}</span>
+                <span className="text-slate-300">{graph?.version ?? "—"}</span>
               </div>
             </div>
           </section>

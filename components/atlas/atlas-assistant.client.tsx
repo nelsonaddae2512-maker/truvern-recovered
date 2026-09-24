@@ -160,7 +160,7 @@ export default function AtlasAssistant() {
   const [failure, setFailure] = useState<string | null>(null);
 
   const confidenceLabel = useMemo(() => {
-    if (!result) return "â€”";
+    if (!result) return "—";
     if (result.confidence >= 0.8) return "High";
     if (result.confidence >= 0.45) return "Moderate";
     return "Low";
@@ -214,13 +214,13 @@ export default function AtlasAssistant() {
     <div>
       <header className="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.09] via-slate-950 to-indigo-400/[0.06] p-6 shadow-2xl shadow-cyan-950/20">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-          Truvern Operations Â· ATLAS-04A
+          Truvern Operations · ATLAS-04A
         </div>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Architecture Assistant
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400 sm:text-base">
-          Ask natural-language questions about Truvernâ€™s architecture. Every
+          Ask natural-language questions about Truvern’s architecture. Every
           answer is grounded in the generated dependency graph and includes
           inspectable architecture evidence.
         </p>
@@ -230,7 +230,7 @@ export default function AtlasAssistant() {
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             rows={3}
-            placeholder="Ask what implements a feature, what depends on a model, or what a proposed change could affectâ€¦"
+            placeholder="Ask what implements a feature, what depends on a model, or what a proposed change could affect…"
             className="w-full resize-y rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/10"
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -251,7 +251,7 @@ export default function AtlasAssistant() {
               disabled={loading || !question.trim()}
               className="rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Analyzing graphâ€¦" : "Ask ATLAS"}
+              {loading ? "Analyzing graph…" : "Ask ATLAS"}
             </button>
           </div>
         </form>
@@ -335,7 +335,7 @@ export default function AtlasAssistant() {
                           {node.label}
                         </div>
                         <div className="mt-1 truncate text-xs text-slate-500">
-                          {nodeTypeLabel(node.type)} Â· {node.id}
+                          {nodeTypeLabel(node.type)} · {node.id}
                         </div>
                       </div>
                       <span className="shrink-0 text-xs font-semibold text-amber-200">

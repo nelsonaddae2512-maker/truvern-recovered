@@ -385,7 +385,7 @@ function relativeTime(value?: string | number | Date | null) {
           <h2 className="text-lg font-bold">Conditions & follow-ups</h2>
           <ul className="mt-4 space-y-2 text-slate-700">
             {conditions.length ? conditions.map((item: string, idx: number) => (
-              <li key={`${item}-${idx}`}>â€¢ {item}</li>
+              <li key={`${item}-${idx}`}>• {item}</li>
             )) : <li>Not recorded</li>}
           </ul>
         </section>
