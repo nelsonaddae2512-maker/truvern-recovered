@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -38,8 +38,28 @@ describe("organization bootstrap UI transition", () => {
       "<SelectOrgClient />",
     );
 
+    expect(read(selectPagePath)).toContain(
+      'import { Suspense } from "react";',
+    );
+
+    expect(read(selectPagePath)).toContain(
+      "<Suspense",
+    );
+
+    expect(read(selectPagePath)).toContain(
+      "<SelectOrgClient />",
+    );
+
     expect(read(completePagePath)).toContain(
       "<SelectOrgCompleteClient />",
+    );
+
+    expect(read(completePagePath)).toContain(
+      'import { Suspense } from "react";',
+    );
+
+    expect(read(completePagePath)).toContain(
+      "<Suspense fallback={<PreparingWorkspaceFallback />}>",
     );
   });
 

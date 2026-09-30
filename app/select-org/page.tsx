@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import SelectOrgClient from "@/components/select-org/select-org-client";
 
@@ -30,7 +31,23 @@ export default function SelectOrganizationPage() {
           </p>
         </div>
 
-        <SelectOrgClient />
+        <Suspense
+          fallback={
+            <div
+              aria-live="polite"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+            >
+              <div className="text-sm font-semibold text-white">
+                Loading organization options…
+              </div>
+              <div className="mt-2 text-sm text-slate-300">
+                Preparing your available workspaces.
+              </div>
+            </div>
+          }
+        >
+          <SelectOrgClient />
+        </Suspense>
       </section>
     </main>
   );
