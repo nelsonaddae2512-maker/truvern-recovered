@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   ClerkLoaded,
@@ -7,16 +7,30 @@ import {
   SignedIn,
   SignedOut,
   SignInButton,
+  useOrganization,
 } from "@clerk/nextjs";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 function clsx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
 export default function SelectOrgClient() {
+  const router = useRouter();
   const sp = useSearchParams();
-  const returnTo = sp.get("returnTo") || "/vendors";
+  const { organization, isLoaded: organizationLoaded } = useOrganization();
+
+  const rawReturnTo = (sp.get("returnTo") || "").trim();
+  const returnTo =
+    rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : "/vendors";
+
+  const completionUrl =
+    `/select-org/complete?returnTo=${encodeURIComponent(returnTo)}`;
+
+  const activeOrganizationName =
+    organization?.name?.trim() || "current organization";
 
   return (
     <div className="space-y-4">
@@ -57,10 +71,18 @@ export default function SelectOrgClient() {
             <div className="mt-3">
               <OrganizationSwitcher
                 hidePersonal
-                afterCreateOrganizationUrl={returnTo}
+                afterCreateOrganizationUrl={completionUrl}
                 afterLeaveOrganizationUrl="/select-org"
-                afterSelectOrganizationUrl={returnTo}
+                afterSelectOrganizationUrl={completionUrl}
                 appearance={{
+                  variables: {
+                    colorBackground: "#020617",
+                    colorNeutral: "#e2e8f0",
+                    colorForeground: "#f8fafc",
+                    colorMutedForeground: "#94a3b8",
+                    colorPrimary: "#22d3ee",
+                    borderRadius: "0.75rem",
+                  },
                   elements: {
                     rootBox: "w-full",
                     organizationSwitcherTrigger:
@@ -72,24 +94,45 @@ export default function SelectOrgClient() {
                       "text-xs text-slate-400",
                     organizationSwitcherTriggerIcon: "text-slate-300",
                     organizationSwitcherPopoverCard:
-                      "border border-white/10 bg-slate-950 text-slate-100 shadow-2xl",
+                      "border border-slate-700 shadow-2xl",
                     organizationSwitcherPopoverActionButton:
-                      "text-slate-100 hover:bg-white/5",
+                      "hover:bg-slate-800",
                     organizationSwitcherPopoverActionButtonText:
-                      "text-slate-200",
+                      "text-slate-100",
                   },
                 }}
               />
             </div>
 
+            {organizationLoaded && organization ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => router.push(completionUrl)}
+                  className={clsx(
+                    "w-full rounded-xl px-3 py-2 text-sm font-semibold",
+                    "bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-300/25",
+                    "hover:bg-cyan-400/15",
+                  )}
+                >
+                  Continue with {activeOrganizationName}
+                </button>
+
+                <div className="mt-2 text-[11px] text-slate-500">
+                  This organization is already active. Continue to prepare its
+                  Truvern workspace.
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-3 text-xs text-slate-400">
               Tip: open the switcher and choose{" "}
               <span className="text-slate-200">Create organization</span> if you
-              don€™t see one listed.
+              do not see one listed.
             </div>
 
             <div className="mt-3 text-[11px] text-slate-500">
-              You€™ll be redirected to{" "}
+              You will be redirected to{" "}
               <span className="text-slate-300">{returnTo}</span> after selecting
               or creating an organization.
             </div>
@@ -99,5 +142,3 @@ export default function SelectOrgClient() {
     </div>
   );
 }
-
-

@@ -34,18 +34,25 @@ describe("R56 organization authorization core", () => {
     }
   });
 
-  it("does not collapse customer roles into REVIEWER", () => {
+  it("does not collapse customer roles into Truvern reviewer identity", () => {
     expect(authSource).toContain(
-      'normalizedRole === "OWNER"',
+      'import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";',
     );
+
     expect(authSource).toContain(
-      'normalizedRole === "ADMIN"',
+      "await getCustomerOrganizationActor()",
     );
+
     expect(authSource).toContain(
-      'normalizedRole === "ANALYST"',
+      "organizationId: customerActor.organizationId",
     );
+
     expect(authSource).toContain(
-      'normalizedRole === "VIEWER"',
+      "role: customerActor.role",
+    );
+
+    expect(authSource).toContain(
+      '? "TRUVERN_REVIEWER"',
     );
 
     expect(authSource).not.toContain(

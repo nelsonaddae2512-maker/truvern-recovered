@@ -6,6 +6,7 @@ import {
   readGovernanceDbUserId,
 } from "@/lib/repositories/governance-auth-repository";
 import { getCurrentTruvernAccess } from "@/lib/truvern-ops-access";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 
 export type GovernanceActor = {
   userId: string;
@@ -213,22 +214,10 @@ export async function getGovernanceActor(): Promise<GovernanceActor> {
     };
   }
 
-  const dbUserId = await findDbUserIdFromClerkUserId(userId);
+  const customerActor =
+    await getCustomerOrganizationActor();
 
-  const membership = dbUserId
-    ? await prisma.orgMembership.findFirst({
-        where: {
-          userId: dbUserId,
-        },
-        select: {
-          organizationId: true,
-          role: true,
-        },
-        orderBy: [{ id: "asc" }],
-      })
-    : null;
-
-  if (!membership) {
+  if (!customerActor) {
     return {
       userId,
       organizationId: null,
@@ -239,20 +228,11 @@ export async function getGovernanceActor(): Promise<GovernanceActor> {
     };
   }
 
-  const normalizedRole =
-    String(membership.role ?? "").toUpperCase();
-
   return {
     userId,
-    organizationId: membership.organizationId,
+    organizationId: customerActor.organizationId,
     vendorId: null,
-    role:
-      normalizedRole === "OWNER" ||
-      normalizedRole === "ADMIN" ||
-      normalizedRole === "ANALYST" ||
-      normalizedRole === "VIEWER"
-        ? normalizedRole
-        : "UNKNOWN",
+    role: customerActor.role,
   };
 }
 export async function requireOpsAccess() {

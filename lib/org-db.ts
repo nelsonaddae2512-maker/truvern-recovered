@@ -1,4 +1,8 @@
-﻿import { auth, currentUser } from "@clerk/nextjs/server";
+﻿import { auth } from "@clerk/nextjs/server";
+
+import {
+  provisionCurrentOrganization,
+} from "@/lib/auth/organization-provisioning-service";
 import prisma from "@/lib/prisma";
 
 type DbOrg = {
@@ -8,89 +12,82 @@ type DbOrg = {
   clerkOrgId: string | null;
 };
 
-function makeSlug(input: string) {
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-}
+type NeedsOrgSelection = {
+  _needsOrgSelection: true;
+};
 
-async function uniqueOrgSlug(base: string) {
-  const clean = makeSlug(base) || "workspace";
-
-  const existing = await prisma.organization.findFirst({
-    where: { slug: clean },
-    select: { id: true },
-  });
-
-  if (!existing) return clean;
-
-  return `${clean}-${Date.now().toString().slice(-6)}`;
-}
+const NEEDS_ORG_SELECTION: NeedsOrgSelection = {
+  _needsOrgSelection: true,
+};
 
 export async function requireDbOrganization(): Promise<
-  DbOrg | { _needsOrgSelection: true }
+  DbOrg | NeedsOrgSelection
 > {
   const { userId, orgId } = await auth();
 
-  if (!userId) {
-    return { _needsOrgSelection: true };
+  /*
+   * Ordinary organization resolution must never create or rebind
+   * a Truvern organization as a side effect.
+   *
+   * Verified provisioning requires both an authenticated user and
+   * an explicitly selected Clerk organization.
+   */
+  if (!userId || !orgId) {
+    return NEEDS_ORG_SELECTION;
   }
 
-  if (orgId) {
-    const existing = await prisma.organization.findFirst({
-      where: { clerkOrgId: orgId },
-      select: { id: true, name: true, slug: true, clerkOrgId: true },
-    });
-
-    if (existing) {
-      return existing;
-    }
-
-    const slug = await uniqueOrgSlug(`org-${orgId}`);
-
-    const created = await prisma.organization.create({
-      data: {
+  /*
+   * The selected Clerk organization must already have an exact
+   * Truvern Organization binding.
+   *
+   * Initial organization creation belongs to a separate,
+   * explicitly authorized onboarding boundary.
+   */
+  const organization =
+    await prisma.organization.findUnique({
+      where: {
         clerkOrgId: orgId,
-        name: "Organization",
-        slug,
       },
-      select: { id: true, name: true, slug: true, clerkOrgId: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        clerkOrgId: true,
+      },
     });
 
-    return created;
+  if (!organization) {
+    return NEEDS_ORG_SELECTION;
   }
 
-  const personalClerkOrgId = `user:${userId}`;
+  /*
+   * Run the certified verification + persistence boundary.
+   *
+   * It may create the verified OrgMembership and synchronize the
+   * user's primary organization pointer, but it cannot create or
+   * rebind the Organization.
+   */
+  const provisioned =
+    await provisionCurrentOrganization({
+      authenticatedUserId: userId,
+      selectedOrganizationId: orgId,
+      targetOrganizationId: orgId,
+    });
 
-  const existingPersonal = await prisma.organization.findFirst({
-    where: { clerkOrgId: personalClerkOrgId },
-    select: { id: true, name: true, slug: true, clerkOrgId: true },
-  });
-
-  if (existingPersonal) {
-    return existingPersonal;
+  if (!provisioned.ok) {
+    return NEEDS_ORG_SELECTION;
   }
 
-  const user = await currentUser();
+  /*
+   * Defense in depth: the persisted organization must be exactly
+   * the organization resolved from the selected Clerk org.
+   */
+  if (
+    provisioned.organizationId !==
+    organization.id
+  ) {
+    return NEEDS_ORG_SELECTION;
+  }
 
-  const workspaceName =
-    user?.fullName ||
-    user?.primaryEmailAddress?.emailAddress ||
-    "Personal workspace";
-
-  const slug = await uniqueOrgSlug(`workspace-${userId}`);
-
-  const createdPersonal = await prisma.organization.create({
-    data: {
-      clerkOrgId: personalClerkOrgId,
-      name: workspaceName,
-      slug,
-    },
-    select: { id: true, name: true, slug: true, clerkOrgId: true },
-  });
-
-  return createdPersonal;
+  return organization;
 }
-
