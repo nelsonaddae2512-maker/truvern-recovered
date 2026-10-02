@@ -21,13 +21,13 @@ const CONFIRMATION =
 const EXPECTED = {
   userId: 1,
   organizationId: 8,
-  userOrganizationId: 7,
+  userOrganizationId: 8,
   userFingerprint:
     "fa6d1bbaaf2b8a2b",
   liveOrganizationFingerprint:
     "cb5d109a946b0c90",
   oldOrganizationFingerprint:
-    "a8e5472713667605",
+    "f3c1bf7a4da31c24",
 } as const;
 
 function fingerprint(
