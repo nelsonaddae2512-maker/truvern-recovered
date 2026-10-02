@@ -1,11 +1,8 @@
-﻿import {
+import {
   createHash,
 } from "crypto";
 
-import {
-  auth,
-  currentUser,
-} from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 
 import {
   requireOpsAccess,
@@ -19,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const CONFIRMATION =
-  "D.60BR.40Z14-EXECUTE-ORG8-IDENTITY-REBIND";
+  "D.60BR.40Z14C-EXECUTE-ORG8-ONLY-REBIND";
 
 const EXPECTED = {
   userId: 1,
@@ -30,7 +27,7 @@ const EXPECTED = {
   liveOrganizationFingerprint:
     "cb5d109a946b0c90",
   oldOrganizationFingerprint:
-    "f3c1bf7a4da31c24",
+    "a8e5472713667605",
 } as const;
 
 function fingerprint(
@@ -160,19 +157,7 @@ export async function POST(
     );
   }
 
-  const clerkUser =
-    await currentUser();
 
-  if (!clerkUser) {
-    return noStoreJson(
-      {
-        ok: false,
-        code: "CLERK_USER_REQUIRED",
-        rawIdsReturned: false,
-      },
-      401,
-    );
-  }
 
   try {
     const result =
