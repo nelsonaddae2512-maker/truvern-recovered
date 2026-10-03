@@ -1,4 +1,4 @@
-﻿import crypto from "node:crypto";
+import crypto from "node:crypto";
 
 import {
   auth,
@@ -383,7 +383,8 @@ export async function GET() {
         provisioningInvoked: false,
         databaseReadsOnly: true,
         databaseWrites: false,
-        clerkBackendApiRequest: false,
+        currentUserReadInvoked: true,
+        clerkClientInvoked: false,
         clerkMutation: false,
       },
 
