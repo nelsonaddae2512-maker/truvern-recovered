@@ -145,7 +145,9 @@ export default async function GovernancePage() {
     { label: "Workflow Queue", href: "/review-desk/workflow-queue" },
     { label: "Task Queue", href: "/review-desk/tasks" },
     { label: "Board Packets", href: "/governance-ops" },
-    { label: "Command Center", href: "/truvern/ops/command-center" },
+    ...(isTruvernOperator
+      ? [{ label: "Command Center", href: "/truvern/ops/command-center" }]
+      : []),
   ];
 
   return (
@@ -318,12 +320,14 @@ export default async function GovernancePage() {
               </h2>
             </div>
 
-            <a
-              href="/truvern/ops/command-center"
-              className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white hover:bg-white/[0.08]"
-            >
-              Open Command Center
-            </a>
+            {isTruvernOperator ? (
+              <a
+                href="/truvern/ops/command-center"
+                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white hover:bg-white/[0.08]"
+              >
+                Open Command Center
+              </a>
+            ) : null}
           </div>
 
           <div className="mt-5 grid gap-3">

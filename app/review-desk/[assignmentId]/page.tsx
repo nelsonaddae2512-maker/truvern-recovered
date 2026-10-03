@@ -5,6 +5,7 @@ import ReviewAssignmentWorkspace from "@/components/review-desk/review-assignmen
 import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
 import ManagedReviewAssessmentLauncher from "@/components/managed-reviews/managed-review-assessment-launcher.client";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 import { readOrganizationReviewAnalysts } from "@/lib/repositories/review-assignment-analyst-repository";
 import { readPostedReviewCreditLedger, readVendorGovernanceMemory } from "@/lib/repositories/governance-ops-assignment-insights-repository";
 
@@ -58,6 +59,13 @@ export default async function ReviewEngagementPage({ params }: Props) {
   if (!assignmentId) notFound();
 
   const canManageTruvernReview = await isTruvernOperator();
+  const customerActor = canManageTruvernReview
+    ? null
+    : await getCustomerOrganizationActor();
+
+  if (!canManageTruvernReview && !customerActor) {
+    notFound();
+  }
 
   const assignment = await one<AnyRow>`
     select *
@@ -102,6 +110,13 @@ export default async function ReviewEngagementPage({ params }: Props) {
   });
 
   if (!vendor) notFound();
+
+  if (
+    !canManageTruvernReview &&
+    Number(customerActor?.organizationId) !== Number(vendor.organizationId)
+  ) {
+    notFound();
+  }
 
   const effectivePlanTier = await resolveOrganizationPlanTier(
     Number(vendor.organizationId),

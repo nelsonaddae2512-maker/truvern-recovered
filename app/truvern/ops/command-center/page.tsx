@@ -1,5 +1,6 @@
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { requireTruvernOperator } from "@/lib/truvern-ops-access";
 import RunWorkflowSchedulerButton from "@/components/truvern/ops/run-workflow-scheduler-button.client";
 import RunWorkflowOrchestratorButton from "@/components/truvern/ops/run-workflow-orchestrator-button.client";
 import RunAiReviewWorkerButton from "@/components/truvern/ops/run-ai-review-worker-button.client";
@@ -27,6 +28,8 @@ function queueClass(queue: string) {
 }
 
 export default async function TruvernOpsCommandCenterPage() {
+  await requireTruvernOperator();
+
   const queueSummary = await prisma.$queryRaw<any[]>`
     select
       queue,

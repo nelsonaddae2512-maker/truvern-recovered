@@ -2140,9 +2140,11 @@ generatedDraft: {
             Task Queue
           </a>
 
-          <a href="/truvern/ops/command-center" className="rounded-2xl border border-violet-300/25 bg-violet-400/10 px-4 py-2 text-sm font-semibold text-violet-100 hover:bg-violet-400/20">
-            Command Center
-          </a>
+          {canManageTruvernReview ? (
+            <a href="/truvern/ops/command-center" className="rounded-2xl border border-violet-300/25 bg-violet-400/10 px-4 py-2 text-sm font-semibold text-violet-100 hover:bg-violet-400/20">
+              Command Center
+            </a>
+          ) : null}
         </div>
       </section>
 
