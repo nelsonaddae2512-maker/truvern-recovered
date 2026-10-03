@@ -1,6 +1,6 @@
 // app/review-desk/page.tsx
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import ReviewDeskSubmissionActions from "@/components/review-desk/review-desk-intake-actions.client";
 import ReviewAssignmentWorkspace from "@/components/review-desk/review-assignment-workspace.client";
@@ -1021,9 +1021,21 @@ const queueTabs = [
           name: true,
           category: true,
           updatedAt: true,
+          organizationId: true,
         },
       })
     : null;
+
+  // Ordinary customers may open only vendors belonging to
+  // their currently resolved organization. Truvern operators
+  // retain cross-organization managed-review access.
+  if (
+    !canManageTruvernReview &&
+    vendorId &&
+    (!vendor || vendor.organizationId !== organizationId)
+  ) {
+    notFound();
+  }
 
   const latestOutcome = assignmentId
     ? await one<AnyRow>`
@@ -1080,6 +1092,41 @@ const queueTabs = [
       name: safeStr(row.name) || safeStr(row.email) || "Internal analyst",
       email: row.email,
     }));
+  if (!canManageTruvernReview) {
+    return (
+      <main className="mx-auto max-w-7xl px-6 py-10">
+        <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200">
+            Governance review workspace
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold text-white">
+            Your organization reviews
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+            Review vendor assessment activity for your organization.
+          </p>
+
+          <div className="mt-6 grid gap-4">
+            {filteredAssignments.length > 0 ? (
+              filteredAssignments.map((row: any) => (
+                <ManagedAssessmentQueueCard
+                  key={row.id ?? row.assignmentId}
+                  row={row}
+                />
+              ))
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                <p className="text-sm text-slate-300">
+                  No review activity is currently available for your organization.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
 return (
     <main className="mx-auto max-w-7xl px-6 py-10">
 
