@@ -176,20 +176,7 @@ export default function AssessmentStartChooser({
   const selectedLocked = selectedTemplate
     ? !canAccessTemplate(selectedTemplate, membershipTier)
     : false;
-
-  
-  const freeBlockedTruvernNistLaunch =
-    membershipTier === "FREE" &&
-    selectedTemplate?.name === "Truvern NIST 800-53 Governance Review";
 async function handleStart() {
-    if (freeBlockedTruvernNistLaunch) {
-      window.alert(
-        "This assessment requires a Pro or Enterprise membership. Free users may preview the Truvern NIST 800-53 Governance Review but cannot launch it."
-      );
-      return;
-    }
-
-    // FREE_TRUVERN_NIST_LAUNCH_BLOCK
     if (
       reviewMode === "truvern" &&
       !acceptedTruvernAcknowledgement
@@ -766,9 +753,7 @@ async function handleStart() {
                   >
                     {submitting
                       ? "Launching assessment..."
-                      : freeBlockedTruvernNistLaunch
-                        ? "Upgrade to Pro or Enterprise"
-                        : reviewMode === "truvern"
+                      : reviewMode === "truvern"
                           ? "Request Truvern Review"
                           : "Run Self-Managed Review"}
                   </button>
