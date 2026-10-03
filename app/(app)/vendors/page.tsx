@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { requireDbOrganization } from "@/lib/org-db";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 import {
   readLatestVendorReviewStates,
   readVendorPortfolioPage,
@@ -214,15 +214,15 @@ export default async function VendorsPage({
 }: {
   searchParams?: Promise<VendorsPageSearchParams>;
 }) {
-  const org = await requireDbOrganization();
+  const actor =
+    await getCustomerOrganizationActor();
 
-  let organizationId: number;
-
-  if ("_needsOrgSelection" in org) {
+  if (!actor) {
     redirect("/dashboard");
-  } else {
-    organizationId = org.id;
   }
+
+  const organizationId =
+    actor.organizationId;
 
   const resolvedSearchParams =
     (await searchParams) ?? {};

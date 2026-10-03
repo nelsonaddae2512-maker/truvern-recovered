@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { requireDbOrganization } from "@/lib/org-db";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 import { readCustomerCisoReports } from "@/lib/repositories/customer-ciso-reports-repository";
 
 export const runtime = "nodejs";
@@ -32,16 +32,16 @@ function displayState(
 }
 
 export default async function CisoReportsPage() {
-  const org =
-    await requireDbOrganization();
+  const actor =
+    await getCustomerOrganizationActor();
 
-  if ("_needsOrgSelection" in org) {
+  if (!actor) {
     redirect("/dashboard");
   }
 
   const reports =
     await readCustomerCisoReports(
-      org.id,
+      actor.organizationId,
     );
 
   return (
