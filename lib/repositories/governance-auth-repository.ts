@@ -112,3 +112,98 @@ export async function claimGovernanceDbUserByEmail(input: {
     id: candidate.id,
   };
 }
+function isPrismaUniqueConstraintError(
+  error: unknown,
+): error is {
+  code: "P2002";
+} {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code ===
+      "P2002"
+  );
+}
+export type GovernanceCreatedUserRow = {
+  id: number;
+};
+
+export type GovernanceCreateUserResult =
+  | {
+      ok: true;
+      user: GovernanceCreatedUserRow;
+      created: true;
+    }
+  | {
+      ok: false;
+      reason: "IDENTITY_ALREADY_EXISTS";
+    };
+
+/*
+ * Create the first Truvern DB identity only after the caller has
+ * completed the certified Clerk identity / organization-membership
+ * verification boundary.
+ *
+ * This function grants no organization role and creates no
+ * Organization or OrgMembership.
+ *
+ * Unique email / clerkId constraints remain the concurrency authority.
+ * A conflicting create fails closed and is re-resolved by the caller;
+ * this function never rebinds an existing identity.
+ */
+export async function createGovernanceDbUser(input: {
+  clerkUserId: string;
+  email: string;
+}): Promise<GovernanceCreateUserResult> {
+  const clerkUserId =
+    input.clerkUserId.trim();
+
+  const email =
+    input.email.trim().toLowerCase();
+
+  if (!clerkUserId || !email) {
+    return {
+      ok: false,
+      reason: "IDENTITY_ALREADY_EXISTS",
+    };
+  }
+
+  try {
+    const user =
+      await prisma.user.create({
+        data: {
+          clerkId: clerkUserId,
+          email,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    return {
+      ok: true,
+      user,
+      created: true,
+    };
+  } catch (error) {
+    if (
+      isPrismaUniqueConstraintError(error)
+    ) {
+      /*
+       * A concurrent create or existing unique identity is
+       * re-resolved by the bootstrap adapter. Never rebind here.
+       */
+      return {
+        ok: false,
+        reason: "IDENTITY_ALREADY_EXISTS",
+      };
+    }
+
+    /*
+     * Infrastructure, validation, connection, and all other
+     * unexpected Prisma failures retain their real failure semantics.
+     */
+    throw error;
+  }
+}

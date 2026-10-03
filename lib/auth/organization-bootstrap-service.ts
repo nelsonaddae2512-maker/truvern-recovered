@@ -1,4 +1,7 @@
 import type { OrgRole } from "@prisma/client";
+import {
+  createBootstrapUser,
+} from "@/lib/auth/organization-bootstrap-adapters";
 
 import {
   provisionCurrentOrganization,
@@ -80,6 +83,10 @@ type BootstrapDependencies = {
     clerkUserId: string;
     email: string;
   }) => Promise<BootstrapUserResolution>;
+  createUser?: (input: {
+    clerkUserId: string;
+    email: string;
+  }) => Promise<BootstrapUserResolution>;
 
   resolveOrganization: (input: {
     clerkOrganizationId: string;
@@ -101,9 +108,11 @@ type BootstrapDependencies = {
  * persistence remain separate dependencies so that each boundary can
  * be certified independently.
  *
- * A new Truvern User is never created here. resolveUser may only
- * resolve an exact Clerk binding or atomically claim an already
- * provisioned, unbound Truvern user.
+ * resolveUser first resolves an exact Clerk binding or atomically
+ * claims an already provisioned, unbound Truvern user. Only after
+ * successful Clerk identity / organization-membership verification,
+ * and only when no provisioned user resolves, may createUser establish
+ * the initial Truvern DB identity. Role authority remains separate.
  */
 export async function bootstrapCurrentOrganization(
   input: BootstrapCurrentOrganizationInput,
@@ -166,11 +175,26 @@ export async function bootstrapCurrentOrganization(
     };
   }
 
-  const user =
+  let user =
     await dependencies.resolveUser({
       clerkUserId: authenticatedUserId,
       email: authenticatedEmail,
     });
+
+  if (
+    !user.ok &&
+    user.reason === "USER_NOT_PROVISIONED"
+  ) {
+    const createUser =
+      dependencies.createUser ??
+      createBootstrapUser;
+
+    user =
+      await createUser({
+        clerkUserId: authenticatedUserId,
+        email: authenticatedEmail,
+      });
+  }
 
   if (!user.ok) {
     return user;

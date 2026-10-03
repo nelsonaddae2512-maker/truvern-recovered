@@ -8,6 +8,7 @@ import prisma from "@/lib/prisma";
 import {
   claimGovernanceDbUserByEmail,
   readGovernanceDbUserId,
+  createGovernanceDbUser,
 } from "@/lib/repositories/governance-auth-repository";
 
 type BootstrapOrganizationClient = Pick<
@@ -18,11 +19,13 @@ type BootstrapOrganizationClient = Pick<
 type BootstrapUserReaders = {
   readUser: typeof readGovernanceDbUserId;
   claimUser: typeof claimGovernanceDbUserByEmail;
+  createUser?: typeof createGovernanceDbUser;
 };
 
 const defaultUserReaders: BootstrapUserReaders = {
   readUser: readGovernanceDbUserId,
   claimUser: claimGovernanceDbUserByEmail,
+  createUser: createGovernanceDbUser,
 };
 
 function normalizeOrganizationSlugPart(value: string) {
@@ -72,6 +75,57 @@ export function buildBootstrapOrganizationSlug(input: {
   return `${boundedName}-${identityPart}`;
 }
 
+export async function createBootstrapUser(
+  input: {
+    clerkUserId: string;
+    email: string;
+  },
+  readers: BootstrapUserReaders =
+    defaultUserReaders,
+): Promise<BootstrapUserResolution> {
+  const createUser =
+    readers.createUser ??
+    createGovernanceDbUser;
+
+  const created =
+    await createUser({
+      clerkUserId: input.clerkUserId,
+      email: input.email,
+    });
+
+  if (created.ok) {
+    const rebound =
+      await readers.readUser(
+        input.clerkUserId,
+      );
+
+    if (
+      rebound.length !== 1 ||
+      rebound[0].id !== created.user.id
+    ) {
+      return {
+        ok: false,
+        reason: "USER_IDENTITY_CONFLICT",
+      };
+    }
+
+    return {
+      ok: true,
+      userId: created.user.id,
+      claimed: false,
+    };
+  }
+
+  /*
+   * A concurrent create or existing unique identity is never rebound.
+   * Re-run the existing resolver so exact Clerk binding or the existing
+   * atomic unbound-email claim remains the sole recovery authority.
+   */
+  return resolveBootstrapUser(
+    input,
+    readers,
+  );
+}
 export async function resolveBootstrapUser(
   input: {
     clerkUserId: string;

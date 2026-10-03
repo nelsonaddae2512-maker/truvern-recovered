@@ -8,6 +8,7 @@ import {
 
 import {
   buildBootstrapOrganizationSlug,
+  createBootstrapUser,
   resolveBootstrapOrganization,
   resolveBootstrapUser,
 } from "@/lib/auth/organization-bootstrap-adapters";
@@ -206,6 +207,144 @@ describe("organization bootstrap adapters", () => {
     });
   });
 
+  describe("createBootstrapUser", () => {
+    it("creates and confirms the first Truvern user identity", async () => {
+      const readUser = vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: 17,
+          },
+        ]);
+
+      const createUser = vi
+        .fn()
+        .mockResolvedValue({
+          ok: true as const,
+          user: {
+            id: 17,
+          },
+          created: true as const,
+        });
+
+      const result =
+        await createBootstrapUser(
+          {
+            clerkUserId: "user_123",
+            email: "owner@example.com",
+          },
+          {
+            readUser,
+            claimUser: vi.fn(),
+            createUser,
+          },
+        );
+
+      expect(createUser).toHaveBeenCalledWith({
+        clerkUserId: "user_123",
+        email: "owner@example.com",
+      });
+
+      expect(result).toEqual({
+        ok: true,
+        userId: 17,
+        claimed: false,
+      });
+    });
+
+    it("accepts an exact concurrent winner after a unique-identity collision", async () => {
+      const readUser = vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: 17,
+          },
+        ]);
+
+      const createUser = vi
+        .fn()
+        .mockResolvedValue({
+          ok: false as const,
+          reason: "IDENTITY_ALREADY_EXISTS" as const,
+        });
+
+      const result =
+        await createBootstrapUser(
+          {
+            clerkUserId: "user_123",
+            email: "owner@example.com",
+          },
+          {
+            readUser,
+            claimUser: vi
+              .fn()
+              .mockResolvedValue(null),
+            createUser,
+          },
+        );
+
+      expect(result).toEqual({
+        ok: true,
+        userId: 17,
+        claimed: false,
+      });
+    });
+
+    it("fails closed when collision reconciliation does not resolve the exact Clerk identity", async () => {
+      const result =
+        await createBootstrapUser(
+          {
+            clerkUserId: "user_123",
+            email: "owner@example.com",
+          },
+          {
+            readUser: vi
+              .fn()
+              .mockResolvedValue([]),
+            claimUser: vi
+              .fn()
+              .mockResolvedValue(null),
+            createUser: vi
+              .fn()
+              .mockResolvedValue({
+                ok: false as const,
+                reason:
+                  "IDENTITY_ALREADY_EXISTS" as const,
+              }),
+          },
+        );
+
+      expect(result).toEqual({
+        ok: false,
+        reason: "USER_NOT_PROVISIONED",
+      });
+    });
+
+    it("propagates unexpected persistence failures", async () => {
+      const failure =
+        new Error("database unavailable");
+
+      await expect(
+        createBootstrapUser(
+          {
+            clerkUserId: "user_123",
+            email: "owner@example.com",
+          },
+          {
+            readUser: vi
+              .fn()
+              .mockResolvedValue([]),
+            claimUser: vi
+              .fn()
+              .mockResolvedValue(null),
+            createUser: vi
+              .fn()
+              .mockRejectedValue(failure),
+          },
+        ),
+      ).rejects.toBe(failure);
+    });
+  });
   describe("resolveBootstrapOrganization", () => {
     it("preserves an existing exact Clerk organization binding", async () => {
       const organization = {

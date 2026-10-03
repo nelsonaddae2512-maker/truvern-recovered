@@ -60,6 +60,16 @@ function dependencies() {
     claimed: false,
   }));
 
+  const createUser = vi.fn<
+    (input: {
+      clerkUserId: string;
+      email: string;
+    }) => Promise<BootstrapUserResolution>
+  >(async () => ({
+    ok: true,
+    userId: 17,
+    claimed: false,
+  }));
   const resolveOrganization = vi.fn<
     (input: {
       clerkOrganizationId: string;
@@ -78,6 +88,7 @@ function dependencies() {
   return {
     verifyIdentity,
     resolveUser,
+    createUser,
     resolveOrganization,
     provision,
   };
@@ -246,11 +257,70 @@ describe(
     );
 
     it(
-      "fails when no pre-provisioned Truvern user can be resolved",
+      "creates the first Truvern user only after verified membership and USER_NOT_PROVISIONED",
       async () => {
         const deps = dependencies();
 
         deps.resolveUser.mockResolvedValue({
+          ok: false as const,
+          reason: "USER_NOT_PROVISIONED",
+        });
+
+        deps.createUser.mockResolvedValue({
+          ok: true as const,
+          userId: 17,
+          claimed: false,
+        });
+
+        const result =
+          await bootstrapCurrentOrganization(
+            validInput,
+            deps,
+          );
+
+        expect(
+          deps.verifyIdentity,
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          deps.resolveUser,
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          deps.createUser,
+        ).toHaveBeenCalledWith({
+          clerkUserId: "user_123",
+          email: "owner@example.com",
+        });
+
+        expect(
+          deps.resolveOrganization,
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          deps.provision,
+        ).toHaveBeenCalledTimes(1);
+
+        expect(result).toMatchObject({
+          ok: true,
+          userId: 17,
+          organizationId: 41,
+          userClaimed: false,
+        });
+      },
+    );
+
+    it(
+      "fails closed when first-user creation cannot resolve an identity",
+      async () => {
+        const deps = dependencies();
+
+        deps.resolveUser.mockResolvedValue({
+          ok: false as const,
+          reason: "USER_NOT_PROVISIONED",
+        });
+
+        deps.createUser.mockResolvedValue({
           ok: false as const,
           reason: "USER_NOT_PROVISIONED",
         });
@@ -296,6 +366,10 @@ describe(
           ok: false,
           reason: "USER_IDENTITY_CONFLICT",
         });
+
+        expect(
+          deps.createUser,
+        ).not.toHaveBeenCalled();
 
         expect(
           deps.resolveOrganization,
