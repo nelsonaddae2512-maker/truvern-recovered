@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { submissionCompletenessForResponse } from "@/lib/governance/questionnaires/truvern-questionnaire-applicability";
 import { writeGovernanceAuditLog } from "@/lib/governance/audit-log";
 import { findVendorFrameworkAssessmentByToken } from "@/lib/auth/vendor-framework-assessment-token";
 import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
@@ -10,18 +11,6 @@ export const revalidate = 0;
 type RouteContext = {
   params: Promise<{ token: string }>;
 };
-
-function hasAnswer(value: unknown) {
-  if (value === null || value === undefined) {
-    return false;
-  }
-
-  if (typeof value === "string") {
-    return value.trim().length > 0;
-  }
-
-  return true;
-}
 
 export async function POST(
   request: Request,
@@ -52,7 +41,13 @@ export async function POST(
 
     const incompleteResponses =
       assessment.responses.filter(
-        (response) => !hasAnswer(response.answer),
+        (response) =>
+          !submissionCompletenessForResponse(
+            {
+              answer: response.answer,
+              metadata: response.metadata,
+            },
+          ).complete,
       );
 
     if (incompleteResponses.length > 0) {

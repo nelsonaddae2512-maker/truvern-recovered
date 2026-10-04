@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import VendorFrameworkAssessmentWorkspace from "@/components/vendor-assessment/vendor-framework-assessment-workspace.client";
 import { findVendorFrameworkAssessmentByToken } from "@/lib/auth/vendor-framework-assessment-token";
+import {
+  truvernVendorQuestionnaireProjection,
+} from "@/lib/governance/questionnaires/truvern-questionnaire-projection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +34,48 @@ export default async function VendorFrameworkAssessmentPage({
     typeof query.missing === "string"
       ? query.missing
       : "";
+  const vendorQuestionnaire = {
+    profileId:
+      truvernVendorQuestionnaireProjection.profileId,
+    profileVersion:
+      truvernVendorQuestionnaireProjection.profileVersion,
+    interactions:
+      truvernVendorQuestionnaireProjection.interactions.map(
+        (interaction) => ({
+          interactionId:
+            interaction.interactionId,
+          order:
+            interaction.order,
+          family:
+            interaction.family,
+          title:
+            interaction.title,
+          prompt:
+            interaction.prompt,
+          evidenceExpectation:
+            interaction.evidenceExpectation,
+          components:
+            interaction.components.map(
+              (component) => ({
+                componentId:
+                  component.componentId,
+                order:
+                  component.order,
+                canonicalQuestionId:
+                  component.canonicalQuestionId,
+                canonicalControlId:
+                  component.canonicalControlId,
+                family:
+                  component.family,
+                label:
+                  component.label,
+                required:
+                  component.required,
+              }),
+            ),
+        }),
+      ),
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
@@ -61,6 +106,9 @@ export default async function VendorFrameworkAssessmentPage({
           initialStatus={assessment.status}
           responses={assessment.responses}
           token={token}
+          profileId={vendorQuestionnaire.profileId}
+          profileVersion={vendorQuestionnaire.profileVersion}
+          interactions={vendorQuestionnaire.interactions}
         />
 
         {!assessment.submittedAt ? (

@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { findVendorFrameworkAssessmentByToken } from "@/lib/auth/vendor-framework-assessment-token";
 import { updateTruvernAssessmentResponse } from "@/lib/repositories/truvern-assessment-response-repository";
+import {
+  mergeVendorApplicabilityMetadata,
+  parseVendorApplicabilityInput,
+} from "@/lib/governance/questionnaires/truvern-questionnaire-applicability";
+import {
+  getTruvernVendorQuestionnaireComponentByQuestionId,
+  truvernVendorQuestionnaireProjection,
+} from "@/lib/governance/questionnaires/truvern-questionnaire-projection";
 import { updateTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 
 export const runtime = "nodejs";
@@ -47,6 +55,27 @@ export async function PATCH(
     const body =
       await request.json().catch(() => ({}));
 
+    const applicabilityResult =
+      body.applicability === undefined
+        ? null
+        : parseVendorApplicabilityInput(
+            body.applicability,
+          );
+
+    if (
+      applicabilityResult &&
+      !applicabilityResult.ok
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            applicabilityResult.error,
+        },
+        { status: 400 },
+      );
+    }
+
     const responseId =
       parseId(body.responseId);
 
@@ -69,6 +98,70 @@ export async function PATCH(
       );
     }
 
+    const currentResponse =
+      assessment.responses.find(
+        (candidate) =>
+          candidate.id === responseId,
+      );
+
+    if (!currentResponse) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Response not found.",
+        },
+        { status: 404 },
+      );
+    }
+
+    if (applicabilityResult?.ok) {
+      const certifiedProjection =
+        getTruvernVendorQuestionnaireComponentByQuestionId(
+          currentResponse.questionId,
+        );
+
+      if (!certifiedProjection) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Canonical response is not present in the certified questionnaire projection.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const vendorApplicability =
+        applicabilityResult.value;
+
+      if (
+        vendorApplicability.profileId !==
+          truvernVendorQuestionnaireProjection.profileId ||
+        vendorApplicability.profileVersion !==
+          truvernVendorQuestionnaireProjection.profileVersion ||
+        vendorApplicability.interactionId !==
+          certifiedProjection.interaction.interactionId ||
+        vendorApplicability.componentId !==
+          certifiedProjection.component.componentId
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Questionnaire projection identifiers do not match the canonical response.",
+          },
+          { status: 400 },
+        );
+      }
+    }
+    const nextMetadata =
+      applicabilityResult?.ok
+        ? mergeVendorApplicabilityMetadata(
+            currentResponse.metadata,
+            applicabilityResult.value,
+          )
+        : undefined;
+
     const response =
       await updateTruvernAssessmentResponse({
         where: {
@@ -77,9 +170,13 @@ export async function PATCH(
         },
         data: {
           answer:
-            body.answer === undefined
-              ? undefined
-              : body.answer,
+            applicabilityResult?.ok &&
+            applicabilityResult.value.applicability ===
+              "NOT_APPLICABLE"
+              ? Prisma.JsonNull
+              : body.answer === undefined
+                ? undefined
+                : body.answer,
           vendorNotes:
             typeof body.vendorNotes === "string"
               ? body.vendorNotes
@@ -90,6 +187,8 @@ export async function PATCH(
               : body.evidence === null
                 ? Prisma.JsonNull
                 : (body.evidence as Prisma.InputJsonValue),
+          metadata:
+            nextMetadata,
         },
       });
 
