@@ -355,6 +355,17 @@ export async function sendFrameworkAssessmentVendorLink(
       },
     });
 
+  await prisma.truvernFrameworkAssessment.updateMany({
+    where: {
+      id: assessment.id,
+      status: "DRAFT",
+    },
+    data: {
+      status: "SENT_TO_VENDOR",
+      sentAt: new Date(),
+    },
+  });
+
   return {
     sent: true,
     alreadySent: false,
