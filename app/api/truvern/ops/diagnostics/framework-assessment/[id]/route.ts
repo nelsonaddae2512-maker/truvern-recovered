@@ -63,6 +63,21 @@ export async function GET(
         responses: {
           select: {
             id: true,
+            answer: true,
+            metadata: true,
+            question: {
+              select: {
+                id: true,
+                control: {
+                  select: {
+                    controlId: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            id: "asc",
           },
         },
       },
@@ -110,6 +125,22 @@ export async function GET(
 
         responseCount:
           assessment.responses.length,
+
+        responseProbe:
+          assessment.responses.length > 0
+            ? {
+                id:
+                  assessment.responses[0].id,
+                questionId:
+                  assessment.responses[0].question.id,
+                controlId:
+                  assessment.responses[0].question.control.controlId,
+                answer:
+                  assessment.responses[0].answer ?? null,
+                metadata:
+                  assessment.responses[0].metadata ?? null,
+              }
+            : null,
       },
 
       mutations: {
