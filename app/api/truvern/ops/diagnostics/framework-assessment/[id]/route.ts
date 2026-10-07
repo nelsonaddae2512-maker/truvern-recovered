@@ -2,6 +2,7 @@
 
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import { prisma } from "@/lib/prisma";
+import { submissionCompletenessForResponse } from "@/lib/governance/questionnaires/truvern-questionnaire-applicability";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,55 @@ export async function GET(
     );
   }
 
+  const submissionCompleteness = {
+    total: assessment.responses.length,
+    complete: 0,
+    incomplete: 0,
+    answerRequired: 0,
+    unresolvedApplicability: 0,
+    notApplicableJustificationRequired: 0,
+    submissionComplete: false,
+  };
+
+  for (const response of assessment.responses) {
+    const completeness =
+      submissionCompletenessForResponse({
+        answer: response.answer,
+        metadata: response.metadata,
+      });
+
+    if (completeness.complete) {
+      submissionCompleteness.complete += 1;
+      continue;
+    }
+
+    submissionCompleteness.incomplete += 1;
+
+    switch (completeness.reason) {
+      case "ANSWER_REQUIRED":
+        submissionCompleteness.answerRequired += 1;
+        break;
+
+      case "UNRESOLVED_APPLICABILITY":
+        submissionCompleteness.unresolvedApplicability += 1;
+        break;
+
+      case "NOT_APPLICABLE_JUSTIFICATION_REQUIRED":
+        submissionCompleteness.notApplicableJustificationRequired += 1;
+        break;
+
+      default:
+        throw new Error(
+          `Unexpected submission completeness reason: ${String(
+            completeness.reason,
+          )}`,
+        );
+    }
+  }
+
+  submissionCompleteness.submissionComplete =
+    submissionCompleteness.incomplete === 0;
+
   return NextResponse.json(
     {
       ok: true,
@@ -125,6 +175,8 @@ export async function GET(
 
         responseCount:
           assessment.responses.length,
+
+        submissionCompleteness,
 
         responseProbe:
           assessment.responses.length > 0
