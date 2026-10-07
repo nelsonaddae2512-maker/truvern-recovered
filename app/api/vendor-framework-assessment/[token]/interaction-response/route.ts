@@ -1,4 +1,5 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import {
   findVendorFrameworkAssessmentByToken,
 } from "@/lib/auth/vendor-framework-assessment-token";
@@ -18,7 +19,6 @@ type RouteContext = {
 
 type InteractionComponentBody = {
   responseId?: unknown;
-  questionId?: unknown;
   componentId?: unknown;
   mode?: unknown;
   answer?: unknown;
@@ -39,14 +39,65 @@ function isMode(
   );
 }
 
+type JsonAnswer =
+  | null
+  | string
+  | number
+  | boolean
+  | JsonAnswer[]
+  | {
+      [key: string]: JsonAnswer;
+    };
+
+function isJsonAnswer(
+  value: unknown,
+): value is JsonAnswer {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isJsonAnswer);
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null
+  ) {
+    return Object.values(
+      value as Record<string, unknown>,
+    ).every(isJsonAnswer);
+  }
+
+  return false;
+}
+
 function parseComponents(
   value: unknown,
-): TruvernInteractionComponentWrite[] | null {
+): Array<
+  Pick<
+    TruvernInteractionComponentWrite,
+    "responseId" | "componentId" | "mode" | "answer"
+  >
+> | null {
   if (!Array.isArray(value) || value.length === 0) {
     return null;
   }
 
-  const parsed: TruvernInteractionComponentWrite[] = [];
+  const parsed: Array<
+    Pick<
+      TruvernInteractionComponentWrite,
+      "responseId" | "componentId" | "mode" | "answer"
+    >
+  > = [];
 
   for (const raw of value) {
     if (
@@ -62,28 +113,27 @@ function parseComponents(
 
     if (
       !Number.isInteger(component.responseId) ||
-      !Number.isInteger(component.questionId) ||
       typeof component.componentId !== "string" ||
       component.componentId.trim().length === 0 ||
       !isMode(component.mode) ||
       !Object.prototype.hasOwnProperty.call(
         component,
         "answer",
-      )
+      ) ||
+      !isJsonAnswer(component.answer)
     ) {
       return null;
     }
 
     parsed.push({
       responseId: component.responseId as number,
-      questionId: component.questionId as number,
       componentId: component.componentId.trim(),
       mode: component.mode,
       answer:
         component.answer === null
-          ? null
+          ? Prisma.JsonNull
           : component.answer,
-    } as TruvernInteractionComponentWrite);
+    });
   }
 
   return parsed;
@@ -220,6 +270,53 @@ export async function POST(
       );
     }
 
+    const canonicalResponsesById =
+      new Map(
+        assessment.responses.map(
+          (response) => [
+            response.id,
+            response,
+          ] as const,
+        ),
+      );
+
+    const resolvedComponents:
+      TruvernInteractionComponentWrite[] = [];
+
+    for (const component of components) {
+      const canonicalResponse =
+        canonicalResponsesById.get(
+          component.responseId,
+        );
+
+      if (!canonicalResponse) {
+        return NextResponse.json(
+          {
+            error:
+              "Canonical response does not belong to the token-authorized assessment.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      resolvedComponents.push({
+        responseId:
+          canonicalResponse.id,
+        persistedQuestionId:
+          canonicalResponse.questionId,
+        canonicalControlId:
+          canonicalResponse.question.control.controlId,
+        componentId:
+          component.componentId,
+        mode:
+          component.mode,
+        answer:
+          component.answer,
+      });
+    }
+
     const confirmedAt =
       new Date().toISOString();
 
@@ -231,7 +328,7 @@ export async function POST(
         sharedAnswer:
           body.sharedAnswer,
         confirmedAt,
-        components,
+        components: resolvedComponents,
       });
 
     await updateTruvernFrameworkAssessment(
@@ -271,4 +368,3 @@ export async function POST(
     );
   }
 }
-

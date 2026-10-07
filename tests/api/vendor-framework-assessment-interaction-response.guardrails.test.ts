@@ -1,4 +1,4 @@
-﻿import {
+import {
   beforeEach,
   describe,
   expect,
@@ -93,6 +93,17 @@ describe(
       getAssessmentMock.mockResolvedValue({
         id: 5,
         submittedAt: null,
+        responses: [
+          {
+            id: 1205,
+            questionId: 9001,
+            question: {
+              control: {
+                controlId: "AC-1",
+              },
+            },
+          },
+        ],
       });
 
       applyInteractionMock.mockResolvedValue({
@@ -140,6 +151,24 @@ describe(
         ).toBe(false);
 
         expect(
+          input.components[0].responseId,
+        ).toBe(1205);
+
+        expect(
+          input.components[0].persistedQuestionId,
+        ).toBe(9001);
+
+        expect(
+          input.components[0].canonicalControlId,
+        ).toBe("AC-1");
+
+        expect(
+          input.components[0],
+        ).not.toHaveProperty(
+          "questionId",
+        );
+
+        expect(
           updateAssessmentMock,
         ).toHaveBeenCalledTimes(1);
       },
@@ -179,6 +208,7 @@ describe(
             new Date(
               "2026-10-07T00:00:00.000Z",
             ),
+        responses: [],
         });
 
         const response =
@@ -199,6 +229,42 @@ describe(
       },
     );
 
+
+    it(
+      "rejects a response outside the token-authorized assessment before invoking the service",
+      async () => {
+        const response =
+          await POST(
+            request({
+              ...validBody,
+              components: [
+                {
+                  ...validBody.components[0],
+                  responseId: 999999,
+                },
+              ],
+            }),
+            context(),
+          );
+
+        expect(response.status).toBe(404);
+
+        expect(
+          applyInteractionMock,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          updateAssessmentMock,
+        ).not.toHaveBeenCalled();
+
+        await expect(
+          response.json(),
+        ).resolves.toEqual({
+          error:
+            "Canonical response does not belong to the token-authorized assessment.",
+        });
+      },
+    );
     it(
       "rejects malformed component input before invoking the service",
       async () => {
@@ -320,5 +386,3 @@ describe(
     );
   },
 );
-
-

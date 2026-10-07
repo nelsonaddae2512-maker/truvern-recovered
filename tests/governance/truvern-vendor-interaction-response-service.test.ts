@@ -1,4 +1,4 @@
-﻿import {
+import {
   beforeEach,
   describe,
   expect,
@@ -41,7 +41,8 @@ const interactionId =
 
 const componentOne = {
   responseId: 1205,
-  questionId: 1,
+  persistedQuestionId: 9001,
+  canonicalControlId: "AC-1",
   componentId: "TRV-Q7R1-001-C01",
   mode: "CONFIRMED" as const,
   answer: "no",
@@ -49,7 +50,8 @@ const componentOne = {
 
 const componentTwo = {
   responseId: 1228,
-  questionId: 24,
+  persistedQuestionId: 9024,
+  canonicalControlId: "AT-1",
   componentId: "TRV-Q7R1-001-C02",
   mode: "OVERRIDE" as const,
   answer: "yes",
@@ -158,7 +160,7 @@ describe(
           where: {
             id: 1205,
             assessmentId: 5,
-            questionId: 1,
+            questionId: 9001,
           },
           select: {
             id: true,
@@ -174,7 +176,7 @@ describe(
           where: {
             id: 1228,
             assessmentId: 5,
-            questionId: 24,
+            questionId: 9024,
           },
         });
 

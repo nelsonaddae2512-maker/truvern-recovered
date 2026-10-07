@@ -1,4 +1,4 @@
-﻿import { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import {
   getTruvernVendorQuestionnaireInteraction,
@@ -15,7 +15,8 @@ import {
 
 export type TruvernInteractionComponentWrite = {
   responseId: number;
-  questionId: number;
+  persistedQuestionId: number;
+  canonicalControlId: string;
   componentId: string;
   mode: TruvernVendorInteractionResponseMode;
   answer: Prisma.InputJsonValue | typeof Prisma.JsonNull;
@@ -49,11 +50,11 @@ export async function applyTruvernVendorInteractionResponse(
     );
   }
 
-  const certifiedByQuestionId =
+  const certifiedByComponentId =
     new Map(
       interaction.components.map(
         (component) => [
-          component.canonicalQuestionId,
+          component.componentId,
           component,
         ],
       ),
@@ -62,13 +63,34 @@ export async function applyTruvernVendorInteractionResponse(
   const seenResponseIds =
     new Set<number>();
 
-  const seenQuestionIds =
+  const seenPersistedQuestionIds =
+    new Set<number>();
+
+  const seenCanonicalQuestionIds =
     new Set<number>();
 
   for (const write of input.components) {
+    const certified =
+      certifiedByComponentId.get(write.componentId);
+
+    if (
+      !certified ||
+      certified.canonicalControlId !==
+        write.canonicalControlId
+    ) {
+      throw new Error(
+        "Interaction component does not match the certified questionnaire projection.",
+      );
+    }
+
     if (
       seenResponseIds.has(write.responseId) ||
-      seenQuestionIds.has(write.questionId)
+      seenPersistedQuestionIds.has(
+        write.persistedQuestionId,
+      ) ||
+      seenCanonicalQuestionIds.has(
+        certified.canonicalQuestionId,
+      )
     ) {
       throw new Error(
         "Duplicate canonical response write requested.",
@@ -76,19 +98,12 @@ export async function applyTruvernVendorInteractionResponse(
     }
 
     seenResponseIds.add(write.responseId);
-    seenQuestionIds.add(write.questionId);
-
-    const certified =
-      certifiedByQuestionId.get(write.questionId);
-
-    if (
-      !certified ||
-      certified.componentId !== write.componentId
-    ) {
-      throw new Error(
-        "Interaction component does not match the certified questionnaire projection.",
-      );
-    }
+    seenPersistedQuestionIds.add(
+      write.persistedQuestionId,
+    );
+    seenCanonicalQuestionIds.add(
+      certified.canonicalQuestionId,
+    );
   }
 
   return prisma.$transaction(
@@ -99,7 +114,7 @@ export async function applyTruvernVendorInteractionResponse(
        * Phase 1:
        * Resolve every response from authoritative persistence.
        * No canonical update is allowed until every requested
-       * responseId + assessmentId + questionId association has
+       * responseId + assessmentId + persistedQuestionId association has
        * been proven.
        */
       for (const write of input.components) {
@@ -111,7 +126,7 @@ export async function applyTruvernVendorInteractionResponse(
                 assessmentId:
                   input.assessmentId,
                 questionId:
-                  write.questionId,
+                  write.persistedQuestionId,
               },
               select: {
                 id: true,
