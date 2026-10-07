@@ -654,7 +654,30 @@ export default function VendorFrameworkInteractionCard({
         </div>
       </div>
 
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/25 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Control coverage
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              {interaction.components.length > 1
+                ? `This vendor interaction covers ${interaction.components.length} canonical controls. Confirm each control below independently so Truvern can preserve an auditable control-level governance record.`
+                : "Confirm the canonical control below. Truvern preserves the response independently for governance review."}
+            </p>
+          </div>
+
+          <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-slate-300">
+            {interaction.components.length}{" "}
+            {interaction.components.length === 1
+              ? "control"
+              : "controls"}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-4">
         {interaction.components.map(
           (component) => {
             const response =
