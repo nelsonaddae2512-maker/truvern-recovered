@@ -72,17 +72,17 @@ export async function POST(
   request: Request,
   context: Params,
 ) {
+  const operator =
+    await requireTruvernOperator();
+
+  const { userId } =
+    await auth();
+
+  const actorUserId =
+    userId ??
+    operator.userId;
+
   try {
-    const operator =
-      await requireTruvernOperator();
-
-    const { userId } =
-      await auth();
-
-    const actorUserId =
-      userId ??
-      operator.userId;
-
     if (!actorUserId) {
       return json(500, {
         ok: false,
@@ -173,7 +173,7 @@ export async function POST(
 
     return json(500, {
       ok: false,
-      error: message,
+      error: "Internal server error.",
     });
   }
 }
