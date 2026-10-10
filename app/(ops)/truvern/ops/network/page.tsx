@@ -4,6 +4,9 @@ import { getGovernanceHealthState } from "@/lib/governance/governance-health";
 import {
   readOpsNetworkOrganizations,
   readOpsNetworkProofMetrics,
+  readOpsNetworkPortfolioTotals,
+  normalizeOpsNetworkPage,
+  OPS_NETWORK_PAGE_SIZE,
 } from "@/lib/repositories/ops-network-repository";
 
 export const runtime = "nodejs";
@@ -58,7 +61,11 @@ function healthBadge(updatedAt: Date | string | null) {
   );
 }
 
-export default async function TruvernOpsNetworkPage() {
+export default async function TruvernOpsNetworkPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string | string[]; orgId?: string | string[] }>;
+}) {
   await requireTruvernOperator();
 
   const proofRows =
@@ -75,28 +82,35 @@ export default async function TruvernOpsNetworkPage() {
     releasedGovernanceRecords: 0,
   };
 
-  const rows: NetworkRow[] =
-    await readOpsNetworkOrganizations();
-
-  const totals = rows.reduce(
-    (acc, row) => {
-      acc.organizations += 1;
-      acc.vendors += safeInt(row.vendorCount);
-      acc.truvernReviews += safeInt(row.truvernReviews);
-      acc.unclaimed += safeInt(row.unclaimedTruvernReviews);
-      acc.releaseReady += safeInt(row.releaseReadyReviews);
-      acc.lowBalance += safeInt(row.availableCredits) <= 5 ? 1 : 0;
-      return acc;
-    },
-    {
-      organizations: 0,
-      vendors: 0,
-      truvernReviews: 0,
-      unclaimed: 0,
-      releaseReady: 0,
-      lowBalance: 0,
-    },
+  const totals = await readOpsNetworkPortfolioTotals();
+  const params = await searchParams;
+  const hasOrgId = params.orgId !== undefined;
+  const rawOrgId = typeof params.orgId === "string" ? params.orgId : "";
+  const parsedOrgId = /^[1-9]\d*$/.test(rawOrgId)
+    ? Number(rawOrgId)
+    : NaN;
+  const organizationId =
+    Number.isSafeInteger(parsedOrgId) &&
+    parsedOrgId > 0 &&
+    parsedOrgId <= 2147483647
+      ? parsedOrgId
+      : undefined;
+  const organizationMode = hasOrgId;
+  const requestedPage = organizationMode
+    ? 1
+    : normalizeOpsNetworkPage(params.page);
+  const pageCount = Math.max(
+    1,
+    Math.ceil(totals.organizations / OPS_NETWORK_PAGE_SIZE),
   );
+  const currentPage = Math.min(requestedPage, pageCount);
+  const rows: NetworkRow[] =
+    organizationMode && organizationId === undefined
+      ? []
+      : await readOpsNetworkOrganizations(
+          organizationMode ? 1 : currentPage,
+          organizationId,
+        );
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10 text-white">
@@ -161,6 +175,22 @@ export default async function TruvernOpsNetworkPage() {
             </Link>
           </div>
         </div>
+
+        {organizationMode ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-cyan-100">
+              {organizationId === undefined
+                ? "Invalid organization ID"
+                : `Showing organization #${organizationId}`}
+            </p>
+            <Link
+              href="/truvern/ops/network"
+              className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+            >
+              View all organizations
+            </Link>
+          </div>
+        ) : null}
 
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-[1200px] w-full text-left text-sm">
@@ -257,13 +287,44 @@ export default async function TruvernOpsNetworkPage() {
               {rows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
-                    No customer organizations found.
+                    {organizationMode ? "Organization not found." : "No customer organizations found."}
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
+
+        {!organizationMode ? (
+          <nav
+            aria-label="Customer network pages"
+          className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm"
+        >
+          <p className="text-slate-300">
+            Page {currentPage} of {pageCount} · {totals.organizations} organizations
+          </p>
+
+          <div className="flex gap-2">
+            {currentPage > 1 ? (
+              <Link
+                href={`/truvern/ops/network?page=${currentPage - 1}`}
+                className="rounded-xl border border-white/20 px-4 py-2 text-white hover:bg-white/10"
+              >
+                Previous
+              </Link>
+            ) : null}
+
+            {currentPage < pageCount ? (
+              <Link
+                href={`/truvern/ops/network?page=${currentPage + 1}`}
+                className="rounded-xl border border-white/20 px-4 py-2 text-white hover:bg-white/10"
+              >
+                Next
+              </Link>
+            ) : null}
+          </div>
+          </nav>
+        ) : null}
       </section>
     </main>
   );

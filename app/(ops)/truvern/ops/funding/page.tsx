@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { requireTruvernOperator } from "@/lib/truvern-ops-access";
 import {
+  resolveOrganizationPlan,
+  type OrganizationPlanResolution,
+} from "@/lib/billing/organization-plan";
+import {
   readOpsFundingOverview,
+  readOpsFundingPortfolioSummary,
+  readOpsFundingLowBalanceOrganizations,
+  readOpsFundingHighConsumptionOrganizations,
   readOpsRecentCreditPurchases,
+  normalizeOpsFundingPage,
+  OPS_FUNDING_PAGE_SIZE,
 } from "@/lib/repositories/ops-funding-overview-repository";
 
 export const runtime = "nodejs";
@@ -20,27 +29,55 @@ function safeInt(v: unknown) {
   return Number.isFinite(n) ? Math.floor(n) : 0;
 }
 
-export default async function TruvernOpsFundingPage() {
+export default async function TruvernOpsFundingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string | string[] }>;
+}) {
   await requireTruvernOperator();
 
+  const params = await searchParams;
+  const summary = await readOpsFundingPortfolioSummary();
+  const requestedPage = normalizeOpsFundingPage(params.page);
+  const pageCount = Math.max(
+    1,
+    Math.ceil(summary.organizations / OPS_FUNDING_PAGE_SIZE),
+  );
+  const currentPage = Math.min(requestedPage, pageCount);
+
   const orgRows: AnyRow[] =
-    await readOpsFundingOverview();
+    await readOpsFundingOverview(currentPage);
 
-  const totalAvailableCredits = orgRows.reduce(
-    (sum, row) => sum + safeInt(row.availableCredits),
-    0,
-  );
+  const organizationPlans = new Map<number, OrganizationPlanResolution>();
 
-  const lowBalanceOrgs = orgRows.filter(
-    (row: AnyRow) => safeInt(row.availableCredits) <= 5,
-  );
+  // Bound database concurrency while reusing the commercial
+  // entitlement resolver already used throughout Truvern.
+  const planBatchSize = 10;
 
-  const highConsumptionOrgs = [...orgRows]
-    .sort(
-      (a: AnyRow, b: AnyRow) =>
-        safeInt(b.consumedCredits) - safeInt(a.consumedCredits),
-    )
-    .slice(0, 5);
+  for (let offset = 0; offset < orgRows.length; offset += planBatchSize) {
+    const batch = orgRows.slice(offset, offset + planBatchSize);
+
+    const resolved = await Promise.all(
+      batch.map(async (org) => {
+        const organizationId = Number(org.id);
+
+        return {
+          organizationId,
+          resolution: await resolveOrganizationPlan(organizationId),
+        };
+      }),
+    );
+
+    for (const item of resolved) {
+      organizationPlans.set(item.organizationId, item.resolution);
+    }
+  }
+
+  const totalAvailableCredits = summary.availableCredits;
+  const lowBalanceOrgs: AnyRow[] =
+    await readOpsFundingLowBalanceOrganizations();
+  const highConsumptionOrgs: AnyRow[] =
+    await readOpsFundingHighConsumptionOrganizations();
 
   const recentPurchases: AnyRow[] =
     await readOpsRecentCreditPurchases();
@@ -84,7 +121,7 @@ export default async function TruvernOpsFundingPage() {
       <section className="mt-8 grid gap-4 lg:grid-cols-4">
         <div className="rounded-3xl border border-cyan-400/20 bg-cyan-500/10 p-5">
           <p className="text-sm text-cyan-100">Organizations</p>
-          <p className="mt-3 text-3xl font-semibold">{orgRows.length}</p>
+          <p className="mt-3 text-3xl font-semibold">{summary.organizations}</p>
         </div>
 
         <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-5">
@@ -97,7 +134,7 @@ export default async function TruvernOpsFundingPage() {
         <div className="rounded-3xl border border-violet-400/20 bg-violet-500/10 p-5">
           <p className="text-sm text-violet-100">Total reviews</p>
           <p className="mt-3 text-3xl font-semibold">
-            {orgRows.reduce((sum, row) => sum + safeInt(row.reviewCount), 0)}
+            {summary.totalReviews}
           </p>
         </div>
 
@@ -113,7 +150,7 @@ export default async function TruvernOpsFundingPage() {
             Low balance watch
           </p>
           <h2 className="mt-2 text-2xl font-semibold">
-            {lowBalanceOrgs.length} organizations
+            {summary.lowBalanceOrganizations} organizations
           </h2>
           <div className="mt-4 space-y-2">
             {lowBalanceOrgs.slice(0, 5).map((org) => (
@@ -201,11 +238,11 @@ export default async function TruvernOpsFundingPage() {
           </h2>
         </div>
 
-        <div className="mt-6 overflow-x-auto rounded-3xl border border-white/10">
-          <table className="w-full min-w-[1200px] border-collapse text-left text-sm">
+        <div className="mt-6 max-w-full overflow-x-auto rounded-2xl border border-white/10">
+          <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-left text-sm">
             <thead className="bg-white/[0.05] text-xs uppercase tracking-[0.25em] text-slate-400">
               <tr>
-                <th className="px-5 py-4">Organization</th>
+                <th scope="col" className="sticky left-0 z-20 min-w-[210px] bg-slate-900 px-5 py-4 shadow-[6px_0_12px_-8px_rgba(0,0,0,0.8)]">Organization</th>
                 <th className="px-5 py-4">Slug</th>
                 <th className="px-5 py-4">Vendors</th>
                 <th className="px-5 py-4">Reviews</th>
@@ -220,7 +257,7 @@ export default async function TruvernOpsFundingPage() {
               {orgRows.length ? (
                 orgRows.map((org) => (
                   <tr key={String(org.id)} className="bg-slate-950/30">
-                    <td className="px-5 py-4">
+                    <td className="sticky left-0 z-10 min-w-[210px] bg-slate-950 px-5 py-4 shadow-[6px_0_12px_-8px_rgba(0,0,0,0.8)]">
                       <p className="font-semibold text-white">
                         {safeStr(org.name) || `Organization #${org.id}`}
                       </p>
@@ -256,18 +293,32 @@ export default async function TruvernOpsFundingPage() {
                     </td>
 
                     <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-100">
-                          PRO override
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-white">
+                          {organizationPlans.get(Number(org.id))?.planTier ?? "FREE"}
                         </span>
-                        <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-xs text-violet-100">
-                          Enterprise override
+                        <span className="text-xs text-slate-400">
+                          {organizationPlans.get(Number(org.id))?.source === "OVERRIDE"
+                            ? "Ops override"
+                            : organizationPlans.get(Number(org.id))?.source === "SUBSCRIPTION"
+                              ? "Paid subscription"
+                              : "Free access"}
                         </span>
                       </div>
                     </td>
 
                     <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-2">
+                      {organizationPlans.get(Number(org.id))?.source === "OVERRIDE" ? (
+                        <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                          {organizationPlans.get(Number(org.id))?.planTier}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-500">None</span>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="flex min-w-[100px] flex-col items-start gap-2">
                         <Link
                           href={`/truvern/ops/funding/${org.id}`}
                           className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-500/20"
@@ -295,7 +346,32 @@ export default async function TruvernOpsFundingPage() {
             </tbody>
           </table>
         </div>
-      </section>
+        <nav
+          aria-label="Funding organization pages"
+          className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm"
+        >
+          <p className="text-slate-300">
+            Page {currentPage} of {pageCount} - {summary.organizations} organizations
+          </p>
+          <div className="flex gap-2">
+            {currentPage > 1 ? (
+              <Link
+                href={`/truvern/ops/funding?page=${currentPage - 1}`}
+                className="rounded-xl border border-white/20 px-4 py-2 text-white hover:bg-white/10"
+              >
+                Previous
+              </Link>
+            ) : null}
+            {currentPage < pageCount ? (
+              <Link
+                href={`/truvern/ops/funding?page=${currentPage + 1}`}
+                className="rounded-xl border border-white/20 px-4 py-2 text-white hover:bg-white/10"
+              >
+                Next
+              </Link>
+            ) : null}
+          </div>
+        </nav>      </section>
     </main>
   );
 }
