@@ -1,5 +1,7 @@
 "use client";
 
+import { safeOnboardingReturnPath } from "@/lib/auth/safe-onboarding-return-path";
+
 import {
   ClerkLoaded,
   ClerkLoading,
@@ -22,9 +24,7 @@ export default function SelectOrgClient() {
 
   const rawReturnTo = (sp.get("returnTo") || "").trim();
   const returnTo =
-    rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
-      ? rawReturnTo
-      : "/vendors";
+    safeOnboardingReturnPath(rawReturnTo);
 
   const completionUrl =
     `/select-org/complete?returnTo=${encodeURIComponent(returnTo)}`;

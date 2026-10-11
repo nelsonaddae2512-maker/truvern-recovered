@@ -1,3 +1,4 @@
+import { findReviewAssignments } from "@/lib/repositories/review-assignment-repository";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
@@ -19,15 +20,15 @@ async function queueScopeForActor(
   }
 
   if (actor.role === "TRUVERN_REVIEWER") {
-    const assignments = await prisma.reviewAssignment.findMany({
-      where: {
-        assignmentType: "TRUVERN",
-        reviewerUserId: actor.userId,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const assignments = await findReviewAssignments({
+        where: {
+          assignmentType: "TRUVERN",
+          reviewerUserId: actor.userId,
+        },
+        select: {
+          id: true,
+        },
+      });
 
     return {
       reviewAssignmentId: {

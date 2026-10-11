@@ -124,7 +124,7 @@ describe(
     );
 
     it(
-      "does not grant an unowned selected Clerk organization",
+      "denies an explicitly selected organization without membership",
       async () => {
         mocks.auth.mockResolvedValue({
           userId: "user_1",
@@ -139,31 +139,46 @@ describe(
           organizationId: 400,
         });
 
-        mocks.membershipFindFirst
-          .mockResolvedValueOnce(null)
-          .mockResolvedValueOnce({
-            organizationId: 400,
-            role: "OWNER",
-          });
+        mocks.membershipFindFirst.mockResolvedValueOnce(null);
 
         const actor =
           await getCustomerOrganizationActor();
 
-        expect(actor?.organizationId).toBe(400);
-        expect(actor?.role).toBe("OWNER");
+        expect(actor).toBeNull();
 
-        expect(
-          mocks.membershipFindFirst.mock.calls[0][0]
-            .where.organizationId,
-        ).toBe(300);
+        expect(mocks.membershipFindFirst).toHaveBeenCalledTimes(1);
 
-        expect(
-          mocks.membershipFindFirst.mock.calls[1][0]
-            .where.organizationId,
-        ).toBe(400);
+        expect(mocks.membershipFindFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              userId: 41,
+              organizationId: 300,
+            }),
+          }),
+        );
+
+        expect(mocks.userFindUnique).not.toHaveBeenCalled();
       },
     );
 
+    it(
+      "denies a selected Clerk organization without a database mapping",
+      async () => {
+        mocks.auth.mockResolvedValue({
+          userId: "user_1",
+          orgId: "org_not_mapped",
+        });
+
+        mocks.organizationFindFirst.mockResolvedValue(null);
+
+        const actor =
+          await getCustomerOrganizationActor();
+
+        expect(actor).toBeNull();
+        expect(mocks.membershipFindFirst).not.toHaveBeenCalled();
+        expect(mocks.userFindUnique).not.toHaveBeenCalled();
+      },
+    );
     it(
       "uses the verified primary organization when no Clerk organization is selected",
       async () => {

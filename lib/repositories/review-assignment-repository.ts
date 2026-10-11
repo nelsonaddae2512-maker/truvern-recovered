@@ -228,3 +228,14 @@ export async function updateReviewAssignment<
 > {
   return client.reviewAssignment.update(args);
 }
+export async function findReviewAssignments<
+  T extends Prisma.ReviewAssignmentFindManyArgs,
+>(
+  args: Prisma.SelectSubset<
+    T,
+    Prisma.ReviewAssignmentFindManyArgs
+  >,
+  client: ReviewAssignmentClient = prisma,
+): Promise<Array<Prisma.ReviewAssignmentGetPayload<T>>> {
+  return client.reviewAssignment.findMany(args);
+}

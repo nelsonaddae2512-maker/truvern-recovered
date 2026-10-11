@@ -1,7 +1,10 @@
 ﻿import { NextResponse } from "next/server";
 
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
-import prisma from "@/lib/prisma";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { findTruvernAssessmentResponses } from "@/lib/repositories/truvern-assessment-response-repository";
+import { countTruvernRemediationRequests } from "@/lib/repositories/truvern-remediation-request-repository";
+import { findFrameworkAssessmentAuditLogs } from "@/lib/repositories/framework-assessment-audit-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +20,7 @@ export async function GET() {
     await requireOpsAccess();
 
     const assessment =
-      await prisma.truvernFrameworkAssessment.findUnique({
+      await findTruvernFrameworkAssessment({
         where: {
           id: CANARY_ID,
         },
@@ -76,7 +79,7 @@ export async function GET() {
     }
 
     const responses =
-      await prisma.truvernAssessmentResponse.findMany({
+      await findTruvernAssessmentResponses({
         where: {
           assessmentId: CANARY_ID,
         },
@@ -102,7 +105,7 @@ export async function GET() {
       ).length;
 
     const remediationCount =
-      await prisma.truvernRemediationRequest.count({
+      await countTruvernRemediationRequests({
         where: {
           finding: {
             assessmentId: CANARY_ID,
@@ -111,7 +114,7 @@ export async function GET() {
       });
 
     const scoreAudits =
-      await prisma.auditLog.findMany({
+      await findFrameworkAssessmentAuditLogs({
         where: {
           entityType: "TruvernFrameworkAssessment",
           entityId: String(CANARY_ID),

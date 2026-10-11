@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 import SendToTruvernManagedReview from "@/components/vendors/send-to-truvern-managed-review.client";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Props = {
   params: Promise<{ id: string }> | { id: string };
@@ -18,8 +23,14 @@ export default async function ManagedVendorReviewPage({ params }: Props) {
 
   if (!vendorId) notFound();
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { id: vendorId },
+  const actor = await getCustomerOrganizationActor();
+  if (!actor) notFound();
+
+  const vendor = await prisma.vendor.findFirst({
+    where: {
+      id: vendorId,
+      organizationId: actor.organizationId,
+    },
     select: {
       id: true,
       name: true,

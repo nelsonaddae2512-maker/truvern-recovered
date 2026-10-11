@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { safeOnboardingReturnPath } from "@/lib/auth/safe-onboarding-return-path";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,9 +18,7 @@ function safeReturnTo(value: string | null) {
   const candidate = (value || "").trim();
 
   if (
-    candidate.startsWith("/") &&
-    !candidate.startsWith("//") &&
-    !candidate.startsWith("/select-org")
+    safeOnboardingReturnPath(candidate) === candidate
   ) {
     return candidate;
   }

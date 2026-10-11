@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { countTruvernRemediationRequests } from "@/lib/repositories/truvern-remediation-request-repository";
+import { countTruvernAssessmentAttestations } from "@/lib/repositories/truvern-assessment-attestation-repository";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import { requireVendorAssessmentAccess } from "@/lib/auth/truvern-governance";
 import { findFirstTruvernRemediationRequest, updateTruvernRemediationRequest } from "@/lib/repositories/truvern-remediation-request-repository";
@@ -72,7 +73,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       pendingRemediation,
       pendingAttestations,
     ] = await Promise.all([
-      prisma.truvernRemediationRequest.count({
+      countTruvernRemediationRequests({
         where: {
           finding: {
             assessmentId,
@@ -86,7 +87,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         },
       }),
 
-      prisma.truvernAssessmentAttestation.count({
+      countTruvernAssessmentAttestations({
         where: {
           assessmentId,
           status: "REQUESTED",

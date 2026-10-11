@@ -118,11 +118,11 @@ describe("organization bootstrap UI transition", () => {
     const source = read(selectClientPath);
 
     expect(source).toContain(
-      'rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")',
+      'safeOnboardingReturnPath(rawReturnTo)',
     );
 
     expect(source).toContain(
-      ': "/vendors";',
+      'import { safeOnboardingReturnPath }',
     );
   });
 
@@ -164,19 +164,15 @@ describe("organization bootstrap UI transition", () => {
     const source = read(completeClientPath);
 
     expect(source).toContain(
-      'candidate.startsWith("/")',
-    );
-
-    expect(source).toContain(
-      '!candidate.startsWith("//")',
-    );
-
-    expect(source).toContain(
-      '!candidate.startsWith("/select-org")',
+      'safeOnboardingReturnPath(candidate) === candidate',
     );
 
     expect(source).toContain(
       'return "/vendors";',
+    );
+
+    expect(source).toContain(
+      'import { safeOnboardingReturnPath }',
     );
   });
 

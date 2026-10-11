@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 import prisma from "@/lib/prisma";
+import { findVendor } from "@/lib/repositories/vendor-repository";
+import { findTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
 import { acquireReviewAssignmentAdvisoryLock } from "@/lib/repositories/review-assignment-lock-repository";
 import { createTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { createTruvernAssessmentResponses } from "@/lib/repositories/truvern-assessment-response-repository";
@@ -104,7 +106,7 @@ export async function POST(
     }
 
     const vendor =
-      await prisma.vendor.findUnique({
+      await findVendor({
         where: {
           id: vendorId,
         },
@@ -128,7 +130,7 @@ export async function POST(
     }
 
     const framework =
-      await prisma.truvernFramework.findUnique({
+      await findTruvernFramework({
         where: {
           slug:
             CANONICAL_FRAMEWORK_SLUG,

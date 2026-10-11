@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { findFirstAssessment } from "@/lib/repositories/assessment-repository";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Evidence file is required." }, { status: 400 });
     }
 
-    const assessment = await prisma.assessment.findFirst({
+    const assessment = await findFirstAssessment({
       where: {
         token,
       },

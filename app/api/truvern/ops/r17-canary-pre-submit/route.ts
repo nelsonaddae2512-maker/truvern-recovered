@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 
-import prisma from "@/lib/prisma";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { countTruvernRemediationRequests } from "@/lib/repositories/truvern-remediation-request-repository";
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
@@ -23,7 +24,7 @@ export async function GET() {
 
   try {
     const assessment =
-      await prisma.truvernFrameworkAssessment.findUnique({
+      await findTruvernFrameworkAssessment({
         where: {
           id: CANARY_ID,
         },
@@ -108,7 +109,7 @@ export async function GET() {
     }
 
     const remediationCount =
-      await prisma.truvernRemediationRequest.count({
+      await countTruvernRemediationRequests({
         where: {
           finding: {
             assessmentId:

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import NotificationBell from "@/components/layout/notification-bell.client";
 import TruvernLogo from "@/components/truvern-logo";
-import { SignedIn, SignedOut, SignOutButton, useClerk , UserButton, useUser } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignOutButton, useClerk , UserButton, useUser, OrganizationSwitcher } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import PublicSiteFooter from "@/components/marketing/public-site-footer";
 
@@ -418,6 +418,35 @@ return (
             )}
           </button>
 
+          <div
+            className="min-w-0 max-w-[210px]"
+            aria-label="Active organization"
+          >
+            <OrganizationSwitcher
+              hidePersonal
+              afterCreateOrganizationUrl="/select-org/complete?returnTo=%2Fdashboard"
+              afterSelectOrganizationUrl="/select-org/complete?returnTo=%2Fdashboard"
+              afterLeaveOrganizationUrl="/select-org"
+              appearance={{
+                variables: {
+                  colorBackground: "#020617",
+                  colorForeground: "#f8fafc",
+                  colorPrimary: "#22d3ee",
+                  borderRadius: "0.75rem",
+                },
+                elements: {
+                  organizationSwitcherTrigger:
+                    "max-w-[210px] rounded-xl border border-white/10 bg-white/5 px-2 py-2 text-slate-100",
+                  organizationPreviewTextContainer:
+                    "max-w-[120px]",
+                  organizationPreviewMainIdentifier:
+                    "truncate text-xs text-white",
+                  organizationSwitcherPopoverCard:
+                    "border border-slate-700 shadow-2xl",
+                },
+              }}
+            />
+          </div>
           <NotificationBell />
 
           <div className="hidden items-center gap-2 xl:flex">

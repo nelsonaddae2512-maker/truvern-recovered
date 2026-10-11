@@ -1,7 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
-import { prisma } from "@/lib/prisma";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
 import { submissionCompletenessForResponse } from "@/lib/governance/questionnaires/truvern-questionnaire-applicability";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export async function GET(
   }
 
   const assessment =
-    await prisma.truvernFrameworkAssessment.findUnique({
+    await findTruvernFrameworkAssessment({
       where: {
         id: assessmentId,
       },

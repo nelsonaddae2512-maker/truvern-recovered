@@ -2,7 +2,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sendAssessmentVendorLink } from "@/lib/communications/assessment-vendor-link";
 import { sendFrameworkAssessmentVendorLink } from "@/lib/communications/framework-assessment-vendor-link";
 import { findTruvernFramework } from "@/lib/repositories/truvern-framework-repository";
-import { createTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { createTruvernFrameworkAssessment, findFirstTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { createTruvernAssessmentResponses } from "@/lib/repositories/truvern-assessment-response-repository";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
@@ -1163,7 +1164,7 @@ export async function POST(req: Request) {
         }
 
         const existingFrameworkAssessment =
-          await tx.truvernFrameworkAssessment.findFirst({
+          await findFirstTruvernFrameworkAssessment({
             where: {
               reviewAssignmentId:
                 assignment.id,
@@ -1180,7 +1181,7 @@ export async function POST(req: Request) {
             orderBy: {
               id: "desc",
             },
-          });
+          }, tx);
 
         if (existingFrameworkAssessment?.id) {
           resolvedFrameworkAssessmentId =
@@ -1239,7 +1240,7 @@ export async function POST(req: Request) {
             );
           }
 
-          await tx.truvernAssessmentResponse.createMany({
+          await createTruvernAssessmentResponses({
             data:
               frameworkQuestions.map(
                 (question) => ({
@@ -1259,7 +1260,7 @@ export async function POST(req: Request) {
               ),
             skipDuplicates:
               true,
-          });
+          }, tx);
         }
 
         await updateReviewAssignment(

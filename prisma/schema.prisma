@@ -947,7 +947,7 @@ model AssessmentRun {
   organization   Organization @relation("OrgAssessmentRuns", fields: [organizationId], references: [id], onDelete: Cascade)
 
   vendorId Int?
-  vendor   Vendor? @relation("VendorAssessmentRuns", fields: [vendorId], references: [id], onDelete: SetNull)
+  vendor   Vendor? @relation("VendorAssessmentRuns", fields: [vendorId], references: [id], onDelete: Restrict)
 
   assessmentId Int?
   assessment   Assessment? @relation("AssessmentRuns", fields: [assessmentId], references: [id], onDelete: SetNull)

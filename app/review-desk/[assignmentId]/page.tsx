@@ -113,7 +113,18 @@ export default async function ReviewEngagementPage({ params }: Props) {
 
   if (
     !canManageTruvernReview &&
-    Number(customerActor?.organizationId) !== Number(vendor.organizationId)
+    (
+      Number(customerActor?.organizationId) !== Number(vendor.organizationId) ||
+      Number(assignment.organizationId) !== Number(vendor.organizationId) ||
+      Number(assignment.vendorId) !== Number(vendor.id) ||
+      (
+        request !== null &&
+        (
+          Number(request.organizationId) !== Number(vendor.organizationId) ||
+          Number(request.vendorId) !== Number(vendor.id)
+        )
+      )
+    )
   ) {
     notFound();
   }

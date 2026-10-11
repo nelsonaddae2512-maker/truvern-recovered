@@ -177,7 +177,7 @@ describe(
 
     it("reports exact read-only credit ledger event baseline", () => {
       expect(source).toContain(
-        "prisma.truvernCreditLedgerEntry.findMany",
+        "readCommercialCanaryLedgerEvents",
       );
 
       expect(source).toContain(

@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { findFirstVendor } from "@/lib/repositories/vendor-repository";
+import { aggregateTruvernCreditLedger } from "@/lib/repositories/review-credit-ledger-repository";
+import {
+  readCommercialCanaryOrganization,
+  readCommercialCanaryAssessments,
+  readCommercialCanaryReviewRequests,
+  readCommercialCanaryLedgerEvents,
+  readCommercialCanaryConversations,
+} from "@/lib/repositories/commercial-canary-diagnostic-repository";
 import { isTruvernOperator } from "@/lib/truvern-ops-access";
 import { readTruvernReviewTemplateSelection } from "@/lib/repositories/truvern-review-template-repository";
 
@@ -172,7 +180,7 @@ export async function GET(
   }
 
   const organization =
-    await prisma.organization.findFirst({
+    await readCommercialCanaryOrganization({
       where: {
         id: organizationId,
       },
@@ -193,7 +201,7 @@ export async function GET(
   }
 
   const vendor =
-    await prisma.vendor.findFirst({
+    await findFirstVendor({
       where: {
         id: vendorId,
         organizationId,
@@ -242,7 +250,7 @@ export async function GET(
     );
 
   const matchingAssessments =
-    await prisma.assessment.findMany({
+    await readCommercialCanaryAssessments({
       where: {
         organizationId,
         vendorId,
@@ -318,7 +326,7 @@ export async function GET(
   }
 
   const reviewRequests =
-    await prisma.reviewRequest.findMany({
+    await readCommercialCanaryReviewRequests({
       where: {
         organizationId,
         vendorId,
@@ -387,7 +395,7 @@ export async function GET(
     );
 
   const creditAggregate =
-    await prisma.truvernCreditLedgerEntry.aggregate({
+    await aggregateTruvernCreditLedger({
       where: {
         organizationId,
         status: "POSTED",
@@ -400,7 +408,7 @@ export async function GET(
     });
 
   const creditLedgerEvents =
-    await prisma.truvernCreditLedgerEntry.findMany({
+    await readCommercialCanaryLedgerEvents({
       where: {
         organizationId,
         vendorId,
@@ -463,7 +471,7 @@ export async function GET(
 
   const conversations =
     assessment
-      ? await prisma.communicationConversation.findMany({
+      ? await readCommercialCanaryConversations({
           where: {
             organizationId,
             assessmentId:

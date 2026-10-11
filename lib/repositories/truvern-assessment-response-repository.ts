@@ -40,3 +40,23 @@ export async function updateTruvernAssessmentResponse<
 > {
   return client.truvernAssessmentResponse.update(args);
 }
+export async function countTruvernAssessmentResponses(
+  args: Prisma.TruvernAssessmentResponseCountArgs,
+  client: TruvernAssessmentResponseClient = prisma,
+): Promise<number> {
+  return client.truvernAssessmentResponse.count(args);
+}
+
+export async function findTruvernAssessmentResponses<
+  T extends Prisma.TruvernAssessmentResponseFindManyArgs,
+>(
+  args: Prisma.SelectSubset<
+    T,
+    Prisma.TruvernAssessmentResponseFindManyArgs
+  >,
+  client: TruvernAssessmentResponseClient = prisma,
+): Promise<
+  Prisma.TruvernAssessmentResponseGetPayload<T>[]
+> {
+  return client.truvernAssessmentResponse.findMany(args);
+}

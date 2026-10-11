@@ -2,7 +2,12 @@ import {
   NextRequest,
   NextResponse,
 } from "next/server";
-import prisma from "@/lib/prisma";
+import { findFirstVendor } from "@/lib/repositories/vendor-repository";
+import {
+  readCommercialCanaryLaunchOrganization,
+  countCommercialCanaryLaunchAssessments,
+  countCommercialCanaryLaunchAssignments,
+} from "@/lib/repositories/commercial-canary-launch-repository";
 import {
   isTruvernOperator,
 } from "@/lib/truvern-ops-access";
@@ -167,7 +172,7 @@ export async function POST(
     CONTROLLED_TEMPLATE_ID;
 
   const organization =
-    await prisma.organization.findUnique({
+    await readCommercialCanaryLaunchOrganization({
       where: {
         id: organizationId,
       },
@@ -195,7 +200,7 @@ export async function POST(
   }
 
   const vendor =
-    await prisma.vendor.findFirst({
+    await findFirstVendor({
       where: {
         id: vendorId,
         organizationId,
@@ -229,7 +234,7 @@ export async function POST(
   }
 
   const existingAssessmentCount =
-    await prisma.assessment.count({
+    await countCommercialCanaryLaunchAssessments({
       where: {
         organizationId,
         vendorId,
@@ -246,7 +251,7 @@ export async function POST(
   }
 
   const activeAssignmentCount =
-    await prisma.reviewAssignment.count({
+    await countCommercialCanaryLaunchAssignments({
       where: {
         organizationId,
         vendorId,

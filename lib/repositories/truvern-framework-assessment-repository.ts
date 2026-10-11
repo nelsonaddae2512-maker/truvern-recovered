@@ -20,6 +20,20 @@ export async function findTruvernFrameworkAssessments<
   return client.truvernFrameworkAssessment.findMany(args);
 }
 
+export async function findFirstTruvernFrameworkAssessment<
+  T extends Prisma.TruvernFrameworkAssessmentFindFirstArgs,
+>(
+  args: Prisma.SelectSubset<
+    T,
+    Prisma.TruvernFrameworkAssessmentFindFirstArgs
+  >,
+  client: TruvernFrameworkAssessmentClient = prisma,
+): Promise<
+  Prisma.TruvernFrameworkAssessmentGetPayload<T> | null
+> {
+  return client.truvernFrameworkAssessment.findFirst(args);
+}
+
 export async function findTruvernFrameworkAssessment<
   T extends Prisma.TruvernFrameworkAssessmentFindUniqueArgs,
 >(

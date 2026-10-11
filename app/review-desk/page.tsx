@@ -14,6 +14,7 @@ import {
 import { clerkClient } from "@clerk/nextjs/server";
 import GovernanceArtifactsDrawer from "@/components/review-desk/governance-artifacts-drawer.client";
 import { requireDbOrganization } from "@/lib/org-db";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 import { getCurrentPlanEntitlements } from "@/lib/billing/plan-entitlements";
 import FrameworkAssessmentCard from "@/components/review-desk/framework-assessment-card";
 import { getCurrentOrgPlanTier } from "@/lib/billing/plan-access";
@@ -551,6 +552,21 @@ export default async function ReviewDeskPage({ searchParams }: Props) {
     redirect("/dashboard");
   }
 
+  const customerActor = canManageTruvernReview
+    ? null
+    : await getCustomerOrganizationActor();
+
+  if (!canManageTruvernReview && !customerActor) {
+    redirect("/select-org");
+  }
+
+  if (
+    !canManageTruvernReview &&
+    customerActor?.organizationId !== org.id
+  ) {
+    redirect("/select-org");
+  }
+
   const organizationId = org.id;
   const entitlements = await getCurrentPlanEntitlements();
 
@@ -574,10 +590,7 @@ export default async function ReviewDeskPage({ searchParams }: Props) {
 
   const frameworkAssessments = await prisma.truvernFrameworkAssessment.findMany({
     where: {
-      OR: [
-        { organizationId },
-        { organizationId: null },
-      ],
+      organizationId,
     },
     orderBy: [{ updatedAt: "desc" }],
     take: 12,
@@ -675,6 +688,9 @@ export default async function ReviewDeskPage({ searchParams }: Props) {
       inner join "Vendor" v
         on v.id = rr."vendorId"
        and v."organizationId" = ${organizationId}
+       and rr."organizationId" = v."organizationId"
+       and ra."organizationId" = v."organizationId"
+       and ra."vendorId" = v.id
 
       left join lateral (
         select
@@ -1099,7 +1115,18 @@ const queueTabs = [
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200">
             Governance review workspace
           </p>
-          <h1 className="mt-2 text-2xl font-semibold text-white">
+          <div
+            className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3"
+            aria-label="Verified active organization"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">
+              Active organization
+            </p>
+            <p className="mt-1 text-lg font-semibold text-white">
+              {org.name}
+            </p>
+          </div>
+          <h1 className="mt-4 text-2xl font-semibold text-white">
             Your organization reviews
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">

@@ -6,6 +6,15 @@ type RemediationPackageClient = Pick<
   "remediationPackage"
 >;
 
+export async function findRemediationPackage<
+  T extends Prisma.RemediationPackageFindUniqueArgs,
+>(
+  args: Prisma.SelectSubset<T, Prisma.RemediationPackageFindUniqueArgs>,
+  client: RemediationPackageClient = prisma,
+): Promise<Prisma.RemediationPackageGetPayload<T> | null> {
+  return client.remediationPackage.findUnique(args);
+}
+
 export async function updateRemediationPackage<
   T extends Prisma.RemediationPackageUpdateArgs,
 >(

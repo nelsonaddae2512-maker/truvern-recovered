@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireDbOrganization } from "@/lib/org-db";
 import { Prisma, VendorContactRole, VendorCriticality, VendorTier } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { createVendor } from "@/lib/repositories/vendor-repository";
+import { createVendorContact } from "@/lib/repositories/vendor-contact-model-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,7 +132,7 @@ export async function POST(request: Request) {
     const vendor =
       await prisma.$transaction(async (tx) => {
         const createdVendor =
-          await tx.vendor.create({
+          await createVendor({
             data: {
               name,
               organizationId: org.id,
@@ -155,13 +157,13 @@ export async function POST(request: Request) {
               id: true,
               name: true,
             },
-          });
+          }, tx);
 
         if (
           primaryContactName &&
           primaryContactEmail
         ) {
-          await tx.vendorContact.create({
+          await createVendorContact({
             data: {
               vendorId: createdVendor.id,
               name: primaryContactName,
@@ -171,7 +173,7 @@ export async function POST(request: Request) {
               role: VendorContactRole.PRIMARY,
               isPrimary: true,
             },
-          });
+          }, tx);
         }
 
         return createdVendor;

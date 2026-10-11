@@ -1,10 +1,13 @@
-﻿import crypto from "node:crypto";
+import crypto from "node:crypto";
 
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
-import prisma from "@/lib/prisma";
+import {
+  countOrganizationClerkBinding,
+  readProductionIdentityState,
+} from "@/lib/repositories/production-identity-diagnostic-repository";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -79,63 +82,12 @@ export async function GET() {
     liveUserBindingCount,
     liveOrganizationBindingCount,
     organization8Membership,
-  ] = await prisma.$transaction([
-    prisma.user.findUnique({
-      where: {
-        id: EXPECTED.userId,
-      },
-      select: {
-        id: true,
-        clerkId: true,
-        organizationId: true,
-        memberships: {
-          select: {
-            organizationId: true,
-            role: true,
-          },
-          orderBy: {
-            organizationId: "asc",
-          },
-        },
-      },
-    }),
-
-    prisma.organization.findUnique({
-      where: {
-        id: EXPECTED.organizationId,
-      },
-      select: {
-        id: true,
-        clerkOrgId: true,
-      },
-    }),
-
-    prisma.user.count({
-      where: {
-        clerkId: authenticatedUserId,
-      },
-    }),
-
-    prisma.organization.count({
-      where: {
-        clerkOrgId: authenticatedOrganizationId,
-      },
-    }),
-
-    prisma.orgMembership.findUnique({
-      where: {
-        userId_organizationId: {
-          userId: EXPECTED.userId,
-          organizationId:
-            EXPECTED.organizationId,
-        },
-      },
-      select: {
-        id: true,
-        role: true,
-      },
-    }),
-  ]);
+  ] = await readProductionIdentityState(
+    authenticatedUserId,
+    authenticatedOrganizationId,
+    EXPECTED.userId,
+    EXPECTED.organizationId,
+  );
 
   if (!user || !organization) {
     return json(
@@ -149,11 +101,9 @@ export async function GET() {
   }
 
   const oldOrganization8BindingCount =
-    await prisma.organization.count({
-      where: {
-        clerkOrgId: organization.clerkOrgId,
-      },
-    });
+    await countOrganizationClerkBinding(
+      organization.clerkOrgId,
+    );
 
   return json({
     ok: true,

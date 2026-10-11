@@ -73,11 +73,23 @@ describe("RC40L explicit review path propagation", () => {
     );
 
     expect(assignmentRoute).toContain(
-      '"reviewAssignmentId" = ${assignment.id}',
+      "await updateManyAssessment(",
     );
 
     expect(assignmentRoute).toContain(
-      "where id = ${assessmentId}",
+      "id: assessmentId,",
+    );
+
+    expect(assignmentRoute).toContain(
+      "organizationId: vendor.organizationId,",
+    );
+
+    expect(assignmentRoute).toContain(
+      "vendorId: vendor.id,",
+    );
+
+    expect(assignmentRoute).toContain(
+      "reviewAssignmentId: assignment.id,",
     );
 
     expect(assignmentRoute).toContain(
@@ -91,7 +103,15 @@ describe("RC40L explicit review path propagation", () => {
     );
 
     expect(assignmentRoute).toContain(
-      'insert into "Assessment"',
+      "const createdAssessment = await createAssessment(",
+    );
+
+    expect(assignmentRoute).toContain(
+      "reviewAssignmentId: assignment.id,",
+    );
+
+    expect(assignmentRoute).toContain(
+      'status: "LAUNCHED"',
     );
   });
 });

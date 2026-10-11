@@ -3,7 +3,16 @@ import { NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { requireDbOrganization } from "@/lib/org-db";
-import { findFirstVendor } from "@/lib/repositories/vendor-repository";
+import {
+  findFirstVendor,
+  updateVendor,
+} from "@/lib/repositories/vendor-repository";
+import {
+  findFirstVendorContact,
+  updateManyVendorContacts,
+  updateVendorContact,
+  deleteVendorContact,
+} from "@/lib/repositories/vendor-contact-model-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -186,7 +195,7 @@ export async function PATCH(
       await prisma.$transaction(
         async (tx) => {
           const contact =
-            await tx.vendorContact.findFirst({
+            await findFirstVendorContact({
               where: {
                 id: contactId,
                 vendorId: vendor.id,
@@ -198,7 +207,7 @@ export async function PATCH(
                 email: true,
                 isPrimary: true,
               },
-            });
+            }, tx);
 
           if (!contact) {
             return {
@@ -207,26 +216,26 @@ export async function PATCH(
           }
 
           if (!contact.isPrimary) {
-            await tx.vendorContact.updateMany({
+            await updateManyVendorContacts({
               where: {
                 vendorId: vendor.id,
               },
               data: {
                 isPrimary: false,
               },
-            });
+            }, tx);
 
-            await tx.vendorContact.update({
+            await updateVendorContact({
               where: {
                 id: contact.id,
               },
               data: {
                 isPrimary: true,
               },
-            });
+            }, tx);
           }
 
-          await tx.vendor.update({
+          await updateVendor({
             where: {
               id: vendor.id,
             },
@@ -235,7 +244,7 @@ export async function PATCH(
               contactTitle: contact.title || null,
               contactEmail: contact.email,
             },
-          });
+          }, tx);
 
           return {
             kind: "updated" as const,
@@ -357,7 +366,7 @@ export async function DELETE(
       await prisma.$transaction(
         async (tx) => {
           const contact =
-            await tx.vendorContact.findFirst({
+            await findFirstVendorContact({
               where: {
                 id: contactId,
                 vendorId: vendor.id,
@@ -366,7 +375,7 @@ export async function DELETE(
                 id: true,
                 isPrimary: true,
               },
-            });
+            }, tx);
 
           if (!contact) {
             return {
@@ -380,11 +389,11 @@ export async function DELETE(
             };
           }
 
-          await tx.vendorContact.delete({
+          await deleteVendorContact({
             where: {
               id: contact.id,
             },
-          });
+          }, tx);
 
           return {
             kind: "deleted" as const,

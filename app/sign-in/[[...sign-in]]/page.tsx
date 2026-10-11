@@ -1,4 +1,4 @@
-﻿import { SignIn } from "@clerk/nextjs";
+import { SignIn } from "@clerk/nextjs";
 
 export default async function Page({
   searchParams,
@@ -15,7 +15,7 @@ export default async function Page({
     params.redirect_url ||
     params.redirectUrl ||
     params.redirect_url_complete ||
-    "/dashboard";
+    "/select-org?returnTo=%2Fdashboard";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-12">

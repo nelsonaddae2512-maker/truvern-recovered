@@ -2,6 +2,7 @@ import VendorContactActions from "@/components/vendors/vendor-contact-actions.cl
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 import VendorPortalAccessPanel from "@/components/vendors/vendor-portal-access-panel";
 import AssessmentPortalControls from "@/components/assessments/assessment-portal-controls.client";
 import AssessmentStartChooser from "@/components/assessment-start-chooser";
@@ -72,8 +73,17 @@ export default async function VendorDetailPage({
 
   if (!vendorId) return notFound();
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { id: vendorId },
+  const actor = await getCustomerOrganizationActor();
+
+  if (!actor) {
+    return notFound();
+  }
+
+  const vendor = await prisma.vendor.findFirst({
+    where: {
+      id: vendorId,
+      organizationId: actor.organizationId,
+    },
     select: {
       id: true,
       name: true,

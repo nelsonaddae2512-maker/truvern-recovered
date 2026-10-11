@@ -1,6 +1,10 @@
 ﻿import { NextResponse } from "next/server";
 
-import prisma from "@/lib/prisma";
+import { findTruvernFrameworkAssessment } from "@/lib/repositories/truvern-framework-assessment-repository";
+import { countTruvernRemediationRequests } from "@/lib/repositories/truvern-remediation-request-repository";
+import { findFrameworkAssessmentAuditLogs } from "@/lib/repositories/framework-assessment-audit-repository";
+import { countTruvernAssessmentFindings } from "@/lib/repositories/truvern-assessment-finding-repository";
+import { countTruvernAssessmentAttestations } from "@/lib/repositories/truvern-assessment-attestation-repository";
 import { requireOpsAccess } from "@/lib/auth/truvern-governance";
 
 export const runtime = "nodejs";
@@ -23,7 +27,7 @@ export async function GET() {
     await requireOpsAccess();
 
     const assessment =
-      await prisma.truvernFrameworkAssessment.findUnique({
+      await findTruvernFrameworkAssessment({
         where: {
           id: CANARY_ID,
         },
@@ -70,7 +74,7 @@ export async function GET() {
     }
 
     const remediationCount =
-      await prisma.truvernRemediationRequest.count({
+      await countTruvernRemediationRequests({
         where: {
           finding: {
             assessmentId: CANARY_ID,
@@ -79,7 +83,7 @@ export async function GET() {
       });
 
     const unresolvedFindingCount =
-      await prisma.truvernAssessmentFinding.count({
+      await countTruvernAssessmentFindings({
         where: {
           assessmentId: CANARY_ID,
           OR: [
@@ -106,7 +110,7 @@ export async function GET() {
       });
 
     const unresolvedRemediationCount =
-      await prisma.truvernRemediationRequest.count({
+      await countTruvernRemediationRequests({
         where: {
           finding: {
             assessmentId: CANARY_ID,
@@ -123,7 +127,7 @@ export async function GET() {
       });
 
     const unresolvedAttestationCount =
-      await prisma.truvernAssessmentAttestation.count({
+      await countTruvernAssessmentAttestations({
         where: {
           assessmentId: CANARY_ID,
           status: {
@@ -137,7 +141,7 @@ export async function GET() {
       });
 
     const scoreAudits =
-      await prisma.auditLog.findMany({
+      await findFrameworkAssessmentAuditLogs({
         where: {
           entityType:
             "TruvernFrameworkAssessment",
@@ -157,7 +161,7 @@ export async function GET() {
       });
 
     const findingsAudits =
-      await prisma.auditLog.findMany({
+      await findFrameworkAssessmentAuditLogs({
         where: {
           entityType:
             "TruvernFrameworkAssessment",
@@ -177,7 +181,7 @@ export async function GET() {
       });
 
     const releaseAudits =
-      await prisma.auditLog.findMany({
+      await findFrameworkAssessmentAuditLogs({
         where: {
           entityType:
             "TruvernFrameworkAssessment",

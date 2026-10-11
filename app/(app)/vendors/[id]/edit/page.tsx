@@ -1,6 +1,7 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getCustomerOrganizationActor } from "@/lib/auth/customer-organization-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,17 @@ async function updateVendor(formData: FormData) {
   const id = parseId(formData.get("id"));
   if (!id) throw new Error("Invalid vendor id.");
 
+  const actor = await getCustomerOrganizationActor();
+  if (!actor) throw new Error("Vendor not found.");
+
+  if (
+    actor.role !== "OWNER" &&
+    actor.role !== "ADMIN" &&
+    actor.role !== "ANALYST"
+  ) {
+    throw new Error("Not authorized to edit vendors.");
+  }
+
   const name = String(formData.get("name") || "").trim();
   const category = String(formData.get("category") || "").trim();
   const tier = String(formData.get("tier") || "").trim();
@@ -34,8 +46,11 @@ async function updateVendor(formData: FormData) {
 
   if (!name) throw new Error("Vendor name is required.");
 
-  await prisma.vendor.update({
-    where: { id },
+  const result = await prisma.vendor.updateMany({
+    where: {
+      id,
+      organizationId: actor.organizationId,
+    },
     data: {
       name,
       category: category || null,
@@ -45,8 +60,11 @@ async function updateVendor(formData: FormData) {
       contactTitle: contactTitle || null,
       contactEmail: contactEmail || null,
     },
-    select: { id: true },
   });
+
+  if (result.count !== 1) {
+    throw new Error("Vendor not found.");
+  }
 
   redirect(`/vendors/${id}`);
 }
@@ -57,28 +75,58 @@ async function deleteVendor(formData: FormData) {
   const id = parseId(formData.get("id"));
   if (!id) throw new Error("Invalid vendor id.");
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      _count: {
-        select: {
-          assessments: true,
-          assessmentRuns: true,
-        },
-      },
-    },
-  });
+  const actor = await getCustomerOrganizationActor();
+  if (!actor) throw new Error("Vendor not found.");
 
-  if (!vendor) throw new Error("Vendor not found.");
-
-  if (vendor._count.assessments > 0 || vendor._count.assessmentRuns > 0) {
-    throw new Error("This vendor has assessment history and cannot be deleted.");
+  if (
+    actor.role !== "OWNER" &&
+    actor.role !== "ADMIN"
+  ) {
+    throw new Error("Not authorized to delete vendors.");
   }
 
-  await prisma.vendor.delete({
-    where: { id },
-    select: { id: true },
+  await prisma.$transaction(async (tx) => {
+    const vendor = await tx.vendor.findFirst({
+      where: {
+        id,
+        organizationId: actor.organizationId,
+      },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            assessments: true,
+            assessmentRuns: true,
+          },
+        },
+      },
+    });
+
+    if (!vendor) {
+      throw new Error("Vendor not found.");
+    }
+
+    if (
+      vendor._count.assessments > 0 ||
+      vendor._count.assessmentRuns > 0
+    ) {
+      throw new Error(
+        "This vendor has assessment history and cannot be deleted."
+      );
+    }
+
+    const result = await tx.vendor.deleteMany({
+      where: {
+        id,
+        organizationId: actor.organizationId,
+      },
+    });
+
+    if (result.count !== 1) {
+      throw new Error("Vendor not found.");
+    }
+  }, {
+    isolationLevel: "Serializable",
   });
 
   redirect("/vendors");
@@ -90,8 +138,14 @@ export default async function EditVendorPage({ params }: Props) {
 
   if (!vendorId) return notFound();
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { id: vendorId },
+  const actor = await getCustomerOrganizationActor();
+  if (!actor) return notFound();
+
+  const vendor = await prisma.vendor.findFirst({
+    where: {
+      id: vendorId,
+      organizationId: actor.organizationId,
+    },
     select: {
       id: true,
       name: true,

@@ -3,7 +3,7 @@ import {
   currentUser,
 } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 import {
   mutateReviewAssignment,
   type ReviewAssignmentAction,
@@ -145,7 +145,7 @@ export async function POST(
     await getGovernanceActor();
 
   const assignmentScope =
-    await prisma.reviewAssignment.findUnique({
+    await findReviewAssignment({
       where: {
         id: assignmentId,
       },

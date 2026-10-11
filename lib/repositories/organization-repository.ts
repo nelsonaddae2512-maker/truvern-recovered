@@ -28,3 +28,11 @@ export async function findOrganization<
 ): Promise<Prisma.OrganizationGetPayload<T> | null> {
   return client.organization.findUnique(args);
 }
+export async function findFirstOrganization<
+  T extends Prisma.OrganizationFindFirstArgs,
+>(
+  args: Prisma.SelectSubset<T, Prisma.OrganizationFindFirstArgs>,
+  client: OrganizationClient = prisma,
+): Promise<Prisma.OrganizationGetPayload<T> | null> {
+  return client.organization.findFirst(args);
+}

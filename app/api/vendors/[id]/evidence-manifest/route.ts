@@ -1,5 +1,5 @@
-﻿import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { findFirstVendor } from "@/lib/repositories/vendor-repository";
 import { requireDbOrganization } from "@/lib/org-db";
 import { getEvidenceManifestForVendor } from "@/lib/evidence/queries";
 
@@ -32,7 +32,7 @@ export async function GET(_request: Request, context: Context) {
       );
     }
 
-    const vendor = await prisma.vendor.findFirst({
+    const vendor = await findFirstVendor({
       where: {
         id: vendorId,
         organizationId: org.id,

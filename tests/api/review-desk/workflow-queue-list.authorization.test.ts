@@ -1,9 +1,12 @@
+vi.mock("@/lib/repositories/review-assignment-repository", () => ({
+  findReviewAssignments: mocks.findReviewAssignments,
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireReviewerAccess: vi.fn(),
   governanceAuthErrorResponse: vi.fn(() => null),
-  reviewAssignmentFindMany: vi.fn(),
+  findReviewAssignments: vi.fn(),
   groupWorkflowQueueItems: vi.fn(),
   findWorkflowQueueItems: vi.fn(),
   findVendors: vi.fn(),
@@ -19,13 +22,7 @@ vi.mock("@/lib/auth/governance-auth-errors", () => ({
   governanceAuthErrorResponse: mocks.governanceAuthErrorResponse,
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
-    reviewAssignment: {
-      findMany: mocks.reviewAssignmentFindMany,
-    },
-  },
-}));
+
 
 vi.mock("@/lib/repositories/workflow-queue-repository", () => ({
   groupWorkflowQueueItems: mocks.groupWorkflowQueueItems,
@@ -111,7 +108,7 @@ describe("workflow queue list authorization", () => {
       vendorId: null,
     });
 
-    mocks.reviewAssignmentFindMany.mockResolvedValue([
+    mocks.findReviewAssignments.mockResolvedValue([
       { id: 71 },
       { id: 72 },
     ]);
@@ -119,7 +116,7 @@ describe("workflow queue list authorization", () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
-    expect(mocks.reviewAssignmentFindMany).toHaveBeenCalledWith({
+    expect(mocks.findReviewAssignments).toHaveBeenCalledWith({
       where: {
         assignmentType: "TRUVERN",
         reviewerUserId: "truvern-reviewer",
@@ -143,7 +140,7 @@ describe("workflow queue list authorization", () => {
       vendorId: null,
     });
 
-    mocks.reviewAssignmentFindMany.mockResolvedValue([]);
+    mocks.findReviewAssignments.mockResolvedValue([]);
 
     const response = await GET();
 

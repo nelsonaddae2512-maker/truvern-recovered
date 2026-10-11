@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { findReviewAssignment } from "@/lib/repositories/review-assignment-repository";
 import {
   requireGovernanceCapability,
   requireReviewerAccess,
@@ -94,7 +94,7 @@ export async function POST(
       .catch(() => ({}));
 
   const assignment =
-    await prisma.reviewAssignment.findUnique({
+    await findReviewAssignment({
       where: {
         id: assignmentId,
       },

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import ReviewDeskSubmissionActions from "@/components/review-desk/review-desk-intake-actions.client";
 import ReviewAssignmentWorkspace from "@/components/review-desk/review-assignment-workspace.client";
-import { isTruvernOperator } from "@/lib/truvern-ops-access";
+import { requireTruvernOperator } from "@/lib/truvern-ops-access";
 import ClaimReviewButton from "@/components/review-desk/claim-review-button.client";
 import {
   ReviewQueueBulkCheckbox,
@@ -502,7 +502,8 @@ function ManagedAssessmentQueueCard({ row }: { row: any }) {
 }
 
 export default async function ReviewDeskPage({ searchParams }: Props) {
-  const canManageTruvernReview = await isTruvernOperator();
+  await requireTruvernOperator();
+  const canManageTruvernReview = true;
   const resolved = (await searchParams) ?? {};
 
   const vendorIdFromUrl = safeInt(resolved.vendorId);

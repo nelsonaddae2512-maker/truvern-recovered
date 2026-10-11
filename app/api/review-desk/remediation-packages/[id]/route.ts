@@ -1,3 +1,5 @@
+import { updateEvidenceRequest } from "@/lib/repositories/evidence-request-repository";
+import { findRemediationPackage, updateRemediationPackage } from "@/lib/repositories/remediation-package-repository";
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
@@ -71,7 +73,7 @@ function canAccessPackage(
 }
 
 async function loadPackage(packageId: number) {
-  return prisma.remediationPackage.findUnique({
+  return findRemediationPackage({
     where: {
       id: packageId,
     },
@@ -494,7 +496,7 @@ export async function PATCH(
       await prisma.$transaction(
         async (tx) => {
           const packageRow =
-            await tx.remediationPackage.update({
+            await updateRemediationPackage({
               where: {
                 id: pkg.id,
               },
@@ -519,10 +521,10 @@ export async function PATCH(
                 createdAt: true,
                 updatedAt: true,
               },
-            });
+            }, tx);
 
           if (pkg.evidenceRequestId) {
-            await tx.evidenceRequest.update({
+            await updateEvidenceRequest({
               where: {
                 id: pkg.evidenceRequestId,
               },
@@ -535,7 +537,7 @@ export async function PATCH(
                   "Truvern requires remediation evidence before this review can be completed.",
                 dueAt: nextDueAt,
               },
-            });
+            }, tx);
           }
 
           return packageRow;

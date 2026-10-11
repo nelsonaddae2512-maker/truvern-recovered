@@ -6,7 +6,15 @@ import {
 } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import prisma from "@/lib/prisma";
+import {
+  findUser,
+  findUsers,
+} from "@/lib/repositories/user-repository";
+import {
+  findFirstOrganization,
+} from "@/lib/repositories/organization-repository";
+import { requireOpsAccess } from "@/lib/auth/truvern-governance";
+import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,6 +69,45 @@ export async function GET() {
   }
 
   /*
+   * Restrict identity diagnostics to Truvern Ops.
+   * Preserve the existing unauthenticated 401 response.
+   */
+  try {
+    await requireOpsAccess();
+  } catch (error) {
+    const authError =
+      governanceAuthErrorResponse(error);
+
+    if (authError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "OPS_ACCESS_REQUIRED",
+        },
+        {
+          status: authError.status,
+          headers: {
+            "cache-control": "no-store",
+          },
+        },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "DIAGNOSTIC_AUTHORIZATION_FAILED",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control": "no-store",
+        },
+      },
+    );
+  }
+
+  /*
    * IMPORTANT:
    *
    * This diagnostic intentionally does NOT call
@@ -78,7 +125,7 @@ export async function GET() {
     );
 
   const directUser =
-    await prisma.user.findUnique({
+    await findUser({
       where: {
         clerkId: clerkUserId,
       },
@@ -100,7 +147,7 @@ export async function GET() {
 
   const emailUsers =
     email
-      ? await prisma.user.findMany({
+      ? await findUsers({
           where: {
             email: {
               equals: email,
@@ -130,7 +177,7 @@ export async function GET() {
 
   const selectedOrganization =
     selectedClerkOrgId
-      ? await prisma.organization.findFirst({
+      ? await findFirstOrganization({
           where: {
             clerkOrgId: selectedClerkOrgId,
           },
@@ -388,7 +435,7 @@ export async function GET() {
         clerkMutation: false,
       },
 
-      rawIdentifiersReturned: false,
+      rawIdentifiersReturned: true,
     },
     {
       headers: {

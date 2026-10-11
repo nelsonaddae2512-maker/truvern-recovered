@@ -124,6 +124,12 @@ export async function getCustomerOrganizationActor(): Promise<
     }
   }
 
+  // A selected Clerk organization is authoritative.
+  // Never authorize a different tenant through fallback.
+  if (session.orgId && !membership) {
+    return null;
+  }
+
   if (!membership) {
     const dbUser =
       await prisma.user.findUnique({

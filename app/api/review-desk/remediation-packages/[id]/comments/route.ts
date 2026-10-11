@@ -1,3 +1,5 @@
+import { createRemediationMessage, findRemediationMessages } from "@/lib/repositories/remediation-message-repository";
+import { findRemediationPackage } from "@/lib/repositories/remediation-package-repository";
 import { NextResponse } from "next/server";
 import { governanceAuthErrorResponse } from "@/lib/auth/governance-auth-errors";
 import {
@@ -45,7 +47,7 @@ function canAccessPackage(
 }
 
 async function loadPackage(packageId: number) {
-  return prisma.remediationPackage.findUnique({
+  return findRemediationPackage({
     where: {
       id: packageId,
     },
@@ -114,7 +116,7 @@ export async function GET(
     }
 
     const comments =
-      await prisma.remediationMessage.findMany({
+      await findRemediationMessages({
         where: {
           packageId: pkg.id,
           visibility:
@@ -263,7 +265,7 @@ export async function POST(
         : "Reviewer";
 
     const comment =
-      await prisma.remediationMessage.create({
+      await createRemediationMessage({
         data: {
           packageId:
             pkg.id,

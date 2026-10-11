@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
 export type FrameworkAssessmentAuditEvent = {
@@ -71,4 +72,30 @@ export async function readFrameworkAssessmentAuditTimeline(
     order by "createdAt" asc, id asc
     limit 100
   `;
+}
+
+export async function countFrameworkAssessmentAuditLogs(
+  assessmentId: number,
+  action: string,
+): Promise<number> {
+  return prisma.auditLog.count({
+    where: {
+      entityType: "TruvernFrameworkAssessment",
+      entityId: String(assessmentId),
+      action,
+    },
+  });
+}
+type FrameworkAssessmentAuditLogClient = Pick<
+  Prisma.TransactionClient,
+  "auditLog"
+>;
+
+export async function findFrameworkAssessmentAuditLogs<
+  T extends Prisma.AuditLogFindManyArgs,
+>(
+  args: Prisma.SelectSubset<T, Prisma.AuditLogFindManyArgs>,
+  client: FrameworkAssessmentAuditLogClient = prisma,
+): Promise<Prisma.AuditLogGetPayload<T>[]> {
+  return client.auditLog.findMany(args);
 }

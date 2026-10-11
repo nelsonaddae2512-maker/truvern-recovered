@@ -1,3 +1,4 @@
+import { findRemediationPackage } from "@/lib/repositories/remediation-package-repository";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import {
@@ -34,7 +35,7 @@ export async function POST(request: Request, props: Props) {
     }
 
     const pkg =
-      await prisma.remediationPackage.findUnique({
+      await findRemediationPackage({
         where: {
           id: packageId,
         },

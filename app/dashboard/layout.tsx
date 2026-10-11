@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireDashboardOrganizationAccess } from "@/lib/auth/dashboard-organization-guard";
 import {
   requireDeploymentAccess,
 } from "@/lib/licensing/deployment-access";
@@ -16,6 +17,7 @@ export default async function NoIndexLayout({
   children: React.ReactNode;
 }) {
   await requireDeploymentAccess();
+  await requireDashboardOrganizationAccess();
 
   return children;
 }

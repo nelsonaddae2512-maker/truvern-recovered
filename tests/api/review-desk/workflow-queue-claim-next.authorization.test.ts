@@ -1,10 +1,13 @@
+vi.mock("@/lib/repositories/review-assignment-repository", () => ({
+  findReviewAssignments: mocks.findReviewAssignments,
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireReviewerAccess: vi.fn(),
   governanceAuthErrorResponse: vi.fn(() => null),
   currentUser: vi.fn(),
-  reviewAssignmentFindMany: vi.fn(),
+  findReviewAssignments: vi.fn(),
   transaction: vi.fn(),
   findFirstWorkflowQueueItem: vi.fn(),
   findWorkflowQueueItem: vi.fn(),
@@ -26,9 +29,6 @@ vi.mock("@/lib/auth/governance-auth-errors", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   default: {
-    reviewAssignment: {
-      findMany: mocks.reviewAssignmentFindMany,
-    },
     $transaction: mocks.transaction,
   },
 }));
@@ -108,7 +108,7 @@ describe("workflow queue claim-next authorization", () => {
       vendorId: null,
     });
 
-    mocks.reviewAssignmentFindMany.mockResolvedValue([
+    mocks.findReviewAssignments.mockResolvedValue([
       { id: 81 },
       { id: 82 },
     ]);
