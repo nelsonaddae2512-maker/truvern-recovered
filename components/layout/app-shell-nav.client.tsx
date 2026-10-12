@@ -12,7 +12,7 @@ const workspaceLinks = [
   { href: "/vendors", label: "Vendors" },
   { href: "/communications", label: "Communications" },
   { href: "/review-desk", label: "Reviews" },
-  { href: "/review-desk", label: "Governance" },
+  { href: "/governance", label: "Governance" },
   { href: "/ciso-reports", label: "Reports" },
   { href: "/access", label: "Access" },
   { href: "/assessments/catalog", label: "Assessments" },
