@@ -1,4 +1,9 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import {
+  getGovernanceActor,
+  requireGovernanceCapability,
+} from "@/lib/auth/truvern-governance";
 import StartInternalReview from "@/components/review-desk/start-internal-review.client";
 
 type Props = {
@@ -20,6 +25,20 @@ function safeInt(value: unknown) {
 export default async function StartReviewPage({
   searchParams,
 }: Props) {
+  const actor = await getGovernanceActor();
+
+  requireGovernanceCapability(actor, "assessment.manage");
+
+  if (
+    actor.role !== "OPS" &&
+    (
+      !Number.isSafeInteger(actor.organizationId) ||
+      (actor.organizationId ?? 0) <= 0
+    )
+  ) {
+    notFound();
+  }
+
   const resolved =
     (await searchParams) ?? {};
 
@@ -31,6 +50,23 @@ export default async function StartReviewPage({
 
   if (!assessmentId || !vendorId) {
     redirect("/review-desk");
+  }
+
+  const assessment = await prisma.assessment.findFirst({
+    where: {
+      id: assessmentId,
+      vendorId,
+      ...(actor.role === "OPS"
+        ? {}
+        : { organizationId: actor.organizationId ?? -1 }),
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!assessment) {
+    notFound();
   }
 
   return (

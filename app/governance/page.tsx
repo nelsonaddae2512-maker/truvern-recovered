@@ -1,6 +1,8 @@
 import GovernanceDashboard from "@/components/governance/governance-dashboard.client";
+import { notFound, redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { getCurrentOrgPlanTier, canAccessTier } from "@/lib/billing/plan-access";
+import { canAccessTier } from "@/lib/billing/plan-access";
+import { resolveOrganizationPlanTier } from "@/lib/billing/organization-plan";
 import { getGovernanceActor } from "@/lib/auth/truvern-governance";
 import {
   readGovernanceAiQueue,
@@ -23,22 +25,28 @@ function pretty(value: unknown) {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 export default async function GovernancePage() {
-  const actor = await getGovernanceActor().catch(() => null);
-  const currentPlanTier = await getCurrentOrgPlanTier().catch(() => "FREE" as const);
+  const actor = await getGovernanceActor();
 
-  const isTruvernOperator =
-    Boolean(
-      actor &&
-      (
-        String((actor as any).role || "").toUpperCase() === "OPS" ||
-        String((actor as any).kind || "").toLowerCase() === "ops" ||
-        Boolean((actor as any).isTruvernOperator) ||
-        Boolean((actor as any).isOperator)
-      )
-    );
+  if (actor.role === "OPS") {
+    redirect("/truvern/ops/command-center");
+  }
+
+  if (
+    !["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(actor.role) ||
+    !Number.isSafeInteger(actor.organizationId) ||
+    (actor.organizationId ?? 0) <= 0
+  ) {
+    notFound();
+  }
+
+  const organizationId = actor.organizationId as number;
+
+  const currentPlanTier =
+    await resolveOrganizationPlanTier(organizationId);
+
+  const isTruvernOperator = false;
 
   const canUseGovernance =
-    isTruvernOperator ||
     canAccessTier(currentPlanTier, "PRO");
 
   if (!canUseGovernance) {
@@ -78,18 +86,22 @@ export default async function GovernancePage() {
     );
   }
 
-  const queueSummary = await readGovernanceQueueSummary();
+  if (organizationId == null) {
+    notFound();
+  }
 
-  const taskSummary = await readGovernanceTaskSummary();
+  const queueSummary = await readGovernanceQueueSummary(organizationId);
 
-  const recentReviews = await readRecentGovernanceReviews();
+  const taskSummary = await readGovernanceTaskSummary(organizationId);
 
-  const workload = await readGovernanceWorkload();
-  const workflowQueue = await readGovernanceWorkflowQueue();
+  const recentReviews = await readRecentGovernanceReviews(organizationId);
 
-  const aiQueue = await readGovernanceAiQueue();
+  const workload = await readGovernanceWorkload(organizationId);
+  const workflowQueue = await readGovernanceWorkflowQueue(organizationId);
 
-  const releaseReady = await readGovernanceReleaseReady();
+  const aiQueue = await readGovernanceAiQueue(organizationId);
+
+  const releaseReady = await readGovernanceReleaseReady(organizationId);
 
   const recentEvents = await prisma.$queryRaw<any[]>`
     select
@@ -100,6 +112,7 @@ export default async function GovernancePage() {
       "reviewAssignmentId",
       "createdAt"
     from "WorkflowEvent"
+    where "organizationId" = ${organizationId}
     order by "createdAt" desc
     limit 10
   `;
@@ -141,10 +154,10 @@ export default async function GovernancePage() {
   ];
 
   const quickActions = [
-    { label: "Start Review", href: "/governance-ops/start-review", tone: "primary" },
+    { label: "Start Review", href: "/review-desk", tone: "primary" },
     { label: "Workflow Queue", href: "/review-desk/workflow-queue" },
     { label: "Task Queue", href: "/review-desk/tasks" },
-    { label: "Board Packets", href: "/governance-ops" },
+
     ...(isTruvernOperator
       ? [{ label: "Command Center", href: "/truvern/ops/command-center" }]
       : []),

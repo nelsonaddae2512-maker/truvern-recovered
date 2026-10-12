@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export type WorkflowQueueSummaryRow = {
   queue: string;
@@ -24,23 +25,24 @@ export type WorkflowQueueRow = {
   reviewAssignmentId: number | null;
 };
 
-export async function readWorkflowQueueSummary(): Promise<
-  WorkflowQueueSummaryRow[]
-> {
+export async function readWorkflowQueueSummary(
+  scope: Prisma.Sql,
+): Promise<WorkflowQueueSummaryRow[]> {
   return prisma.$queryRaw<WorkflowQueueSummaryRow[]>`
     select
-      queue,
-      status,
+      qi.queue,
+      qi.status,
       count(*)::int as count
-    from "WorkflowQueueItem"
-    group by queue, status
-    order by queue asc, status asc
+    from "WorkflowQueueItem" qi
+    where ${scope}
+    group by qi.queue, qi.status
+    order by qi.queue asc, qi.status asc
   `;
 }
 
-export async function readOpenWorkflowQueueItems(): Promise<
-  WorkflowQueueRow[]
-> {
+export async function readOpenWorkflowQueueItems(
+  scope: Prisma.Sql,
+): Promise<WorkflowQueueRow[]> {
   return prisma.$queryRaw<WorkflowQueueRow[]>`
     select
       qi.id,
@@ -61,11 +63,14 @@ export async function readOpenWorkflowQueueItems(): Promise<
     from "WorkflowQueueItem" qi
     left join "RemediationPackage" rp
       on qi.payload->>'remediationPackageId' = rp.id::text
+      and rp."organizationId" = qi."organizationId"
     left join "Vendor" v
       on v.id = qi."vendorId"
+      and v."organizationId" = qi."organizationId"
     left join "Organization" o
       on o.id = qi."organizationId"
     where qi.status = 'OPEN'
+      and ${scope}
     order by
       qi.priority desc,
       qi."dueAt" asc nulls last,

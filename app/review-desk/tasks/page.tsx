@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
+import { notFound } from "next/navigation";
+import { getGovernanceActor } from "@/lib/auth/truvern-governance";
+import { findReviewAssignments } from "@/lib/repositories/review-assignment-repository";
 import prisma from "@/lib/prisma";
 import WorkflowTaskActions from "@/components/review-desk/workflow-task-actions.client";
 
@@ -26,15 +30,50 @@ function badgeClass(type: string) {
 }
 
 export default async function WorkflowTasksPage({ searchParams }: PageProps) {
+  const actor = await getGovernanceActor();
+
+  if (!actor) {
+    notFound();
+  }
+
+  let scope: Prisma.Sql;
+
+  if (actor.role === "OPS") {
+    scope = Prisma.sql`TRUE`;
+  } else if (actor.role === "TRUVERN_REVIEWER") {
+    const assignments = await findReviewAssignments({
+      where: {
+        assignmentType: "TRUVERN",
+        reviewerUserId: actor.userId,
+      },
+      select: { id: true },
+    });
+
+    const assignmentIds = assignments.map((assignment) => assignment.id);
+
+    scope = assignmentIds.length > 0
+      ? Prisma.sql`wt."reviewAssignmentId" IN (${Prisma.join(assignmentIds)})`
+      : Prisma.sql`FALSE`;
+  } else if (
+    ["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(actor.role) &&
+    Number.isSafeInteger(actor.organizationId) &&
+    (actor.organizationId ?? 0) > 0
+  ) {
+    scope = Prisma.sql`wt."organizationId" = ${actor.organizationId}`;
+  } else {
+    notFound();
+  }
+
   const resolved = searchParams ? await searchParams : {};
   const typeFilter = String(resolved.type ?? "ALL");
   const ownerFilter = String(resolved.owner ?? "ALL");
 
   const summary = await prisma.$queryRaw<any[]>`
-    select type, status, count(*)::int as count
-    from "WorkflowTask"
-    group by type, status
-    order by type, status
+    select wt.type, wt.status, count(*)::int as count
+    from "WorkflowTask" wt
+    where ${scope}
+    group by wt.type, wt.status
+    order by wt.type, wt.status
   `;
 
   const tasks = await prisma.$queryRaw<any[]>`
@@ -56,10 +95,10 @@ export default async function WorkflowTasksPage({ searchParams }: PageProps) {
       v.name as "vendorName",
       o.name as "organizationName"
     from "WorkflowTask" wt
-    left join "RemediationPackage" rp on rp.id = wt."packageId"
-    left join "Vendor" v on v.id = wt."vendorId"
+    left join "RemediationPackage" rp on rp.id = wt."packageId" and rp."organizationId" = wt."organizationId"
+    left join "Vendor" v on v.id = wt."vendorId" and v."organizationId" = wt."organizationId"
     left join "Organization" o on o.id = wt."organizationId"
-    where wt.status <> 'CANCELLED'
+    where wt.status <> 'CANCELLED' and ${scope}
     order by
       case when wt.status = 'OPEN' then 0 when wt.status = 'IN_PROGRESS' then 1 else 2 end,
       wt.priority desc,
@@ -99,9 +138,11 @@ export default async function WorkflowTasksPage({ searchParams }: PageProps) {
             <Link href="/review-desk/workflow-queue" className="rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/20">
               Workflow queue
             </Link>
-            <Link href="/truvern/ops/command-center" className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white hover:bg-white/[0.08]">
-              Command Center
-            </Link>
+            {actor.role === "OPS" ? (
+              <Link href="/truvern/ops/command-center" className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white hover:bg-white/[0.08]">
+                Command Center
+              </Link>
+            ) : null}
           </div>
         </div>
 

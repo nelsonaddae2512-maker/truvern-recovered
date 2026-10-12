@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
+import { notFound } from "next/navigation";
+import { getGovernanceActor } from "@/lib/auth/truvern-governance";
+import { findReviewAssignments } from "@/lib/repositories/review-assignment-repository";
 import WorkflowQueueActions from "@/components/review-desk/workflow-queue-actions.client";
 import ClaimNextWorkButton from "@/components/review-desk/claim-next-work-button.client";
 import {
@@ -63,9 +67,43 @@ export default async function WorkflowQueuePage({ searchParams }: PageProps) {
   const queueFilter = String(resolvedSearchParams.queue ?? "ALL");
   const ownerFilter = String(resolvedSearchParams.owner ?? "ALL");
 
-  const summary = await readWorkflowQueueSummary();
+  const actor = await getGovernanceActor();
 
-  const items = await readOpenWorkflowQueueItems();
+  if (!actor) {
+    notFound();
+  }
+
+  let scope: Prisma.Sql;
+
+  if (actor.role === "OPS") {
+    scope = Prisma.sql`TRUE`;
+  } else if (actor.role === "TRUVERN_REVIEWER") {
+    const assignments = await findReviewAssignments({
+      where: {
+        assignmentType: "TRUVERN",
+        reviewerUserId: actor.userId,
+      },
+      select: { id: true },
+    });
+
+    const assignmentIds = assignments.map((assignment) => assignment.id);
+
+    scope = assignmentIds.length > 0
+      ? Prisma.sql`qi."reviewAssignmentId" IN (${Prisma.join(assignmentIds)})`
+      : Prisma.sql`FALSE`;
+  } else if (
+    ["OWNER", "ADMIN", "ANALYST", "VIEWER"].includes(actor.role) &&
+    Number.isSafeInteger(actor.organizationId) &&
+    (actor.organizationId ?? 0) > 0
+  ) {
+    scope = Prisma.sql`qi."organizationId" = ${actor.organizationId}`;
+  } else {
+    notFound();
+  }
+
+  const summary = await readWorkflowQueueSummary(scope);
+
+  const items = await readOpenWorkflowQueueItems(scope);
 
   const filteredItems = items.filter((item) => {
     const queueMatches = queueFilter === "ALL" || item.queue === queueFilter;
@@ -194,15 +232,7 @@ export default async function WorkflowQueuePage({ searchParams }: PageProps) {
                         </span>
                       )}
 
-                      {item.assignedTo ? (
-                        <span className="rounded-full border border-violet-300/20 bg-violet-400/10 px-3 py-1 text-xs font-semibold text-violet-100">
-                          Claimed
-                        </span>
-                      ) : (
-                        <span className="rounded-full border border-slate-300/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300">
-                          Unclaimed
-                        </span>
-                      )}
+
                     </div>
 
                     <h3 className="mt-3 text-lg font-semibold">

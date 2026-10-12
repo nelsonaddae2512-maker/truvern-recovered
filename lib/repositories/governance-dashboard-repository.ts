@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-export async function readGovernanceQueueSummary(): Promise<any[]> {
+export async function readGovernanceQueueSummary(organizationId: number): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
       count(*) filter (where status = 'OPEN')::int as "openWork",
@@ -25,10 +25,11 @@ export async function readGovernanceQueueSummary(): Promise<any[]> {
           and status = 'OPEN'
       )::int as "critical"
     from "WorkflowQueueItem"
+    where "organizationId" = ${organizationId}
   `;
 }
 
-export async function readGovernanceTaskSummary(): Promise<any[]> {
+export async function readGovernanceTaskSummary(organizationId: number): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
       count(*) filter (
@@ -41,10 +42,11 @@ export async function readGovernanceTaskSummary(): Promise<any[]> {
         where status = 'COMPLETED'
       )::int as "completedTasks"
     from "WorkflowTask"
+    where "organizationId" = ${organizationId}
   `;
 }
 
-export async function readRecentGovernanceReviews(): Promise<any[]> {
+export async function readRecentGovernanceReviews(organizationId: number): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
       ra.id,
@@ -54,6 +56,8 @@ export async function readRecentGovernanceReviews(): Promise<any[]> {
     from "ReviewAssignment" ra
     left join "Vendor" v
       on v.id = ra."vendorId"
+     and v."organizationId" = ra."organizationId"
+    where ra."organizationId" = ${organizationId}
     order by
       ra."updatedAt" desc nulls last,
       ra.id desc
@@ -61,7 +65,7 @@ export async function readRecentGovernanceReviews(): Promise<any[]> {
   `;
 }
 
-export async function readGovernanceWorkload(): Promise<any[]> {
+export async function readGovernanceWorkload(organizationId: number): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
       coalesce(
@@ -75,7 +79,8 @@ export async function readGovernanceWorkload(): Promise<any[]> {
           and "slaDueAt" < now()
       )::int as overdue
     from "WorkflowTask"
-    where status in ('OPEN','IN_PROGRESS')
+    where "organizationId" = ${organizationId}
+      and status in ('OPEN','IN_PROGRESS')
     group by coalesce(
       "assignedReviewerName",
       "assignedTo",
@@ -86,7 +91,7 @@ export async function readGovernanceWorkload(): Promise<any[]> {
   `;
 }
 
-export async function readGovernanceWorkflowQueue(): Promise<any[]> {
+export async function readGovernanceWorkflowQueue(organizationId: number): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
       id,
@@ -97,7 +102,8 @@ export async function readGovernanceWorkflowQueue(): Promise<any[]> {
       "updatedAt",
       payload
     from "WorkflowQueueItem"
-    where status = 'OPEN'
+    where "organizationId" = ${organizationId}
+      and status = 'OPEN'
     order by
       priority desc,
       "updatedAt" desc
@@ -105,7 +111,7 @@ export async function readGovernanceWorkflowQueue(): Promise<any[]> {
   `;
 }
 
-export async function readGovernanceAiQueue(): Promise<any[]> {
+export async function readGovernanceAiQueue(organizationId: number): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
       id,
@@ -116,7 +122,8 @@ export async function readGovernanceAiQueue(): Promise<any[]> {
       "reviewAssignmentId",
       "updatedAt"
     from "WorkflowTask"
-    where type = 'AI_PRE_REVIEW'
+    where "organizationId" = ${organizationId}
+      and type = 'AI_PRE_REVIEW'
     order by
       case
         when status = 'OPEN' then 0
@@ -129,7 +136,7 @@ export async function readGovernanceAiQueue(): Promise<any[]> {
   `;
 }
 
-export async function readGovernanceReleaseReady(): Promise<any[]> {
+export async function readGovernanceReleaseReady(organizationId: number): Promise<any[]> {
   return prisma.$queryRaw<any[]>`
     select
       qi.id,
@@ -143,9 +150,11 @@ export async function readGovernanceReleaseReady(): Promise<any[]> {
     from "WorkflowQueueItem" qi
     left join "Vendor" v
       on v.id = qi."vendorId"
+     and v."organizationId" = qi."organizationId"
     left join "Organization" o
       on o.id = qi."organizationId"
-    where qi.status = 'OPEN'
+    where qi."organizationId" = ${organizationId}
+      and qi.status = 'OPEN'
       and qi.queue in (
         'READY_FOR_RELEASE_CHECK',
         'GOVERNANCE_RELEASE_READY'
