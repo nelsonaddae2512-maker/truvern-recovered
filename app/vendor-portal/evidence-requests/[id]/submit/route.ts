@@ -1,4 +1,4 @@
-﻿// app/api/vendor-portal/evidence-requests/[id]/submit/route.ts
+// app/api/vendor-portal/evidence-requests/[id]/submit/route.ts
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
@@ -11,14 +11,6 @@ function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
 }
 
-function h(req: Request, key: string) {
-  return (req.headers.get(key) || "").trim();
-}
-
-function isTruthy(v: string) {
-  const s = (v || "").trim().toLowerCase();
-  return s === "1" || s === "true" || s === "yes" || s === "on";
-}
 
 function normalizeEmail(v?: string | null) {
   const s = (v || "").trim().toLowerCase();
@@ -49,12 +41,8 @@ type Actor = {
 };
 
 async function resolveActor(req: Request): Promise<Actor | null> {
-  const dev = isTruthy(h(req, "x-dev-bypass"));
-  if (dev) {
-    const email = normalizeEmail(h(req, "x-dev-email"));
-    if (!email) return null;
-    return { email, clerkUserId: null, via: "dev" };
-  }
+  // Vendor submissions require authenticated Clerk identity.
+  // Client-supplied development headers are never authentication.
 
   const a = await auth();
   if (!a?.userId) return null;
